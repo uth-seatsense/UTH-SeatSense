@@ -1,0 +1,1 @@
+"""Occupancy aggregation placeholder."""

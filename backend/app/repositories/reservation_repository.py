@@ -1,0 +1,1 @@
+"""Reservation persistence operations placeholder."""

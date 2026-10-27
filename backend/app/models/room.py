@@ -1,0 +1,1 @@
+"""Room ORM model placeholder."""

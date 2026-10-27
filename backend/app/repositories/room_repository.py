@@ -1,0 +1,1 @@
+"""Room persistence operations placeholder."""
