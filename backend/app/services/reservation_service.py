@@ -1,0 +1,1 @@
+"""Reservation business logic placeholder."""
