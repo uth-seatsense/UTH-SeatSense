@@ -11,7 +11,8 @@ database, tests, and project documentation.
 
 ## Run locally
 
-1. Copy `.env.example` to `.env` and adjust values if needed.
+1. Copy `.env.example` to `.env` and replace `POSTGRES_PASSWORD` with a local
+   development password. Do not commit `.env`.
 2. Start the services:
 
    ```sh
@@ -22,9 +23,17 @@ database, tests, and project documentation.
    <http://localhost:8000/docs>, and the CV API docs at
    <http://localhost:8001/docs>.
 
-The backend and CV services currently provide health checks and project
-scaffolding only. Reservation, check-in, occupancy detection, authentication,
-and dashboard workflows are not implemented yet.
+## Service status
+
+| Service | Status | Details |
+| --- | --- | --- |
+| PostgreSQL | Ready | Starts from the pinned `postgres:16.6-alpine` image, waits for its healthcheck, and stores data in the `postgres_data` volume. |
+| Backend | Ready to run | Builds from `backend/Dockerfile`; currently provides health checks and API scaffolding. |
+| CV | Ready to run | Builds from `cv/Dockerfile`; currently provides health checks and CV scaffolding. |
+| Frontend | Ready to run | Builds from `frontend/Dockerfile`; the dashboard workflow remains under development. |
+
+Reservation, check-in, occupancy detection, authentication, and dashboard
+workflows are not implemented yet.
 
 ## Repository layout
 
