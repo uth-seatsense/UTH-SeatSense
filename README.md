@@ -27,12 +27,13 @@ database, tests, and project documentation.
    Copy-Item .env.example .env
    ```
 
-2. Open `.env` and adjust the environment variables if needed.
+2. Open `.env`, replace `POSTGRES_PASSWORD` with a local development password,
+   then adjust the environment variables if needed. Do not commit `.env`.
 
    - `POSTGRES_DB`: PostgreSQL database name.
    - `POSTGRES_USER`: PostgreSQL username.
    - `POSTGRES_PASSWORD`: PostgreSQL password for local development.
-   - `DATABASE_URL`: Database connection URL.
+   - `POSTGRES_PORT`: PostgreSQL port exposed on the host.
    - `BACKEND_PORT`: Backend API port.
    - `CV_PORT`: Computer-vision API port.
    - `FRONTEND_PORT`: Frontend port.
@@ -56,9 +57,17 @@ Open the services:
 - Backend API docs: <http://localhost:8000/docs>
 - CV API docs: <http://localhost:8001/docs>
 
-The backend and CV services currently provide health checks and project
-scaffolding only. Reservation, check-in, occupancy detection, authentication,
-and dashboard workflows are not implemented yet.
+## Service status
+
+| Service | Status | Details |
+| --- | --- | --- |
+| PostgreSQL | Ready | Starts from the pinned `postgres:16.6-alpine` image, waits for its healthcheck, and stores data in the `postgres_data` volume. |
+| Backend | Ready to run | Builds from `backend/Dockerfile`; currently provides health checks and API scaffolding. |
+| CV | Ready to run | Builds from `cv/Dockerfile`; currently provides health checks and CV scaffolding. |
+| Frontend | Ready to run | Builds from `frontend/Dockerfile`; the dashboard workflow remains under development. |
+
+Reservation, check-in, occupancy detection, authentication, and dashboard
+workflows are not implemented yet.
 
 ## Repository layout
 
