@@ -9,18 +9,52 @@ database, tests, and project documentation.
 - Docker Desktop with Docker Compose
 - Git
 
+
 ## Run locally
 
-1. Copy `.env.example` to `.env` and adjust values if needed.
-2. Start the services:
+### Requirements
 
-   ```sh
-   docker compose up --build
+- Docker Desktop with Docker Compose
+- Git
+
+### Configure environment
+
+1. Copy `.env.example` to `.env` in the repository root.
+
+   On Windows PowerShell:
+
+   ```powershell
+   Copy-Item .env.example .env
    ```
 
-3. Open the frontend at <http://localhost:3000>, the backend API docs at
-   <http://localhost:8000/docs>, and the CV API docs at
-   <http://localhost:8001/docs>.
+2. Open `.env` and adjust the environment variables if needed.
+
+   - `POSTGRES_DB`: PostgreSQL database name.
+   - `POSTGRES_USER`: PostgreSQL username.
+   - `POSTGRES_PASSWORD`: PostgreSQL password for local development.
+   - `DATABASE_URL`: Database connection URL.
+   - `BACKEND_PORT`: Backend API port.
+   - `CV_PORT`: Computer-vision API port.
+   - `FRONTEND_PORT`: Frontend port.
+   - `VITE_API_BASE_URL`: Frontend API base URL.
+
+   The values in `.env.example` are for local development only.
+   Do not commit `.env` or put real passwords, API keys, or other secrets
+   in `.env.example`.
+
+### Start services
+
+Run the following command from the repository root:
+
+```sh
+docker compose up --build
+```
+
+Open the services:
+
+- Frontend: <http://localhost:3000>
+- Backend API docs: <http://localhost:8000/docs>
+- CV API docs: <http://localhost:8001/docs>
 
 The backend and CV services currently provide health checks and project
 scaffolding only. Reservation, check-in, occupancy detection, authentication,
