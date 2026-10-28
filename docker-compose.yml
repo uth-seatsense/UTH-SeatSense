@@ -17,6 +17,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 5s
+    networks:
+      - seatsense_network
 
   backend:
     build: ./backend
@@ -29,22 +31,45 @@ services:
       db:
         condition: service_healthy
       cv:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - seatsense_network
 
   cv:
     build: ./cv
     ports:
       - "${CV_PORT:-8001}:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - seatsense_network
 
   frontend:
     build: ./frontend
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
-      VITE_BACKEND_PROXY_TARGET: http://backend:8000
+      VITE_BACKEND_PROXY_TARGET: ${VITE_BACKEND_PROXY_TARGET:-http://backend:8000}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    networks:
+      - seatsense_network
 
 volumes:
   postgres_data:
+
+networks:
+  seatsense_network:
+    driver: bridge
