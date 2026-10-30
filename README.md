@@ -210,6 +210,7 @@ File `.env` chứa các biến cấu hình ứng dụng. File `.env.example` là
 | `CV_PORT` | CV/AI | Cổng API trên máy host | `8001` |
 | `FRONTEND_PORT` | Frontend | Cổng web trên máy host | `3000` |
 | `VITE_API_BASE_URL` | Frontend | Đường dẫn API | `/api/v1` |
+| `VITE_BACKEND_PROXY_TARGET` | Frontend | URL Backend trong Docker network | `http://backend:8000` |
 
 **Lưu ý bảo mật:**
 
@@ -227,9 +228,13 @@ Thực hiện tại thư mục chứa file `compose.yaml`, `compose.yml`, `docke
 | Thành phần | Thư mục mã nguồn | Tên dịch vụ trong Compose | Ghi chú |
 |---|---|---|---|
 | CV/AI | `cv/` | `cv` | API scaffold; camera/video chưa được tích hợp |
-| Backend (FastAPI) | `backend/` | `backend` | API scaffold |
+| Backend (FastAPI) | `backend/` | `backend` | API scaffold; chờ PostgreSQL và CV healthy |
 | PostgreSQL | Image `postgres:16.6-alpine` | `db` | Chờ healthcheck; dữ liệu lưu ở volume `postgres_data` |
-| Frontend | `frontend/` | `frontend` | Dashboard đang phát triển |
+| Frontend | `frontend/` | `frontend` | Dashboard đang phát triển; chờ Backend healthy |
+
+Các service giao tiếp nội bộ qua network bridge `seatsense_network`. Backend kết
+nối PostgreSQL bằng hostname `db`; Frontend proxy đường dẫn `/api` tới hostname
+`backend`.
 
 ### 9.1. Kiểm tra cấu hình
 
@@ -282,7 +287,7 @@ docker compose restart <service_name>
 docker compose down
 ```
 
-Lệnh này dừng và xóa container cùng network do Compose tạo. Dữ liệu trong volume thường vẫn được giữ.
+Lệnh này dừng và xóa container cùng network `seatsense_network`. Dữ liệu trong volume thường vẫn được giữ.
 
 > **Không dùng `docker compose down -v` nếu chưa chắc chắn**, vì lệnh này có thể xóa volume chứa dữ liệu cơ sở dữ liệu.
 
@@ -311,7 +316,7 @@ Chỉ đánh dấu "Hoàn thành" khi đã được kiểm thử hoặc xác nh�
 | Frontend | Hiển thị chỗ trống gần thời gian thực, đặt phòng | **`[CHƯA CÓ DỮ KIỆN]`** |
 | Frontend | Dashboard thống kê cho thủ thư | **`[CHƯA CÓ DỮ KIỆN]`** |
 | Tích hợp | Kiểm thử luồng dữ liệu CV/AI, Backend, PostgreSQL, Frontend | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Docker | Chạy đủ các dịch vụ bằng `docker compose up -d --build` | **`[CHƯA CÓ DỮ KIỆN]`** |
+| Docker | Chạy đủ các dịch vụ bằng `docker compose up -d --build` | Đã kiểm tra: PostgreSQL, CV và Backend healthy; Frontend truy cập Backend qua proxy `/api`. |
 | Thực nghiệm | Đối chiếu với đếm tay, thử nghiệm người dùng (SUS) | **`[CHƯA CÓ DỮ KIỆN]`** |
 
 ### Chỉ tiêu mục tiêu (theo Project Charter)
