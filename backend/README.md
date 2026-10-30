@@ -39,7 +39,6 @@ docker compose up --build -d backend
 ```
 
 ## Quản lý thông tin nhạy cảm
-
 - Backend chỉ nhận số liệu tổng hợp từ CV, không lưu model hay video camera.
 - Giữ mật khẩu, token và cấu hình riêng trong biến môi trường hoặc `.env`;
   không đưa thông tin thật lên Git.

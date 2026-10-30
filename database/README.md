@@ -18,7 +18,6 @@ database/
 
 Các bước thay đổi cấu trúc cơ sở dữ liệu được quản lý cùng Backend trong
 `backend/migrations/` để các thành viên dễ cập nhật thống nhất.
-
 ## Chuẩn bị và chạy
 
 Cần PostgreSQL hoặc Docker Desktop có Docker Compose. Dùng `.env.example`
