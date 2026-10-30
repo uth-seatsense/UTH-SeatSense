@@ -17,6 +17,7 @@ cv/models/*
 !cv/models/.gitkeep
 cv/videos/*
 !cv/videos/.gitkeep
+cv/outputs/
 *.mp4
 *.avi
 *.mov
