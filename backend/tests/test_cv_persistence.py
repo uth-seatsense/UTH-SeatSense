@@ -32,6 +32,13 @@ def payload(**changes):
 
 
 class ValidationTests(unittest.TestCase):
+    def test_component_configuration_preserves_special_characters(self):
+        from app.core.config import Settings
+        password='test@:/#?%'
+        config=Settings(database_url=None,database_host='db',database_name='testdb',
+                        database_user='testuser',database_password=password)
+        self.assertEqual(config.connection_url().password,password)
+        self.assertNotIn(password,repr(config))
     def test_invalid_inputs(self):
         for changes in [dict(recorded_at='2026-10-30T07:00:00'),dict(people_count=-1),
                         dict(tracked_count=1),dict(timestamp_ms=float('nan')),dict(camera_id=' '),

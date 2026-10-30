@@ -22,7 +22,7 @@ def build_session_factory(engine):
 
 @lru_cache(maxsize=1)
 def get_session_factory():
-    return build_session_factory(build_engine(settings.database_url))
+    return build_session_factory(build_engine(settings.connection_url()))
 
 
 def get_db():

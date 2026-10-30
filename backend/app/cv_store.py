@@ -26,7 +26,7 @@ def main():
     args = parser.parse_args()
     engine = None
     try:
-        engine = build_engine(settings.database_url)
+        engine = build_engine(settings.connection_url())
         service = CVCountService(build_session_factory(engine))
         if args.command == 'save':
             result = service.save(json.loads(args.file.read_text(encoding='utf-8')))
