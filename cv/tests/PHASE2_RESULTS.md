@@ -1,7 +1,5 @@
 # Kết quả kiểm thử SEAT-17 giai đoạn 2
-
-Ngày 30/10/2026, CPU, môi trường và model như báo cáo giai đoạn 1.
-
+Hoàn tất
 ## Kiểm thử tự động
 
 14 kiểm thử unittest đạt, gồm:

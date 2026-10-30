@@ -32,7 +32,7 @@ cv/
 Đã có pipeline offline YOLOv8n + ByteTrack, đếm người đang thấy theo từng
 frame, xuất JSONL/CSV và video có bbox/ID tùy chọn. Giai đoạn 2 bổ sung
 IN/OUT qua đường kẻ và hợp đồng dữ liệu CV; chưa có giao diện, truyền HTTP
-đến Backend hoặc PostgreSQL.
+đến Backend hoặc PostgreSQL. Giai đoạn 3 bổ sung giao diện kiểm thử cục bộ.
 
 Chạy các lệnh sau từ thư mục `cv/`. Khuyến nghị Python 3.12 và môi trường
 ảo riêng; bản hiện tại đã kiểm chứng với Ultralytics 8.4.191, Torch 2.11.0
@@ -66,7 +66,8 @@ Mỗi lần chạy tạo thư mục UUID riêng trong `outputs/` gồm:
 
 - `results.jsonl`: một dòng mỗi frame, có số đếm, thời gian và bbox/ID.
 - `counts.csv`: số đếm và thời gian dạng bảng, không chứa bbox.
-- `summary.json`: chỉ được ghi sau khi xử lý thành công.
+- `summary.json`: ghi khi hoàn tất hoặc dừng có kiểm soát; kiểm tra `status`
+  để phân biệt `completed` và `cancelled` (kết quả một phần).
 - `annotated.mp4`: có khi truyền `--annotate`, phục vụ kiểm tra cục bộ.
 
 `people_count` đếm bbox người vượt ngưỡng, kể cả người mới chưa có ID.
@@ -81,7 +82,7 @@ và tracker, không gồm đọc/ghi file. ByteTrack được tạo mới mỗi 
 
 CLI trả mã thoát 1 khi lỗi. Nếu chạy bị lỗi, file trong thư mục UUID có thể
 chỉ chứa một phần video; không sử dụng như kết quả hoàn tất khi thiếu
-`summary.json`. OpenCV không luôn phân biệt được EOF và video hỏng giữa chừng.
+`summary.json` có status completed. OpenCV không luôn phân biệt được EOF và video hỏng giữa chừng.
 
 ### Kiểm thử pipeline
 
@@ -141,12 +142,62 @@ Chạy toàn bộ kiểm thử với hai biến model/video đã cấu hình:
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Lệnh Docker Compose bên dưới chỉ khởi động API health hiện có; không tự chạy
-video. Chạy CLI cục bộ theo hướng dẫn trên để kiểm tra pipeline giai đoạn 1.
+### Giai đoạn 3 của SEAT-17
 
-Cần môi trường Python và các thư viện trong `requirements.txt`. Chuẩn bị
-model phù hợp, camera hoặc video được phép sử dụng và cấu hình khu vực đếm.
-Khi kết nối với hệ thống, thống nhất định dạng số liệu gửi sang Backend.
+Sau khi cài thư viện và đặt model, chạy từ thư mục `cv/`:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8001
+```
+
+Mở `http://127.0.0.1:8001`.
+
+Script `static/lab.js` nối các nút trên bản mẫu với API xử lý thật:
+
+1. Chọn USB Webcam, bấm Start Test và cho phép camera trong trình duyệt.
+   Chỉ lấy hình, không lấy âm thanh; webcam cần localhost hoặc HTTPS.
+2. Hoặc chọn Uploaded File, chọn video rồi bấm Start Test (tối đa 200 MB).
+3. Cấu hình confidence/camera, bật IN/OUT nếu cần. Đường đếm mặc định dọc
+   giữa khung hình; chọn chiều IN và số người ban đầu nếu biết.
+4. Bật/tắt Boxes, Tracking IDs, Conf %, Virtual Line; Pause chỉ giữ hình
+   xem, không dừng inference. Snapshot tải ảnh frame đang thấy.
+5. Nhập số đếm tay rồi Compare Accuracy để giữ frame và tính sai số đếm.
+   Không suy ra F1 từ số đếm; số đếm tay 0 cho sai số tương đối N/A.
+6. Stop Test tắt webcam và kết thúc phiên; tải CSV/JSONL/summary ở thanh
+   kết quả. Reset Count dùng sau khi dừng để chuẩn bị phiên mới.
+
+RTSP chưa hỗ trợ và được vô hiệu hóa. FPS là nghịch đảo thời gian detector
++ tracker, không phải FPS camera hoặc toàn pipeline. Số đầu tiên là số người
+đang thấy, không phải số người ngồi trong toàn phòng. Webcam gửi từng frame
+JPEG (tối đa khoảng 10 frame/giây, phụ thuộc thiết bị) và không tạo hàng đợi
+inference; file kết quả lưu theo các frame thực sự được xử lý.
+API cũng có thể sử dụng qua `/docs`; CLI giai đoạn 1–2 không đổi.
+
+Có thể cấu hình `CV_MODEL_PATH`, `CV_DEVICE`, `CV_OUTPUT_DIR` qua biến môi
+trường trước khi khởi động. Mặc định dùng `models/best.pt`, CPU và outputs
+trong module CV. Không ghi đường dẫn máy cá nhân vào tài liệu chia sẻ.
+
+Video được tải tới dịch vụ CV và xóa bản đầu vào sau xử lý/dừng/lỗi.
+Webcam gửi frame tới dịch vụ local, không ghi video; kết quả bbox/đếm lưu
+cục bộ. Bấm Stop Test trước khi đóng trang; nếu tab bị crash, restart dịch
+vụ CV để giải phóng phiên còn treo.
+Kết quả debug giữ trong outputs; chủ máy tự quản lý và xóa khi không cần.
+Mỗi lần chỉ chạy một video, giữ tối đa 20 metadata phiên trong RAM. Restart
+làm mất danh sách tải qua UI; file kết quả vẫn còn trên đĩa. Không có tài
+khoản hoặc DB; hiện chỉ phục vụ kiểm thử local, chưa dùng để public.
+
+Kiểm thử API/UI (hai biến model/video cấu hình như phần trên):
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+node --test tests/ui.test.cjs
+npm install --no-save --package-lock=false jsdom
+node --test tests/lab.test.cjs
+```
+
+Xem [báo cáo giai đoạn 3](tests/PHASE3_RESULTS.md).
+
 
 Có thể khởi động dịch vụ bằng Docker Compose từ thư mục gốc dự án:
 

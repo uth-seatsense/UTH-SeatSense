@@ -16,9 +16,9 @@ ví dụ nằm trong `docs/examples/`. CSV chứa cùng trường với bản gh
 | session_id | UUID phiên xử lý, mới cho mỗi lần chạy |
 | camera_id | Định danh camera do cấu hình; mặc định camera-01 chỉ dùng thử |
 | room_id | Định danh phòng tùy chọn, không biết thì null |
-| source_type | `video` trong phiên bản này |
+| source_type | `video` hoặc `webcam` |
 | frame_index | Số nguyên từ 0, khóa thứ tự trong phiên |
-| timestamp_ms | Thời gian tương đối video, frame_index × 1000 / FPS |
+| timestamp_ms | Video: frame_index × 1000 / FPS; webcam: thời gian monotonic từ đầu phiên |
 | recorded_at | UTC có múi giờ lúc xử lý, không phải giờ camera quay |
 | people_count | Số bbox người hiện thấy vượt confidence; không phải tổng người trong phòng |
 | tracked_count | Số người trong đó đã được xác nhận track ID |

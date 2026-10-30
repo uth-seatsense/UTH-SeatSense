@@ -33,8 +33,11 @@
       "title": "Room Id"
     },
     "source_type": {
-      "const": "video",
       "default": "video",
+      "enum": [
+        "video",
+        "webcam"
+      ],
       "title": "Source Type",
       "type": "string"
     },

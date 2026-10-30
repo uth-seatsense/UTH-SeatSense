@@ -1,7 +1,5 @@
 # Kết quả kiểm thử SEAT-17 giai đoạn 1
-
-Kiểm tra trên Windows, ngày 30/10/2026.
-
+Hoàn tất
 ## Môi trường và dữ liệu
 
 - Chạy CPU trong môi trường Python ảo.
