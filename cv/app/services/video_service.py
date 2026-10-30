@@ -16,7 +16,8 @@ from app.schemas.count_result import CountResult, CrossingEvent
 
 
 def process_video(source, output_root, detector, fallback_fps=None, annotate=False,
-                  camera_id="camera-01", room_id=None, line_config=None, initial_occupancy=None):
+                  camera_id="camera-01", room_id=None, line_config=None, initial_occupancy=None,
+                  on_frame=None, should_stop=None):
     if initial_occupancy is not None and (initial_occupancy < 0 or line_config is None):
         raise ValueError("Nonnegative initial occupancy requires a counting line")
     CountResult(session_id="validation", camera_id=camera_id, room_id=room_id,
@@ -47,6 +48,8 @@ def process_video(source, output_root, detector, fallback_fps=None, annotate=Fal
             csv_writer = csv.DictWriter(csv_file, fieldnames=fields)
             csv_writer.writeheader()
             while True:
+                if should_stop and should_stop():
+                    break
                 ok, frame = capture.read()
                 if not ok:
                     break
@@ -90,6 +93,8 @@ def process_video(source, output_root, detector, fallback_fps=None, annotate=Fal
                 jsonl.write(json.dumps(record) + "\n")
                 csv_writer.writerow({key: record[key] for key in fields})
                 peak = max(peak, record["people_count"])
+                if on_frame:
+                    on_frame(record, frame, events)
                 if annotate:
                     if writer is None:
                         writer = cv2.VideoWriter(str(output / "annotated.mp4"), cv2.VideoWriter_fourcc(*"mp4v"), fps, (frame.shape[1], frame.shape[0]))
@@ -97,17 +102,18 @@ def process_video(source, output_root, detector, fallback_fps=None, annotate=Fal
                             raise RuntimeError("Cannot create annotated MP4")
                     writer.write(annotate_frame(frame, record, line_config))
                 index += 1
-        if not index:
+        cancelled = bool(should_stop and should_stop())
+        if not index and not cancelled:
             raise ValueError("Video contains no decodable frames")
-        summary = {"session_id": session_id, "frames_processed": index, "source_fps": fps, "peak_count": peak, "output_dir": str(output), "status": "completed"}
+        summary = {"session_id": session_id, "frames_processed": index, "source_fps": fps, "peak_count": peak, "output_dir": str(output), "status": "cancelled" if cancelled else "completed"}
         from dataclasses import asdict
         summary.update(schema_version="1.0", camera_id=camera_id, room_id=room_id,
                        line_config=asdict(line_config) if line_config else None,
                        in_count=counter.in_count if counter else None,
                        out_count=counter.out_count if counter else None,
                        initial_occupancy=initial_occupancy,
-                       estimated_occupancy=payload["estimated_occupancy"],
-                       occupancy_underflow=payload["occupancy_underflow"])
+                       estimated_occupancy=payload["estimated_occupancy"] if index else initial_occupancy,
+                       occupancy_underflow=payload["occupancy_underflow"] if index else False)
         (output / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
         return summary
     finally:

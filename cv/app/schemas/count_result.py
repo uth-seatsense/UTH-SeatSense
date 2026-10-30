@@ -12,7 +12,7 @@ class CountResult(StrictModel):
     session_id: str = Field(min_length=1)
     camera_id: str = Field(min_length=1, max_length=100)
     room_id: str | None = Field(default=None, min_length=1, max_length=100)
-    source_type: Literal["video"] = "video"
+    source_type: Literal["video", "webcam"] = "video"
     frame_index: int = Field(ge=0)
     timestamp_ms: float = Field(ge=0)
     recorded_at: AwareDatetime
