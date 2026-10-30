@@ -9,7 +9,7 @@
 
 This document records the agreed wire contract for CV count records and the latest occupancy data shown by Frontend. The CV owner agreed to follow the Backend contract, with already committed CV work left untouched. Frontend approved the GET response and display behavior, including null versus zero, no-data handling, the 30-second stale threshold, and 5-second polling.
 
-The CV v1.0 producer currently writes local JSONL records. This document defines the HTTP boundary that CV and Backend would use; it does not claim that the CV sender or these HTTP routes are implemented. The existing SEAT-19 occupancy request format remains separate from raw per-frame CV records.
+The CV v1.0 offline output schema is documented in the [CV data contract](cv-data-contract.md). CV's local video and webcam testing routes are listed in section 12; they are not Backend business endpoints. SEAT-18 defines the agreed Backend HTTP boundary, but the CV sender and Backend routes are not implemented yet. The existing SEAT-19 occupancy request format remains separate from raw per-frame CV records.
 
 ## 2. General conventions
 
@@ -198,7 +198,7 @@ GET /api/v1/occupancy/rooms/{room_id}/latest
 }
 ```
 
-`is_stale` is true when the record was received more than 30 seconds ago, based on `received_at`. If `estimated_occupancy` is null, Frontend displays “unknown”; if it is zero, Frontend displays `0`. `people_count` may be shown only with a label that makes clear it is the number visible to the camera.
+`is_stale` is true when the record was received more than 30 seconds ago, based on `received_at`. If `estimated_occupancy` is null, Frontend displays `unknown`; if it is zero, Frontend displays `0`. `people_count` may be shown only with a label that makes clear it is the number visible to the camera.
 
 ### 5.3 No-data and error response
 
@@ -289,3 +289,26 @@ The CV and Frontend confirmations were reported by the Backend owner on 2026-10-
 - [x] JSON examples are available for future integration testing.
 
 API implementation and end-to-end integration tests remain follow-up work after the agreed endpoints are implemented; they are not required to approve this contract document.
+
+## 12. SEAT-17 CV local testing APIs
+
+The following routes belong to CV's local testing service. They are separate from Backend business APIs and do not implement the Backend ingestion endpoint in section 4.
+
+### Local CV testing UI
+
+- `GET /`: local HTML testing interface; `/static/` contains its assets.
+- `GET /api/config`: model availability and selected device, with no local path.
+- `POST /api/jobs`: multipart `file` video and JSON string `options`; returns `202` with a job ID. Limit 200 MB; one job at a time (`409` when busy), `503` if the model is missing, `415` for an unsupported extension, and `422` for invalid options.
+- `GET /api/jobs/{id}`: status, latest record and matching JPEG base64, recent events, sanitized summary and error. Status progresses through uploading/loading/processing to completed/cancelled/failed.
+- `POST /api/jobs/{id}/stop`: cooperative cancellation after the current frame.
+- `GET /api/jobs/{id}/preview`: latest JPEG; `404` before the first frame.
+- `GET /api/jobs/{id}/files/{kind}`: csv/jsonl/debug/events/summary; available only after completed/cancelled (`409` otherwise). Unknown ID or kind returns `404`.
+
+These are CV testing routes, not Backend business endpoints. Job metadata is in memory and disappears on restart; outputs remain local until manually removed.
+
+### Browser webcam testing
+
+- `POST /api/webcam`: JSON options as for video; reserves the inference slot and starts a fresh tracking session, returning `202` with a job ID.
+- `POST /api/webcam/{id}/frame`: JPEG bytes, maximum 2 MB and maximum decoded edge 1920 px. Returns a count record with `source_type: webcam` and debug bounding boxes. One frame at a time; `409` if busy/stopped, `422` for an invalid frame.
+- Stop and exports use the same job endpoints. Webcam source timestamps use monotonic time since session start; `recorded_at` is UTC processing time.
+- The browser obtains camera access only after explicit Start Test and permission. No audio or webcam video recording. Stop before leaving the page; a crashed client may require restarting the local service to release an orphan session.
