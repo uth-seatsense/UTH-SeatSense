@@ -1,14 +1,14 @@
 # Kết quả kiểm thử SEAT-17 giai đoạn 1
 
-Kiểm tra trên workspace Windows của Lê Văn Trí, ngày 30/10/2026.
+Kiểm tra trên Windows, ngày 30/10/2026.
 
 ## Môi trường và dữ liệu
 
-- Chạy CPU bằng môi trường `D:/hkdn/yolov8/.venv` sẵn có.
+- Chạy CPU trong môi trường Python ảo.
 - Ultralytics 8.4.191, Torch 2.11.0, Torchvision 0.26.0.
 - OpenCV 4.14.0.94, NumPy 2.5.4, lap 0.5.13.
-- Model: `yolov8/artifacts/cctv_yolov8n_v5/weights/best.pt` ở workspace ngoài repo.
-- Video: `yolov8/samples/people-walking.mp4`, confidence 0.32, image size 640.
+- Model: checkpoint YOLOv8n `best.pt`, lưu cục bộ ngoài Git.
+- Video: `people-walking.mp4`, confidence 0.32, image size 640.
 
 ## Kết quả
 

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "event_id": "6f228318-ea31-46b3-a1a7-c562288ea97e:100:7:IN",
+  "session_id": "6f228318-ea31-46b3-a1a7-c562288ea97e",
+  "camera_id": "cam-01",
+  "room_id": "room-a",
+  "frame_index": 100,
+  "timestamp_ms": 10000.0,
+  "recorded_at": "2026-10-30T00:00:00Z",
+  "track_id": 7,
+  "direction": "IN",
+  "confidence": 0.9
+}

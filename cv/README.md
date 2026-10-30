@@ -30,8 +30,9 @@ cv/
 ### Giai đoạn 1 của SEAT-17
 
 Đã có pipeline offline YOLOv8n + ByteTrack, đếm người đang thấy theo từng
-frame, xuất JSONL/CSV và video có bbox/ID tùy chọn. Chưa triển khai đếm
-IN/OUT, giao diện kiểm thử, hợp đồng API Backend hoặc PostgreSQL.
+frame, xuất JSONL/CSV và video có bbox/ID tùy chọn. Giai đoạn 2 bổ sung
+IN/OUT qua đường kẻ và hợp đồng dữ liệu CV; chưa có giao diện, truyền HTTP
+đến Backend hoặc PostgreSQL.
 
 Chạy các lệnh sau từ thư mục `cv/`. Khuyến nghị Python 3.12 và môi trường
 ảo riêng; bản hiện tại đã kiểm chứng với Ultralytics 8.4.191, Torch 2.11.0
@@ -42,19 +43,17 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Đặt checkpoint YOLOv8n vào `models/best.pt` và video được phép sử dụng vào
+Tải file `best.pt` từ [thư mục model trên Google Drive](https://drive.google.com/drive/folders/1q9-reDJxYw5hAdOfVUG4kNONaYuXL7j0?usp=sharing).
+Đặt file vào `cv/models/best.pt` tính từ thư mục gốc repo. Model được lưu
+trên Drive, không commit lên Git.
+
+Khi chạy từ thư mục `cv/`, đường dẫn model là `models/best.pt`.
+Đặt video được phép sử dụng vào
 `videos/sample.mp4`. Model phải có lớp `person`; hỗ trợ cả checkpoint
 person-only và checkpoint COCO. Không tự tải model khi thiếu file.
 
 ```powershell
 .\.venv\Scripts\python.exe run_video.py --video videos/sample.mp4 --annotate
-```
-
-Trong workspace của Lê Văn Trí, có thể dùng trực tiếp môi trường, model và
-video đã có, không cần sao chép chúng vào repo:
-
-```powershell
-& D:/hkdn/yolov8/.venv/Scripts/python.exe run_video.py --model D:/hkdn/yolov8/artifacts/cctv_yolov8n_v5/weights/best.pt --video D:/hkdn/yolov8/samples/people-walking.mp4 --annotate
 ```
 
 Tham số: `--model` (mặc định `CV_MODEL_PATH` hoặc `models/best.pt`),
@@ -103,6 +102,44 @@ tra số 0, tracking, thời gian, CSV, MP4 và hai phiên độc lập. Thiếu
 trường thì test inference được ghi rõ là bỏ qua; không đồng nghĩa đã test AI.
 
 Xem [kết quả kiểm thử giai đoạn 1](tests/PHASE1_RESULTS.md).
+
+### Giai đoạn 2 của SEAT-17
+
+```powershell
+.\.venv\Scripts\python.exe run_video.py --video videos/sample.mp4 --camera-id cam-01 --room-id room-a --line 0.5 0 0.5 1 --in-direction positive-to-negative --initial-occupancy 0 --annotate
+```
+
+`--line X1 Y1 X2 Y2` là hai đầu đoạn thẳng chuẩn hóa [0,1], gốc tọa độ ở
+góc trên trái. Với đường dọc từ trên xuống, phía phải có dấu âm, phía trái
+có dấu dương. Ví dụ trên đếm IN khi đi từ trái sang phải. Mũi tên trên video
+chỉ chiều từ đầu tới cuối đoạn thẳng, không phải chiều IN.
+
+Điểm theo dõi dùng tâm cạnh dưới bbox. Mỗi ID phải được thấy ổn định ở hai
+phía ngoài vùng đệm mới có thể phát sinh sự kiện. Giao điểm phải nằm trong
+đoạn thẳng. `--deadband` mặc định 0.01 trong không gian chuẩn hóa;
+`--cooldown-ms` mặc định 500 chống đảo chiều quá nhanh;
+`--max-gap-ms` mặc định 1000 hủy trạng thái ID mất dấu quá lâu.
+Đây là biện pháp giảm đếm lặp, không bảo đảm loại bỏ mọi lỗi tracking.
+
+Không bật line thì IN/OUT là `null`. Bật line nhưng chưa có lượt qua thì là
+`0`. Chỉ truyền `--initial-occupancy` khi biết số người ban đầu; nếu không,
+`estimated_occupancy` là `null`. Ước tính bằng số ban đầu + IN - OUT; nếu âm,
+giá trị xuất là 0 và `occupancy_underflow=true` để báo cần kiểm tra.
+Mỗi phiên bắt đầu lại counters; không cộng giữa các phiên hoặc camera.
+
+Đầu ra bổ sung `backend_counts.jsonl` (không có bbox/ID) và `events.jsonl`
+(chỉ sự kiện qua line, có ID cục bộ). JSONL và CSV dùng schema phiên bản 1.0;
+CSV để trống ô có giá trị null. `results.jsonl` là bản debug có thêm bbox.
+Đây là thay đổi cột CSV so với giai đoạn 1.
+
+Xem [hợp đồng dữ liệu](../docs/architecture/cv-data-contract.md), JSON Schema
+và ví dụ đi kèm. Tải model theo link Google Drive ở phần chuẩn bị phía trên.
+
+Chạy toàn bộ kiểm thử với hai biến model/video đã cấu hình:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
 
 Lệnh Docker Compose bên dưới chỉ khởi động API health hiện có; không tự chạy
 video. Chạy CLI cục bộ theo hướng dẫn trên để kiểm tra pipeline giai đoạn 1.
