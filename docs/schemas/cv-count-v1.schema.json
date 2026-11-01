@@ -1,0 +1,143 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "session_id": {
+      "minLength": 1,
+      "title": "Session Id",
+      "type": "string"
+    },
+    "camera_id": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Camera Id",
+      "type": "string"
+    },
+    "room_id": {
+      "anyOf": [
+        {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Room Id"
+    },
+    "source_type": {
+      "default": "video",
+      "enum": [
+        "video",
+        "webcam"
+      ],
+      "title": "Source Type",
+      "type": "string"
+    },
+    "frame_index": {
+      "minimum": 0,
+      "title": "Frame Index",
+      "type": "integer"
+    },
+    "timestamp_ms": {
+      "minimum": 0,
+      "title": "Timestamp Ms",
+      "type": "number"
+    },
+    "recorded_at": {
+      "format": "date-time",
+      "title": "Recorded At",
+      "type": "string"
+    },
+    "people_count": {
+      "minimum": 0,
+      "title": "People Count",
+      "type": "integer"
+    },
+    "tracked_count": {
+      "minimum": 0,
+      "title": "Tracked Count",
+      "type": "integer"
+    },
+    "line_enabled": {
+      "title": "Line Enabled",
+      "type": "boolean"
+    },
+    "in_count": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "In Count"
+    },
+    "out_count": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Out Count"
+    },
+    "initial_occupancy": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Initial Occupancy"
+    },
+    "estimated_occupancy": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Estimated Occupancy"
+    },
+    "occupancy_underflow": {
+      "default": false,
+      "title": "Occupancy Underflow",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "session_id",
+    "camera_id",
+    "frame_index",
+    "timestamp_ms",
+    "recorded_at",
+    "people_count",
+    "tracked_count",
+    "line_enabled"
+  ],
+  "title": "CountResult",
+  "type": "object"
+}

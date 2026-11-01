@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "session_id": "6f228318-ea31-46b3-a1a7-c562288ea97e",
+  "camera_id": "cam-01",
+  "room_id": "room-a",
+  "source_type": "video",
+  "frame_index": 100,
+  "timestamp_ms": 10000.0,
+  "recorded_at": "2026-10-30T00:00:00Z",
+  "people_count": 3,
+  "tracked_count": 2,
+  "line_enabled": true,
+  "in_count": 4,
+  "out_count": 1,
+  "initial_occupancy": 0,
+  "estimated_occupancy": 3,
+  "occupancy_underflow": false
+}
