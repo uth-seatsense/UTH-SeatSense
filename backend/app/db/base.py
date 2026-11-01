@@ -2,4 +2,4 @@ from sqlalchemy.orm import DeclarativeBase
 
 
 class Base(DeclarativeBase):
-    """Base class for SQLAlchemy models."""
+    """ORM metadata; apply versioned SQL migrations instead of create_all."""

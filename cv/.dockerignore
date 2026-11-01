@@ -1,6 +1,7 @@
-__pycache__/
-.pytest_cache/
-.venv/
-models/
-videos/
-tests/
+.venv
+__pycache__
+outputs
+models
+videos
+.pytest_cache
+tests

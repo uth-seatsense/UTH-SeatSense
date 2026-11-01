@@ -11,6 +11,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     Uuid,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
@@ -36,7 +37,9 @@ class CVCountRecord(Base):
     timestamp_ms: Mapped[float] = mapped_column(Float)
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     received_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
     )
     people_count: Mapped[int] = mapped_column(Integer)
     tracked_count: Mapped[int] = mapped_column(Integer)
