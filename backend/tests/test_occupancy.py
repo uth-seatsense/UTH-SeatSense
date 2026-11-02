@@ -1,4 +1,8 @@
-def test_occupancy_endpoint_module_is_importable() -> None:
-    from app.api.v1.endpoints import occupancy
+from app.api.v1.endpoints import occupancy
 
-    assert occupancy.router is not None
+
+def test_latest_occupancy_route_is_registered() -> None:
+    assert any(
+        route.path == "/rooms/{room_id}/latest" and "GET" in route.methods
+        for route in occupancy.router.routes
+    )
