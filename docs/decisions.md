@@ -20,6 +20,18 @@ SEAT-31 tổng hợp quyết định và vấn đề còn mở để nhóm dùng
 | DEC-06 | 02/11/2026, ngày ghi nhận SEAT-31 | Theo SEAT-31, **CV với camera laptop hoặc camera ngoài chạy trên host, ngoài Docker**. SEAT-42 giữ dịch vụ cv trong Compose cho video mẫu. | Tách truy cập camera khỏi container; Charter mục 13 và SRS mục 10 nêu rủi ro container không truy cập webcam.                                 | Không dùng truy cập camera trực tiếp trong container làm cách chạy chuẩn cho demo camera; vẫn giữ video mẫu trong Compose. | Yêu cầu ghi ở SEAT-31 và SEAT-42; chưa có tên người phê duyệt riêng.                               | SEAT-42 đặc tả kết nối host ↔ Backend/container; SEAT-36 hướng dẫn chạy. Đây là quyết định triển khai sau Charter 1.2, không chứng minh USB/RTSP đã hỗ trợ đầy đủ.                                            |
 | DEC-07 | 30/10/2026                          | Đã triển khai trong CV, chờ nhóm review: đầu ra **schema 1.0**, tách số đếm tổng hợp và debug bbox.                                    | Nhật ký SEAT-17 hiện có: định nghĩa đầu ra trước khi Backend tiếp nhận; tách số người đang thấy và counters tích lũy.             | Không dùng bbox/debug làm hợp đồng bản ghi số đếm Backend; không cộng counters tích lũy của từng frame.                | Chưa ghi người quyết; đây là trạng thái triển khai SEAT-17, chưa ghi là đã được nhóm duyệt. | Giữ tương thích [hợp đồng CV](architecture/cv-data-contract.md), [schema số đếm](schemas/cv-count-v1.schema.json), [schema sự kiện](schemas/cv-crossing-v1.schema.json). API tiếp nhận cần đối chiếu SEAT-34 và SEAT-40. |
 
+### Diễn giải DEC-04 cho SEAT-33
+
+Giữ quyết định đường ảo trong DEC-04 và hợp đồng số đếm trong DEC-07. Chi tiết
+triển khai, tham số, ví dụ và giới hạn được mô tả tại
+[Thuật toán đếm người](../cv/README.md#thuật-toán-đếm-người--seat-33).
+Mỗi lần cùng track cắt đoạn hợp lệ và qua cooldown sinh một sự kiện; track
+có thể quay lại, không bị giới hạn một lượt trong toàn phiên. Hiện diện chỉ
+tính khi biết số đầu phiên: `max(0, initial_occupancy + IN - OUT)`; số âm kèm
+cờ underflow, chưa biết thì null. Vượt sức chứa cần được đánh dấu theo BR-02,
+không kẹp số người xuống sức chứa. Đây là diễn giải theo mã hiện tại, chưa
+thay cho xác nhận nghiệm thu của Thắng/Khiêm hoặc kết quả thực nghiệm.
+
 ## Chờ chốt
 
 | Mã     | Vấn đề và trạng thái                                                                                                                                                                                                 | Chủ sở hữu / người xác nhận                                                                                                         | Hạn và nguồn hạn                                                                                                                                                        | Liên hệ và ảnh hưởng                                                                                                                                                         |
