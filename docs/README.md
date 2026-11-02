@@ -7,3 +7,4 @@
 - `decisions.md`: records of important technical decisions
 - `test-plan.md` and `test-report.md`: validation planning and outcomes
 - `meeting-notes/` and `reports/`: project records
+- [Experiment plan](reports/experiment-plan.md) and [blank recording template](reports/experiment-record-template.md): SEAT-35 measurement methods for AT-01 to AT-03, pending approval
