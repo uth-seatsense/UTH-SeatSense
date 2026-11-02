@@ -123,10 +123,15 @@ Nếu các lệnh trả về phiên bản tương ứng, môi trường đã nh�
 ### Docker Desktop
 
 1. Truy cập https://www.docker.com/products/docker-desktop/
-2. Tải Docker Desktop phù hợp với hệ điều hành, cài đặt và khởi động.
-3. Chờ Docker khởi động hoàn tất, sau đó kiểm tra:
+2. Tải Docker Desktop phù hợp với hệ điều hành, cài đặt và khởi động. Trên
+   Windows, nếu được hỏi, chọn **Use WSL 2 instead of Hyper-V**.
+3. Nếu Docker Desktop yêu cầu WSL 2 nhưng máy chưa có, mở PowerShell với quyền
+   Administrator, chạy `wsl --install`, khởi động lại máy nếu được yêu cầu rồi
+   mở lại Docker Desktop.
+4. Chờ Docker Desktop báo Docker Engine đang chạy, sau đó mở PowerShell và
+   kiểm tra:
 
-```bash
+```powershell
 docker --version
 docker compose version
 docker info
@@ -198,7 +203,10 @@ File `.env` chứa các biến cấu hình ứng dụng. File `.env.example` là
    cp .env.example .env
    ```
 
-3. Mở `.env` và cập nhật giá trị phù hợp với môi trường phát triển.
+3. Mở `.env` và cập nhật giá trị phù hợp với môi trường phát triển. Thay
+   `POSTGRES_PASSWORD` bằng mật khẩu phát triển riêng. Dùng mật khẩu gồm chữ
+   và số để tránh ký tự đặc biệt gây lỗi trong URL kết nối database. Không
+   chia sẻ hoặc commit file `.env`.
 
 | Biến | Dịch vụ sử dụng | Ý nghĩa | Giá trị mẫu |
 |---|---|---|---|
@@ -236,25 +244,31 @@ Các service giao tiếp nội bộ qua network bridge `seatsense_network`. Back
 nối PostgreSQL bằng hostname `db`; Frontend proxy đường dẫn `/api` tới hostname
 `backend`.
 
+Không cần cài Node.js, Python hoặc PostgreSQL trên máy host khi chạy toàn bộ
+dự án bằng Docker Desktop.
+
 ### 9.1. Kiểm tra cấu hình
 
 ```bash
 docker compose config
 ```
 
-Nếu có lỗi, kiểm tra file Compose và biến môi trường trước khi tiếp tục.
+Chạy lệnh tại thư mục gốc repository, nơi có `docker-compose.yml`. Nếu có lỗi,
+kiểm tra file Compose và biến môi trường trước khi tiếp tục.
 
 ### 9.2. Khởi chạy
 
 ```bash
-docker compose up --build
+docker compose up --build -d
 ```
 
 - `up`: tạo và khởi chạy các dịch vụ.
 - `--build`: build lại image khi cần.
-- Lệnh chạy foreground và hiển thị log trong terminal. Muốn chạy nền, dùng `docker compose up -d --build`.
+- `-d`: chạy nền để có thể tiếp tục dùng terminal. Bỏ `-d` nếu muốn xem log
+  trực tiếp trong terminal.
 
-Lần chạy đầu có thể mất thêm thời gian để tải image.
+Trên Windows, chạy các lệnh trong PowerShell từ thư mục gốc dự án. Lần chạy
+đầu Docker sẽ tải images và build ứng dụng nên có thể mất vài phút.
 
 Các dịch vụ hiện cung cấp PostgreSQL, health check và API scaffold; chức năng đặt phòng, check-in, phát hiện mật độ, xác thực và dashboard chưa được triển khai.
 
@@ -263,6 +277,10 @@ Các dịch vụ hiện cung cấp PostgreSQL, health check và API scaffold; ch
 ```bash
 docker compose ps
 ```
+
+Đợi `db`, `cv` và `backend` báo `healthy`, đồng thời `frontend` ở trạng thái
+`running`. Có thể xem trạng thái container và log trong tab **Containers** của
+Docker Desktop.
 
 ### 9.4. Xem log
 
@@ -290,6 +308,13 @@ docker compose down
 Lệnh này dừng và xóa container cùng network `seatsense_network`. Dữ liệu trong volume thường vẫn được giữ.
 
 > **Không dùng `docker compose down -v` nếu chưa chắc chắn**, vì lệnh này có thể xóa volume chứa dữ liệu cơ sở dữ liệu.
+
+Nếu muốn khởi tạo database từ đầu và chấp nhận xóa toàn bộ dữ liệu cục bộ, chạy:
+
+```bash
+docker compose down -v
+docker compose up --build -d
+```
 
 ## 10. Cổng truy cập
 
@@ -523,10 +548,13 @@ git commit -m 'SEAT-12 fix: sua loi dem trung khi 2 nguoi di sat nhau'
 
 | Tình huống | Cách xử lý |
 |---|---|
-| Docker không chạy | Kiểm tra Docker Desktop đã khởi động, chạy `docker info`, khởi động lại Docker Desktop nếu cần |
+| Docker không chạy | Mở Docker Desktop, chờ Docker Engine khởi động, chạy `docker info`; khởi động lại Docker Desktop nếu cần |
 | Không tìm thấy file `.env` | Kiểm tra đang ở đúng thư mục dự án và đã tạo `.env` từ `.env.example` |
 | Không khởi chạy được Compose | Chạy `docker compose config`, `docker compose logs`, `docker compose ps`; kiểm tra biến môi trường, tên dịch vụ, cấu hình cổng |
-| Cổng đã được sử dụng | Tìm ứng dụng khác đang dùng cổng. Nếu đổi cổng, giữ cấu hình Frontend, Backend và Compose nhất quán |
+| Thiếu `POSTGRES_PASSWORD` | Tạo `.env` từ `.env.example` và điền mật khẩu phát triển vào biến `POSTGRES_PASSWORD` |
+| Cổng đã được sử dụng | Tìm ứng dụng khác đang dùng cổng. Đổi cổng host tương ứng trong `.env` (ví dụ `FRONTEND_PORT=3001`), sau đó chạy lại `docker compose up --build -d` |
+| Dịch vụ chưa healthy hoặc không khởi động | Kiểm tra `docker compose ps` và `docker compose logs <service_name>`; chờ health check hoàn tất rồi xem log dịch vụ báo lỗi |
+| Thay đổi mã nguồn nhưng ứng dụng chưa cập nhật | Build lại bằng `docker compose up --build -d` |
 | Cần cập nhật mã nguồn mới nhất | `git checkout dev` rồi `git pull origin dev`. Nếu đang ở nhánh cá nhân, lưu hoặc commit thay đổi trước khi chuyển nhánh |
 
 ### Git và Jira
