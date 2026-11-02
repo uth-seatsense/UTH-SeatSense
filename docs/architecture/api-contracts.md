@@ -9,11 +9,7 @@
 
 This document records the agreed wire contract for CV count records and the latest occupancy data shown by Frontend. The CV owner agreed to follow the Backend contract, with already committed CV work left untouched. Frontend approved the GET response and display behavior, including null versus zero, no-data handling, the 30-second stale threshold, and 5-second polling.
 
-<<<<<<< HEAD
-The CV v1.0 offline output schema is documented in the [CV data contract](cv-data-contract.md). CV's local video and webcam testing routes are listed in section 12; they are not Backend business endpoints. SEAT-18 defines the agreed Backend HTTP boundary, but the CV sender and Backend routes are not implemented yet. The existing SEAT-19 occupancy request format remains separate from raw per-frame CV records.
-=======
-The CV v1.0 producer currently writes local JSONL records. This document defines the HTTP boundary used by the SEAT-19 Backend routes; the CV sender/retry integration is still pending. The existing SEAT-19 occupancy request format remains separate from raw per-frame CV records.
->>>>>>> origin/dev
+The CV v1.0 producer currently writes local JSONL records. This document defines the HTTP boundary used by the SEAT-19 Backend routes; the CV sender/retry integration is still pending. CV's local video and webcam testing routes are described in section 12 and are not Backend business endpoints. The existing SEAT-19 occupancy request format remains separate from raw per-frame CV records.
 
 ## 2. General conventions
 
@@ -292,8 +288,7 @@ The CV and Frontend confirmations were reported by the Backend owner on 2026-10-
 - [x] Frontend confirms the GET response, null/zero/no-data/stale behavior, and polling interval.
 - [x] JSON examples are available for future integration testing.
 
-<<<<<<< HEAD
-API implementation and end-to-end integration tests remain follow-up work after the agreed endpoints are implemented; they are not required to approve this contract document.
+The Backend routes and examples are documented for integration. End-to-end verification with the live CV sender and Frontend remains follow-up work; it is not required to approve this contract document.
 
 ## 12. SEAT-17 CV local testing APIs
 
@@ -317,24 +312,3 @@ These are CV testing routes, not Backend business endpoints. Job metadata is in 
 - `POST /api/webcam/{id}/frame`: JPEG bytes, maximum 2 MB and maximum decoded edge 1920 px. Returns a count record with `source_type: webcam` and debug bounding boxes. One frame at a time; `409` if busy/stopped, `422` for an invalid frame.
 - Stop and exports use the same job endpoints. Webcam source timestamps use monotonic time since session start; `recorded_at` is UTC processing time.
 - The browser obtains camera access only after explicit Start Test and permission. No audio or webcam video recording. Stop before leaving the page; a crashed client may require restarting the local service to release an orphan session.
-=======
-End-to-end verification with the live CV sender and Frontend remains follow-up work; the Backend routes and examples are documented here for integration.
-
-## Appendix: CV local testing API
-
-The CV testing application also exposes local video/webcam routes. These are CV service routes, not Backend business endpoints, and do not replace the `/api/v1` Backend contract above.
-
-The CV offline output schema 1.0 is described in the [CV data contract](cv-data-contract.md); it is a file-based producer format and does not itself imply an HTTP ingestion endpoint.
-
-- `GET /`: local HTML testing interface; `/static/` serves its assets.
-- `GET /api/config`: model availability and selected device; does not expose local file paths.
-- `POST /api/jobs`: multipart video `file` and JSON-string `options`; returns `202` with a job ID. The upload limit is 200 MB and only one job runs at a time (`409` when busy, `503` if the model is missing, `415` for an unsupported extension, `422` for invalid options).
-- `GET /api/jobs/{id}`: job status, latest count record and matching JPEG base64, recent events, sanitized summary, and error. Status progresses through uploading/loading/processing to completed/cancelled/failed.
-- `POST /api/jobs/{id}/stop`: cooperative cancellation after the current frame.
-- `GET /api/jobs/{id}/preview`: latest JPEG; `404` before the first frame.
-- `GET /api/jobs/{id}/files/{kind}`: CSV/JSONL/debug/events/summary exports after completed or cancelled (`409` otherwise); unknown ID or kind returns `404`.
-- `POST /api/webcam`: JSON options; reserves the inference slot and starts a tracking session, returning `202` with job ID.
-- `POST /api/webcam/{id}/frame`: JPEG bytes, maximum 2 MB and maximum decoded edge 1920 px. Returns a webcam count record and debug bounding boxes; one frame at a time (`409` if busy/stopped, `422` for invalid frame).
-
-CV job metadata is in memory and is lost on restart; generated outputs remain local until removed. Webcam timestamps use monotonic time from session start for `timestamp_ms` and UTC processing time for `recorded_at`. Browser webcam access starts only after the user starts the test and grants permission; no audio or webcam video is recorded.
->>>>>>> origin/dev
