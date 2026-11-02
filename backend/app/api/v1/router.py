@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     checkin,
+    cv,
     dashboard,
     occupancy,
     reservations,
@@ -9,6 +10,7 @@ from app.api.v1.endpoints import (
 )
 
 api_router = APIRouter()
+api_router.include_router(cv.router, prefix="/cv", tags=["cv"])
 api_router.include_router(occupancy.router, prefix="/occupancy", tags=["occupancy"])
 api_router.include_router(rooms.router, prefix="/rooms", tags=["rooms"])
 api_router.include_router(
