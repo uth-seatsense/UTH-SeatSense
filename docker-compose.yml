@@ -47,8 +47,6 @@ services:
 
   cv:
     build: ./cv
-    volumes:
-      - ./cv/models:/app/models:ro
     ports:
       - "${CV_PORT:-8001}:8001"
     healthcheck:
