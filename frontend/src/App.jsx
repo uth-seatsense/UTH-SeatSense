@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 export default function App() {
   return (
     <main className="page">
@@ -15,3 +16,6 @@ export default function App() {
     </main>
   );
 }
+=======
+export { default } from "./pages/HomePage.jsx";
+>>>>>>> Stashed changes
