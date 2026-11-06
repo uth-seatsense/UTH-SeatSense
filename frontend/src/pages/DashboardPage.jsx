@@ -130,6 +130,19 @@ function AreaRow({ area, isLoading }) {
   );
 }
 
+export function getOccupancyConnectionStatus({ error, isLoading, occupancy }) {
+  if (error) {
+    return { text: "Không thể cập nhật", className: "error" };
+  }
+  if (isLoading) {
+    return { text: "Đang tải dữ liệu", className: "loading" };
+  }
+  if (!occupancy) {
+    return { text: "Chưa có dữ liệu", className: "empty" };
+  }
+  return { text: "Cập nhật trực tiếp", className: "" };
+}
+
 export default function DashboardPage() {
   const [occupancy, setOccupancy] = useState(null);
   const [error, setError] = useState("");
@@ -180,12 +193,11 @@ export default function DashboardPage() {
   }, [campus, refreshKey]);
 
   const updatedAt = formatUpdatedAt(occupancy?.updatedAt);
-  const statusText = error
-    ? "Lỗi kết nối"
-    : isLoading
-      ? "Đang tải dữ liệu"
-      : "Cập nhật trực tiếp";
-  const statusClass = error ? "error" : isLoading ? "loading" : "";
+  const connectionStatus = getOccupancyConnectionStatus({
+    error,
+    isLoading,
+    occupancy,
+  });
   const displayCount = occupancy
     ? new Intl.NumberFormat("vi-VN").format(occupancy.count)
     : "—";
@@ -242,9 +254,16 @@ export default function DashboardPage() {
         <div className="page-heading">
           <div className="heading-title">
             <h1>Tổng quan Thư viện UTH</h1>
-            <span className={`connection-pill ${statusClass}`} role="status">
+            <span
+              className={`connection-pill ${connectionStatus.className}`}
+              role="status"
+            >
               <span className="status-dot" />
-              {updatedAt ? `Cập nhật: ${updatedAt}` : statusText}
+              {error
+                ? connectionStatus.text
+                : updatedAt
+                  ? `Cập nhật: ${updatedAt}`
+                  : connectionStatus.text}
             </span>
           </div>
           <div className="campus-switcher" role="group" aria-label="Chọn cơ sở">

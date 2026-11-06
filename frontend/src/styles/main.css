@@ -380,6 +380,12 @@ button:disabled {
   color: #596173;
 }
 
+.connection-pill.empty {
+  border-color: var(--outline);
+  background: var(--surface-low);
+  color: #596173;
+}
+
 .connection-pill.error {
   border-color: #f0c2bd;
   background: #fff2f0;
@@ -397,6 +403,10 @@ button:disabled {
 .connection-pill.loading .status-dot {
   background: #747781;
   animation: pulse 1.2s ease-in-out infinite;
+}
+
+.connection-pill.empty .status-dot {
+  background: #747781;
 }
 
 .connection-pill.error .status-dot {
