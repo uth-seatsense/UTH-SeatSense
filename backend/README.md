@@ -46,3 +46,10 @@ docker compose up --build -d backend
   được phép truy cập.
 - Dùng dữ liệu giả khi phát triển và kiểm thử. Không ghi thông tin cá nhân,
   mật khẩu hoặc mã QR còn hiệu lực vào log và tài liệu chia sẻ.
+
+## API số người hiện tại
+
+`GET /api/v1/occupancy/current` trả tổng số người từ bản ghi mới nhất của mỗi
+phòng đang hoạt động. Phản hồi gồm `current_count`, `updated_at` và `location`;
+hai trường đầu có thể là `null` khi chưa có dữ liệu. Các nghiệp vụ đặt phòng,
+check-in và xác thực vẫn đang được phát triển.
