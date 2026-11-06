@@ -1,7 +1,18 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
-from sqlalchemy import BigInteger, Integer, String, Boolean, Float, DateTime, ForeignKey, Identity, text
-from sqlalchemy.dialects.postgresql import UUID as PgUUID
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Identity,
+    Integer,
+    String,
+    UniqueConstraint,
+    Uuid,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 from app.models.room import Room  # register FK target in metadata
@@ -9,9 +20,15 @@ from app.models.room import Room  # register FK target in metadata
 
 class CVCountRecord(Base):
     __tablename__ = 'cv_count_records'
-    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    __table_args__ = (
+        UniqueConstraint('session_id', 'frame_index', name='uq_cv_session_frame'),
+    )
+
+    id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer, 'sqlite'), Identity(always=True), primary_key=True
+    )
     schema_version: Mapped[str] = mapped_column(String(10))
-    session_id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True))
+    session_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True))
     camera_id: Mapped[str] = mapped_column(String(100))
     room_code: Mapped[str | None] = mapped_column(String(100))
     room_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey('rooms.id', ondelete='RESTRICT'))
@@ -19,7 +36,11 @@ class CVCountRecord(Base):
     frame_index: Mapped[int] = mapped_column(BigInteger)
     timestamp_ms: Mapped[float] = mapped_column(Float)
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text('now()'))
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
+    )
     people_count: Mapped[int] = mapped_column(Integer)
     tracked_count: Mapped[int] = mapped_column(Integer)
     line_enabled: Mapped[bool] = mapped_column(Boolean)
