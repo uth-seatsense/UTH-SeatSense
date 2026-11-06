@@ -29,7 +29,7 @@ def get_latest_for_room(db: Session, room_id: int) -> OccupancyRecord | None:
     statement = (
         select(OccupancyRecord)
         .where(OccupancyRecord.room_id == room_id)
-        .order_by(desc(OccupancyRecord.observed_at), desc(OccupancyRecord.id))
+        .order_by(desc(OccupancyRecord.recorded_at), desc(OccupancyRecord.id))
         .limit(1)
     )
     return db.scalar(statement)
