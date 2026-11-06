@@ -80,9 +80,9 @@ Ngoài phạm vi (Out of scope)
 
 [Camera + YOLOv8n + ByteTrack] -> (số lượng vào/ra) -> Server (FastAPI) -> PostgreSQL -> Web / Dashboard
 
-Vai trò của Docker: chuẩn hóa môi trường để mọi thành viên chạy cùng một hệ thống; khởi động toàn bộ dịch vụ bằng docker compose up -d --build; giữ dữ liệu PostgreSQL trong volume; hỗ trợ demo và triển khai. Docker chỉ là lớp đóng gói và chạy, không tham gia xử lý nghiệp vụ hay nhận diện người.
+Docker Compose chuẩn hóa môi trường và giữ dữ liệu PostgreSQL trong volume. Cấu hình mặc định khởi động các dịch vụ bằng `docker compose up -d --build` và đặt địa chỉ CV của Backend là `http://cv:8001` trong mạng Compose.
 
-Lưu ý về camera trong Docker: Docker Desktop trên Windows/macOS thường khó cho container dùng webcam USB. Cách xử lý (chạy CV/AI ngoài Docker hoặc cho CV/AI đọc video quay sẵn trong Docker): [nhóm chốt].
+Khi dùng camera trực tiếp từ laptop hoặc camera ngoài, chạy CV trên máy host theo [DEC-05](decisions.md#quyết-định-kỹ-thuật-của-seat-31). [Hướng dẫn chạy CV](../cv/README.md#giai-đoạn-3-của-seat-17) dùng `127.0.0.1:8001` cho demo độc lập qua trình duyệt trên cùng máy. Tích hợp Backend trong Docker với CV trên host cần cấu hình mạng riêng và kiểm thử kết nối.
 
 Nguyên tắc giảm tải cho CV/AI: dùng YOLOv8n, độ phân giải đầu vào 320–416 px, xử lý 3–5 khung hình/giây, cắt vùng quan tâm quanh cửa, có thể xuất sang ONNX/OpenVINO. Phần đánh giá nghiên cứu chạy offline trên video quay sẵn (Google Colab hoặc chạy qua đêm); phần demo trực tiếp chạy ở mức nhẹ.
 
@@ -126,7 +126,7 @@ Các mục tiêu số sẽ được rà soát lại sau khảo sát thực đị
 | Must              | Xem số chỗ trống phòng đọc gần thời gian thực                                                               |
 | Must              | Đặt phòng nhóm theo khung giờ, kiểm tra trùng lịch                                                           |
 | Must              | Đếm vào/ra bằng camera + YOLO + ByteTrack với sai số chấp nhận được (ít nhất chạy offline trên video) |
-| Must              | Chạy được toàn hệ thống bằng Docker Compose                                                                  |
+| Must              | Chạy được các dịch vụ bằng Docker Compose. Chạy CV trên host khi demo camera trực tiếp. |
 | Must              | Thực nghiệm đối chiếu đếm tay                                                                                 |
 | Should            | Check-in QR và tự động nhả phòng khi quá 10–15 phút                                                         |
 | Should            | Dashboard thống kê cho thủ thư                                                                                   |
