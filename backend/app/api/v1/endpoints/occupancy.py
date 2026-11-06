@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, Path
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
 from app.db.session import get_db
 from app.schemas.cv_count import ErrorEnvelope, LatestRoomOccupancy
+from app.schemas.occupancy import CurrentOccupancyResponse
 from app.services.cv_count_service import (
     CVCountService,
     OccupancyNotFoundError,
@@ -60,3 +62,31 @@ def read_latest_occupancy(
         received_at=record.received_at,
         is_stale=is_stale(record.received_at),
     )
+
+
+@router.get("/current", response_model=CurrentOccupancyResponse)
+def get_current_occupancy(db: Session = Depends(get_db)) -> CurrentOccupancyResponse:
+    result = db.execute(
+        text(
+            """
+            WITH latest_per_room AS (
+                SELECT DISTINCT ON (occupancy.room_id)
+                    occupancy.occupied_count,
+                    occupancy.observed_at
+                FROM occupancy_records AS occupancy
+                JOIN rooms ON rooms.id = occupancy.room_id
+                WHERE rooms.is_active IS TRUE
+                ORDER BY occupancy.room_id, occupancy.observed_at DESC, occupancy.id DESC
+            )
+            SELECT
+                CASE
+                    WHEN COUNT(*) = 0 THEN NULL
+                    ELSE SUM(occupied_count)::INTEGER
+                END AS current_count,
+                MAX(observed_at) AS updated_at,
+                'Thư viện UTH' AS location
+            FROM latest_per_room
+            """
+        )
+    ).mappings().one()
+    return CurrentOccupancyResponse(**result)

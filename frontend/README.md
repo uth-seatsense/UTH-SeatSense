@@ -30,15 +30,35 @@ frontend/
 
 ## Chuẩn bị và chạy
 
-Cần Node.js và npm. Chuẩn bị địa chỉ API của Backend để giao diện lấy dữ liệu.
-Mở terminal tại `frontend/` và chạy:
+Cần Node.js và npm. Vite chạy tại <http://localhost:3000> khi dùng Docker
+Compose; chạy riêng thường dùng cổng `5173`. Mở terminal tại `frontend/` và
+chạy:
 
 ```sh
 npm ci
 npm run dev -- --port 3000
 ```
 
-Mở <http://localhost:3000> để xem giao diện.
+Vite proxy các yêu cầu `/api` tới `http://localhost:8000`; đổi địa chỉ backend
+bằng biến `VITE_BACKEND_PROXY_TARGET` nếu cần.
+
+## API số người hiện tại
+
+Frontend gọi `GET /api/v1/occupancy/current` và tự làm mới mỗi 30 giây. Có thể
+ghi đè URL bằng `VITE_OCCUPANCY_API_URL` trong file `.env.local` của frontend.
+URL mặc định cũng có thể thay đổi bằng `VITE_API_BASE_URL` (mặc định
+`/api/v1`).
+
+Phản hồi thành công cần có số người nguyên không âm trong một trong các trường
+`current_count`, `people_count`, `occupancy_count` hoặc `count`. Các trường
+`updated_at` và `location` là tùy chọn. Giá trị đếm bằng `0` là hợp lệ; phản hồi
+rỗng sẽ hiện thông báo chưa có dữ liệu. Lỗi HTTP, lỗi mạng hoặc JSON không hợp
+lệ sẽ hiện thông báo lỗi. Không có dữ liệu mẫu được dùng thay cho phản hồi API.
+
+Endpoint tổng hợp bản ghi mới nhất của mỗi phòng đang hoạt động từ bảng
+`occupancy_records`. Hiện tại API trả tổng số toàn hệ thống; schema phòng chưa
+có mã cơ sở để lọc riêng CS1/CS3. Dữ liệu chỉ xuất hiện khi CV hoặc nguồn ghi
+nhận khác lưu bản ghi occupancy vào database.
 
 ## Quản lý model, video và dữ liệu nhạy cảm
 
@@ -48,3 +68,10 @@ Mở <http://localhost:3000> để xem giao diện.
   `VITE_*`, vì người dùng có thể xem được chúng trên trình duyệt.
 - Không chia sẻ ảnh chụp chứa mã sinh viên, thông tin đặt phòng hoặc QR thật.
 - Không đưa thư viện đã cài (`node_modules/`) và bản build (`dist/`) lên Git.
+
+## Kiểm tra
+
+```sh
+npm test
+npm run build
+```

@@ -5,6 +5,15 @@
 > **Source:** CV Data Contract v1.0 and the SEAT-24 PostgreSQL persistence design.
 > **Last updated:** 2026-10-30
 
+## Dashboard occupancy endpoint
+
+- `GET /api/v1/occupancy/current` returns the total occupancy from the latest
+  record for each active room, with `current_count`, `updated_at`, and
+  `location`. The count and timestamp are `null` when no records exist.
+- The endpoint aggregates all active rooms because the current room schema has
+  no campus identifier. Campus-specific filtering requires adding that mapping
+  to the data model.
+
 ## 1. Purpose and status
 
 This document records the agreed wire contract for CV count records and the latest occupancy data shown by Frontend. The CV owner agreed to follow the Backend contract, with already committed CV work left untouched. Frontend approved the GET response and display behavior, including null versus zero, no-data handling, the 30-second stale threshold, and 5-second polling.
