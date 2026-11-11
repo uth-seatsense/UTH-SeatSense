@@ -3,12 +3,12 @@
 # A. Use Case Diagram
 
 ## 6 Tác nhân
--  Sinh viên
--  Thủ thư
--  CV/AI
--  Bộ xử lý tự động
--  Nhóm vận hành
--  Portal trường (tùy chọn)
+- (Student) Sinh viên
+- (Librarian) Thủ thư
+- (AI) CV/AI
+- (Scheduler) Bộ xử lý tự động
+- (Admin) Nhóm vận hành
+- (Portal) Portal trường (tùy chọn)
 
 ## 9 Use Cases
 | Mã | Tên | Tác nhân | Loại |
@@ -20,7 +20,7 @@
 | UC-05 | Dashboard thống kê | Thủ thư | Should |
 | UC-06 | Đếm qua đường ảo | CV/AI | Must |
 | UC-07 | Khởi chạy hệ thống | Ops | Should |
-| UC-08 | Đăng nhập OTP ⏳ | SV/TT | Must |
+| UC-08 | Đăng nhập OTP [WAITING] | SV/TT | Must |
 | UC-09 | Khởi tạo phiên đếm | Thủ thư/Ops | Must |
 
 ## Relationships
@@ -31,89 +31,64 @@
 
 ## Diagram
 
-```plantuml
-@startuml UTH-SeatSense UseCase
-!define ACTORS_BG #FFF3E0
-!define ACTORS_BORDER #E65100
-!define UC_BG #E1F5FF
-!define UC_BORDER #01579B
-!define SYSTEM_BORDER #4A148C
-
-skinparam backgroundColor #FFFFFF
-skinparam actorBackgroundColor ACTORS_BG
-skinparam actorBorderColor ACTORS_BORDER
-skinparam usecaseBackgroundColor UC_BG
-skinparam usecaseBorderColor UC_BORDER
-skinparam usecaseBorderThickness 2
-skinparam actorBorderThickness 2
-skinparam arrowThickness 2
-skinparam packageBorderThickness 3
-skinparam packageBorderColor SYSTEM_BORDER
-
-left to right direction
-
-' Actors
-actor " Thủ thư" as TT
-actor " Portal trường\n(tùy chọn)" as PORTAL
-actor " Nhóm vận hành" as OPS
-actor " CV/AI" as CVAI
-actor " Sinh viên" as SV
-actor " Bộ xử lý\ntự động" as AUTO
-
-rectangle " UTH-SeatSense - Hệ thống đặt chỗ & theo dõi mật độ" {
-  
-  usecase "UC-01\nXem chỗ trống\nkhu tự học" as UC01
-  usecase "UC-02\nĐặt phòng\nchuyên đề" as UC02
-  usecase "UC-03\nCheck-in QR" as UC03
-  usecase "UC-04\nXử lý No-show\n(tự động)" as UC04
-  usecase "UC-05\nDashboard\nthống kê" as UC05
-  usecase "UC-06\nĐếm qua\nđường ảo" as UC06
-  usecase "UC-07\nKhởi chạy\nhệ thống" as UC07
-  usecase "UC-08\nĐăng nhập OTP" as UC08
-  usecase "UC-09\nKhởi tạo phiên\nđếm" as UC09
-
-  ' Sinh viên associations
-  SV --> UC01
-  SV --> UC02
-  SV --> UC03
-  SV --> UC08
-
-  ' Thủ thư associations
-  TT --> UC05
-  TT --> UC09
-  TT --> UC08
-
-  ' Portal (optional)
-  PORTAL -.-> UC08 : SSO (tùy chọn)
-
-  ' Nhóm vận hành
-  OPS --> UC07
-  OPS --> UC09
-
-  ' CV/AI
-  CVAI --> UC06
-
-  ' Bộ xử lý tự động
-  AUTO --> UC04
-
-  ' Include relationships
-  UC01 ..|> UC08 : <<include>>
-  UC02 ..|> UC08 : <<include>>
-  UC03 ..|> UC08 : <<include>>
-  UC05 ..|> UC08 : <<include>>
-
-  ' Data flow
-  UC06 ..> UC01 : cấp dữ liệu
-  UC06 ..> UC05 : cấp dữ liệu
-
-  ' Precondition & relationship
-  UC04 ..> UC03 : tiền điều kiện
-  UC04 ..> UC02 : giải phóng slot
-
-}
-
-@enduml
-
+```mermaid
+graph TB
+    subgraph Actors["Tác nhân"]
+        SV["(Student) Sinh viên"]
+        TT["(Librarian) Thủ thư"]
+        CVAI["(AI) CV/AI"]
+        AUTO["(Scheduler) Bộ xử lý tự động"]
+        OPS["(Admin) Nhóm vận hành"]
+        PORTAL["(Portal) Portal trường - tùy chọn"]
+    end
+    
+    subgraph System["UTH-SeatSense - Hệ thống đặt chỗ & theo dõi mật độ"]
+        UC01["UC-01: Xem chỗ trống<br/>khu tự học"]
+        UC02["UC-02: Đặt phòng<br/>chuyên đề"]
+        UC03["UC-03: Check-in QR"]
+        UC04["UC-04: Xử lý No-show<br/>(tự động)"]
+        UC05["UC-05: Dashboard<br/>thống kê"]
+        UC06["UC-06: Đếm qua<br/>đường ảo"]
+        UC07["UC-07: Khởi chạy<br/>hệ thống"]
+        UC08["UC-08: Đăng nhập OTP"]
+        UC09["UC-09: Khởi tạo phiên<br/>đếm"]
+    end
+    
+    %% Actor to UC
+    SV --> UC01
+    SV --> UC02
+    SV --> UC03
+    SV --> UC08
+    
+    TT --> UC05
+    TT --> UC09
+    TT --> UC08
+    
+    PORTAL -.->|SSO tùy chọn| UC08
+    
+    OPS --> UC07
+    OPS --> UC09
+    
+    CVAI --> UC06
+    
+    AUTO --> UC04
+    
+    %% Include relationships
+    UC01 -->|include| UC08
+    UC02 -->|include| UC08
+    UC03 -->|include| UC08
+    UC05 -->|include| UC08
+    
+    %% Data flow
+    UC06 -->|cấp dữ liệu| UC01
+    UC06 -->|cấp dữ liệu| UC05
+    
+    %% Relationships
+    UC04 -->|tiền điều kiện| UC03
+    UC04 -->|giải phóng slot| UC02
+    
+    style System fill:#f3e5f5,stroke:#4a148c,stroke-width:3px
+    style Actors fill:#fff3e0,stroke:#e65100,stroke-width:2px
 ```
 
 ---
@@ -400,16 +375,16 @@ rectangle " UTH-SeatSense - Hệ thống đặt chỗ & theo dõi mật độ" {
 - **FR:** AUTH-01, AUTH-02, AUTH-03, AUTH-04
 - **TC:** 15
 
-###  Phần chờ nhà trường (Portal SSO - FR-AUTH-05)
+###  [WAITING] Phần chờ nhà trường (Portal SSO - FR-AUTH-05)
 
 | Yếu tố | Trạng thái | Ghi chú |
 |--------|-----------|--------|
-| Phương thức mặc định | OTP Email | 6 số, 5m, 1 lần, max 5 sai |
-| Portal SSO | Tùy chọn | Chờ trường cấp văn bản |
-| Đầu mối kỹ thuật | Chờ | Contact từ trường |
-| API Endpoint |  Chờ | URL, credentials, scope, redirect_uri |
-| Phương thức | Chờ | OAuth2 / SAML / API |
-| Bảo mật | Đã định | Không tiếp nhận/lưu password |
+| Phương thức mặc định | [OK] OTP Email | 6 số, 5m, 1 lần, max 5 sai |
+| Portal SSO | [WAITING] Tùy chọn | Chờ trường cấp văn bản |
+| Đầu mối kỹ thuật | [WAITING] Chờ | Contact từ trường |
+| API Endpoint | [WAITING] Chờ | URL, credentials, scope, redirect_uri |
+| Phương thức | [WAITING] Chờ | OAuth2 / SAML / API |
+| Bảo mật | [OK] Đã định | Không tiếp nhận/lưu password |
 
 **Luồng mở rộng (sau phê duyệt):**
 1. Chọn "Đăng nhập Portal Trường"
@@ -431,70 +406,70 @@ rectangle " UTH-SeatSense - Hệ thống đặt chỗ & theo dõi mật độ" {
 2. Frontend: xác thực format (không trống, định dạng)
 3. Backend: kiểm tra quyền sinh viên
 4. Backend: kiểm tra thời lượng ∈ [30, 120] phút
-5. Backend: kiểm tra khoảng ∈ (0, 7] ngày
+5. Backend: kiểm tra khoảng ∈ [0, 7] ngày
 6. Backend: kiểm tra số người ∈ [2, 6]
 7. Backend: kiểm tra tối đa 1/ngày (SELECT COUNT)
 8. Backend: kiểm tra trùng lịch (SELECT OVERLAPS)
 9. CSDL: INSERT booking, UPDATE available_slots
 
 **Nhánh lỗi:**
--  Format sai → Frontend reject
--  Không quyền → Backend reject
--  Thời lượng sai → Backend reject
--  Khoảng sai → Backend reject
--  Số người sai → Backend reject
--  Vượt 1/ngày → Backend reject
--  Trùng lịch → Backend reject
+- Format sai → Frontend reject
+- Không quyền → Backend reject
+- Thời lượng sai → Backend reject
+- Khoảng sai → Backend reject
+- Số người sai → Backend reject
+- Vượt 1/ngày → Backend reject
+- Trùng lịch → Backend reject
 
 ```mermaid
 graph TD
-    subgraph SV[" Sinh viên"]
-        start([" Bắt đầu"])
-        view[" Xem danh sách phòng<br/>chuyên đề khả dụng"]
-        select[" Chọn phòng, ngày,<br/>giờ, số người"]
-        submit[" Gửi yêu cầu đặt"]
-        sv_receive[" Nhận kết quả"]
-        end_success[" Đặt phòng thành công"]
-        end_fail[" Đặt phòng thất bại"]
+    subgraph SV["Sinh viên"]
+        start(["Bắt đầu"])
+        view["Xem danh sách phòng<br/>chuyên đề khả dụng"]
+        select["Chọn phòng, ngày,<br/>giờ, số người"]
+        submit["Gửi yêu cầu đặt"]
+        sv_receive["Nhận kết quả"]
+        end_success["Đặt phòng thành công"]
+        end_fail["Đặt phòng thất bại"]
     end
     
-    subgraph FE[" Frontend"]
-        fe_validate[" Xác thực format<br/>(ngày, giờ, người)"]
+    subgraph FE["Frontend"]
+        fe_validate["Xác thực format<br/>(ngày, giờ, người)"]
         fe_check1{Dữ liệu<br/>đầu vào<br/>hợp lệ?}
-        fe_invalid[" Lỗi dữ liệu<br/>không trống"]
-        fe_call[" Gọi API booking"]
+        fe_invalid["Lỗi dữ liệu<br/>không trống"]
+        fe_call["Gọi API booking"]
     end
     
-    subgraph BE[" Backend"]
-        be_receive[" Nhận yêu cầu"]
-        be_auth[" Kiểm tra quyền<br/>sinh viên"]
+    subgraph BE["Backend"]
+        be_receive["Nhận yêu cầu"]
+        be_auth["Kiểm tra quyền<br/>sinh viên"]
         be_check1{Quyền<br/>hợp lệ?}
-        be_no_auth[" Từ chối:<br/>Không quyền"]
+        be_no_auth["Từ chối:<br/>Không quyền"]
         
-        be_duration[" Kiểm tra thời lượng<br/>(end - start)"]
-        be_check2{Thời lượng<br/>∈[30,120]<br/>phút?}
-        be_bad_duration[" Từ chối:<br/>Thời lượng sai"]
+        be_duration["Kiểm tra thời lượng<br/>(end - start)"]
+        be_check2{Thời lượng<br/>30-120 phút?}
+        be_bad_duration["Từ chối:<br/>Thời lượng sai"]
         
-        be_booking_window[" Kiểm tra khoảng đặt<br/>(0 < days <= 7)"]
+        be_booking_window["Kiểm tra khoảng đặt<br/>(0 < days <= 7)"]
         be_check3{Ngày bắt đầu<br/>hợp lệ?}
-        be_bad_window[" Từ chối:<br/>Khoảng đặt sai"]
+        be_bad_window["Từ chối:<br/>Khoảng đặt sai"]
         
-        be_participant[" Kiểm tra số người<br/>(2 <= count <= 6)"]
-        be_check4{Số người<br/>hợp lệ?}
-        be_bad_participant[" Từ chối:<br/>Số người sai"]
+        be_participant["Kiểm tra số người<br/>(2 <= count <= 6)"]
+        be_check4{Số người<br/>2-6 người?}
+        be_bad_participant["Từ chối:<br/>Số người sai"]
         
-        be_daily_limit[" Kiểm tra tối đa<br/>1 lượt/người/ngày"]
+        be_daily_limit["Kiểm tra tối đa<br/>1 lượt/người/ngày"]
         be_check5{Chưa vượt<br/>giới hạn?}
-        be_exceed_limit[" Từ chối:<br/>Đã đặt trong hôm nay"]
+        be_exceed_limit["Từ chối:<br/>Đã đặt trong hôm nay"]
         
-        be_dup_check[" Kiểm tra trùng lịch<br/>(cùng phòng, thời gian)"]
+        be_dup_check["Kiểm tra trùng lịch<br/>(cùng phòng, thời gian)"]
         be_check6{Không trùng<br/>lịch?}
-        be_dup[" Từ chối:<br/>Trùng lịch"]
+        be_dup["Từ chối:<br/>Trùng lịch"]
         
-        be_create[" Tạo bản ghi booking"]
+        be_create["Tạo bản ghi booking"]
     end
     
-    subgraph DB[" CSDL - PostgreSQL"]
+    subgraph DB["CSDL - PostgreSQL"]
         db_check_daily["SELECT COUNT(*) FROM bookings<br/>WHERE user_id AND<br/>DATE(created_at) = today()"]
         db_check_dup["SELECT * FROM bookings<br/>WHERE room_id AND<br/>((start_time, end_time)<br/>OVERLAPS (req_start, req_end))"]
         db_insert["INSERT INTO bookings<br/>(user_id, room_id,<br/>start_time, end_time,<br/>participant_count,<br/>status='booked')"]
@@ -508,51 +483,51 @@ graph TD
     submit --> fe_validate
     
     fe_validate --> fe_check1
-    fe_check1 -->| Không| fe_invalid
+    fe_check1 -->|Không| fe_invalid
     fe_invalid --> sv_receive
     sv_receive --> end_fail
     
-    fe_check1 -->| Có| fe_call
+    fe_check1 -->|Có| fe_call
     fe_call --> be_receive
     
     be_receive --> be_auth
     be_auth --> be_check1
-    be_check1 -->| Không| be_no_auth
+    be_check1 -->|Không| be_no_auth
     be_no_auth --> sv_receive
     
-    be_check1 -->| Có| be_duration
+    be_check1 -->|Có| be_duration
     be_duration --> be_check2
-    be_check2 -->| Không| be_bad_duration
+    be_check2 -->|Không| be_bad_duration
     be_bad_duration --> sv_receive
     
-    be_check2 -->| Có| be_booking_window
+    be_check2 -->|Có| be_booking_window
     be_booking_window --> be_check3
-    be_check3 -->| Không| be_bad_window
+    be_check3 -->|Không| be_bad_window
     be_bad_window --> sv_receive
     
-    be_check3 -->| Có| be_participant
+    be_check3 -->|Có| be_participant
     be_participant --> be_check4
-    be_check4 -->| Không| be_bad_participant
+    be_check4 -->|Không| be_bad_participant
     be_bad_participant --> sv_receive
     
-    be_check4 -->| Có| be_daily_limit
+    be_check4 -->|Có| be_daily_limit
     be_daily_limit --> db_check_daily
     db_check_daily --> be_check5
-    be_check5 -->| Không| be_exceed_limit
+    be_check5 -->|Không| be_exceed_limit
     be_exceed_limit --> sv_receive
     
-    be_check5 -->| Có| be_dup_check
+    be_check5 -->|Có| be_dup_check
     be_dup_check --> db_check_dup
     db_check_dup --> be_check6
-    be_check6 -->| Không| be_dup
+    be_check6 -->|Không| be_dup
     be_dup --> sv_receive
     
-    be_check6 -->| Có| be_create
+    be_check6 -->|Có| be_create
     be_create --> db_insert
     db_insert --> db_update_room
     db_update_room --> db_return
     
-    db_return -->| Thành công| sv_receive
+    db_return -->|Thành công| sv_receive
     sv_receive --> end_success
     
     style SV fill:#e1f5ff
@@ -569,7 +544,7 @@ graph TD
     style be_check4 fill:#ffc107,color:#000
     style be_check5 fill:#ffc107,color:#000
     style be_check6 fill:#ffc107,color:#000
-
+    
 ```
 
 ---
