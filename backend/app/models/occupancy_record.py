@@ -20,9 +20,9 @@ class OccupancyRecord(Base):
     __tablename__ = "occupancy_records"
     __table_args__ = (
         Index(
-            "idx_occupancy_room_observed",
+            "idx_occupancy_room_recorded",
             "room_id",
-            "observed_at",
+            "recorded_at",
             "id",
         ),
         Index(
@@ -41,10 +41,12 @@ class OccupancyRecord(Base):
         ForeignKey("rooms.id", ondelete="RESTRICT"),
         nullable=False,
     )
-    occupied_count: Mapped[int] = mapped_column(Integer, nullable=False)
-    observed_at: Mapped[datetime] = mapped_column(
+    current_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    available_seats: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
     source: Mapped[str] = mapped_column(
         String(30), nullable=False, server_default=text("'cv'")
     )
+    device_status: Mapped[str | None] = mapped_column(String(20), nullable=True)

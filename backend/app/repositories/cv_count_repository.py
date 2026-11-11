@@ -10,10 +10,6 @@ from app.models.room import Room
 from app.schemas.cv_count import CVCountInput
 
 
-class CVRecordConflict(ValueError):
-    """A session/frame key was already stored with different CV content."""
-
-
 class CVCountRepository:
     def __init__(self, session: Session):
         self.session = session
@@ -43,8 +39,15 @@ class CVCountRepository:
         statement = (
             insert(CVCountRecord)
             .values(**values)
-            .on_conflict_do_nothing(
-                index_elements=[CVCountRecord.session_id, CVCountRecord.frame_index]
+            .on_conflict_do_update(
+                index_elements=[CVCountRecord.session_id, CVCountRecord.frame_index],
+                set_={
+                    "people_count": insert.excluded.people_count,
+                    "tracked_count": insert.excluded.tracked_count,
+                    "in_count": insert.excluded.in_count,
+                    "out_count": insert.excluded.out_count,
+                    "recorded_at": insert.excluded.recorded_at,
+                },
             )
             .returning(CVCountRecord.id)
         )
@@ -55,31 +58,16 @@ class CVCountRepository:
                 raise RuntimeError('Inserted CV record could not be reloaded')
             return record, False
 
-        existing = self.session.scalar(
+        # Nếu không trùng khóa (INSERT mới), trả về bản ghi vừa tạo
+        record = self.session.scalar(
             select(CVCountRecord).where(
                 CVCountRecord.session_id == payload.session_id,
                 CVCountRecord.frame_index == payload.frame_index,
             )
         )
-        if existing is None:  # pragma: no cover - unique conflict must expose a row
-            raise RuntimeError('CV record conflict row could not be loaded')
-
-        # Room mapping is receipt metadata. A retry never rewrites an older FK
-        # if the room code was mapped after its first receipt.
-        content = {key: value for key, value in values.items() if key != 'room_id'}
-        for key, value in content.items():
-            stored_value = getattr(existing, key)
-            if isinstance(value, datetime):
-                if stored_value.tzinfo is None or stored_value.utcoffset() is None:
-                    stored_value = stored_value.replace(tzinfo=timezone.utc)
-                else:
-                    stored_value = stored_value.astimezone(timezone.utc)
-                value = value.astimezone(timezone.utc)
-            if stored_value != value:
-                raise CVRecordConflict(
-                    'Session/frame already exists with different CV content'
-                )
-        return existing, True
+        if record is None:
+            raise RuntimeError('Inserted CV record could not be reloaded')
+        return record, False
 
     def get_latest_webcam_for_room(self, room_id: int) -> CVCountRecord | None:
         statement = (

@@ -31,8 +31,8 @@ def _same_observation(
 ) -> bool:
     return (
         existing.room_id == incoming.room_id
-        and existing.occupied_count == incoming.occupied_count
-        and _as_utc(existing.observed_at) == incoming.observed_at
+        and existing.current_count == incoming.current_count
+        and _as_utc(existing.recorded_at) == incoming.recorded_at
     )
 
 
@@ -53,8 +53,8 @@ def submit_observation(
     record = OccupancyRecord(
         observation_id=incoming.observation_id,
         room_id=incoming.room_id,
-        occupied_count=incoming.occupied_count,
-        observed_at=incoming.observed_at,
+        current_count=incoming.current_count,
+        recorded_at=incoming.recorded_at,
         source="cv",
     )
     try:
