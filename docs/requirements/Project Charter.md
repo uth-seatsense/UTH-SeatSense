@@ -1,5 +1,7 @@
 # Project Charter: UTH-SeatSense (Đề tài D6)
 
+
+
 Hệ thống theo dõi mật độ sử dụng phòng đọc và đặt phòng học nhóm tại Thư viện UTH
 
 Học kỳ doanh nghiệp · Phiên bản 1.7 (cập nhật: chốt các quyết định nội bộ về công nghệ, kiểm đếm và truy cập thử nghiệm) · Ngày lập: 26/10/2026 · Cập nhật: 10/11/2026

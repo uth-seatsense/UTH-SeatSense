@@ -24,7 +24,7 @@ erDiagram
     Room ||--o{ CVCountRecord : monitors
     Room ||--o{ CountEvent : records
     Booking ||--o| CheckIn : "checked-in"
-    
+
     User {
         int user_id PK
         string display_name
@@ -35,7 +35,7 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
-    
+
     Room {
         int id PK
         string code UK
@@ -48,7 +48,7 @@ erDiagram
         bool is_active
         timestamp created_at
     }
-    
+
     Booking {
         int booking_id PK
         int user_id FK
@@ -59,7 +59,7 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
-    
+
     CheckIn {
         int checkin_id PK
         int booking_id FK "UNIQUE"
@@ -68,7 +68,7 @@ erDiagram
         string status
         timestamp created_at
     }
-    
+
     OccupancyRecord {
         int id PK
         uuid observation_id UK
@@ -79,7 +79,7 @@ erDiagram
         string source
         string device_status
     }
-    
+
     CVCountRecord {
         bigint id PK
         string schema_version
@@ -101,7 +101,7 @@ erDiagram
         bigint estimated_occupancy
         bool occupancy_underflow
     }
-    
+
     CountEvent {
         int event_id PK
         int room_id FK
@@ -111,7 +111,7 @@ erDiagram
         string source
         timestamp created_at
     }
-    
+
     AuditLog {
         int log_id PK
         int actor_id FK
@@ -212,7 +212,7 @@ Phòng học/đọc khả dụng để đặt chỗ.
 
 **State diagram trạng thái:**
 - pending → confirmed
-- pending → cancelled  
+- pending → cancelled
 - confirmed → completed
 - confirmed → cancelled
 

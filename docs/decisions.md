@@ -3,7 +3,7 @@
 ## SEAT-31 — Quyết định theo tài liệu hiện hành
 
 Nguồn: [Charter v1.7](requirements/Project%20Charter.md),
-[SRS v1.8](requirements/srs.md) và
+[SRS v1.9](requirements/srs.md) và
 [yêu cầu SEAT-31](https://nhauyen70205.atlassian.net/browse/SEAT-31).
 
 | Mã | Ngày | Quyết định | Lý do | Phương án đã loại | Người quyết | Ảnh hưởng |
@@ -13,7 +13,7 @@ Nguồn: [Charter v1.7](requirements/Project%20Charter.md),
 | DEC-03 | 10/11/2026, ngày rà soát; Charter quyết định #6, #17 | Webcam máy tính + YOLOv8n + ByteTrack; bỏ IoT/cảm biến và không mua camera. | Theo phạm vi camera đã chốt và giảm chi phí phần cứng. | ESP32/cảm biến và mua camera riêng. | Nhóm theo Charter; chưa ghi người duyệt riêng của quyết định ban đầu. | Kiểm thử bằng webcam laptop; triển khai CS1/CS3 chỉ khi đủ điều kiện. |
 | DEC-04 | 10/11/2026, ngày rà soát; Charter mục 5–6, quyết định #18 | Đếm IN/OUT qua đường ảo; số đầu phiên do người vận hành kiểm tra và nhập, hiệu chỉnh lưu riêng có truy vết. | Phân biệt người đang thấy với hiện diện; tránh công bố chỗ trống thiếu căn cứ. | Nhận diện danh tính, cộng counters giữa các frame, sửa dữ liệu CV thô để hiệu chỉnh. | Nhóm theo Charter; Uyên duyệt nội bộ quyết định #18 ngày 10/11/2026. | Giữ công thức và giới hạn SEAT-33 bên dưới; thiếu số đầu phiên hoặc sức chứa tin cậy thì không công bố chỗ trống/mức đông chính thức. |
 | DEC-05 | 10/11/2026, ngày rà soát; Charter mục 6, quyết định #9 | CV đọc webcam trên host ngoài Docker; Backend, PostgreSQL và Frontend chạy bằng Docker Compose. | Docker Desktop có hạn chế truy cập webcam từ container. | Dùng webcam trực tiếp trong container làm chế độ camera chuẩn. | Nhóm theo Charter và yêu cầu SEAT-31; chưa ghi người duyệt riêng. | SEAT-42/36 đối chiếu kết nối host/container và hướng dẫn chạy; video offline không chứng minh container truy cập được webcam. |
-| DEC-06 | 10/11/2026, ngày rà soát; Charter mục 6; SRS Q-16 | Web dùng React + Vite (JavaScript). | Lựa chọn đã ghi trong tài liệu hiện hành và phù hợp scaffold. | Không coi framework web còn chưa chốt; nguồn chưa ghi đầy đủ kết quả so sánh framework. | Uyên báo đã xác nhận Q-16; nguồn xác nhận gốc chưa có trong repo. | SEAT-48 ghi nhận lựa chọn hiện hành; payload/endpoint phải đối chiếu contract riêng khi tích hợp. |
+| DEC-06 | 10/11/2026, ngày rà soát; Charter mục 6; SRS v1.9 Q-16 | Web dùng React + Vite (JavaScript). | Phù hợp scaffold hiện có; PoC React build, test và gọi API đạt; PoC Vue cũng chạy nhưng không cho thấy lợi ích đủ để thay thế code đang dùng. | Vue + Vite; không có lý do đủ mạnh để thay thế frontend React hiện hữu. | Uyên duyệt giữ React + Vite ngày 10/11/2026 theo SEAT-48. | Payload/endpoint phải đối chiếu contract riêng khi tích hợp; lựa chọn thư viện QR/biểu đồ còn chờ kiểm thử. |
 | DEC-07 | 10/11/2026; Charter quyết định #14, #20; SRS Q-17 | Android native dùng Kotlin, thử bằng APK trực tiếp; iOS ngoài phạm vi. | Dùng chung API với web, hỗ trợ camera quét QR và tránh phụ thuộc cửa hàng ứng dụng khi thử nghiệm. | PWA thay cho native đã được quyết định #14 thay thế; không phát triển iOS. | Uyên duyệt nội bộ quyết định #20; quy định nền tảng của trường chưa có nguồn gốc trong repo. | Android là Should, ưu tiên web/API; phiên bản Android tối thiểu vẫn cần ghi nhận. |
 | DEC-08 | 10/11/2026; Charter quyết định #12–13; SRS Q-01 | MVP đăng nhập OTP email; chỉ tích hợp Portal/SSO khi có văn bản và cách kết nối chính thức. | Kiểm thử được khi chưa có hệ thống trường, không thu mật khẩu portal. | Phụ thuộc bắt buộc vào SSO hoặc nhận mật khẩu portal. | Uyên báo đã xác nhận Q-01; đầu mối CNTT và trả lời gốc chưa có trong repo. | Giữ lớp đăng nhập thay thế được; các ngưỡng OTP vẫn là giá trị thử nghiệm cần rà soát. |
 | DEC-09 | 10/11/2026; SRS Q-06, BR-05–08 | No-show tạm sau 15 phút kể từ giờ bắt đầu; thời gian phải cấu hình được. | Có quy tắc cụ thể để phát triển và kiểm thử. | Không giữ 10–15 phút như một lựa chọn chưa xác định; không coi 15 phút là chính sách thư viện đã duyệt. | Uyên duyệt giá trị tạm nội bộ; thư viện chưa xác nhận. | Không xử lý lượt đã check-in thành no-show; cần xác nhận trước vận hành thật. |
@@ -54,6 +54,63 @@ Các mục lịch sử và phần thuật toán SEAT-33 bên dưới được gi
   deadband, cooldown and stale-state expiry. Counters reset for each session.
 - **Follow-up:** Backend ingestion, storage and UI are separate stages.
 
+## SEAT-48 Frontend and native framework selection
+
+- **Date:** 2026-11-10.
+- **Status:** Approved by Uyên on 2026-11-10 for React + Vite web and Android
+  native with Kotlin. The native build/runtime spike remains a follow-up; this
+  approval does not claim that Kotlin or native QR/chart integrations were
+  prototyped.
+- **Scope:** Select the web framework and native-app approach. iOS is outside
+  the current project scope.
+
+| Candidate | Group experience / learning | QR and chart ecosystem | iOS build requirement | Code reuse | Docker fit |
+|---|---|---|---|---|---|
+| React + Vite (web) | Existing frontend, API client, pages and tests provide direct project experience; lowest migration cost. | Mature web choices exist (for example, Chart.js/ECharts and browser QR scanning with ZXing); no chart or QR package is selected in this repository yet. | Web build is platform-independent; no macOS needed. | Reuses the current React/JavaScript frontend. | Already builds with the existing Node/Vite Docker service; keep camera/CV outside Docker. |
+| Vue + Vite (web) | Similar JavaScript/Vite workflow, but the project has no Vue code; requires learning Vue and replacing existing React UI. | Mature web choices exist (for example, Chart.js/ECharts and browser QR scanning with ZXing); no package was evaluated for production use. | Web build is platform-independent; no macOS needed. | Shares browser standards and API contracts, not React components. | Can be built in a Node/Vite container just like React; it does not improve the existing service boundary. |
+| Flutter (native) | Dart and Flutter are new to this repository; additional framework learning is required. | Native QR and chart packages are available (for example, `mobile_scanner`, `qr_flutter`, and `fl_chart`); compatibility was not tested here. | iOS builds require macOS and Xcode; Android can be built with the Android toolchain. | Flutter UI is separate from the React web UI; API models/business rules may be shared only if deliberately extracted. | Native app builds need their own Flutter/Android build environment; not part of the current web Docker service. |
+| React Native (native) | JavaScript knowledge transfers, but React Native is not React DOM and needs native-module/build knowledge. | Native camera/QR and chart packages are available; package compatibility and maintenance were not tested here. | iOS builds require macOS and Xcode; Android needs its SDK/Gradle toolchain. | Can share some JavaScript validation/API code, but not the web component tree. | Mobile builds remain separate from the web Docker service and need native SDKs. |
+| Swift (iOS native) | Requires Swift/iOS skills not evidenced in this repository. | Native scanning/chart frameworks or packages are available; not evaluated because iOS is out of scope. | Requires macOS and Xcode. | Separate app and platform-specific code. | Not a fit for the current Android-only target or Docker web service. |
+| Kotlin (Android native) | Already recorded as the team's Android direction in the Charter/SRS; actual team Android experience is not evidenced by a repository scaffold. | Android QR/scanning and chart libraries are available; no library was installed or validated for this project. | Android builds use JDK, Gradle and Android SDK; no macOS requirement. | Separate UI from React web; share API contract and potentially plain business rules. | Android APK builds need a separate native build environment; do not put them in the web Docker image. |
+
+### Prototype evidence
+
+- **React + Vite:** Ran `npm run build` successfully and all 9 frontend tests
+  passed. Started the existing app and called
+  `/api/v1/occupancy/current` through Vite's proxy; both page and API returned
+  HTTP 200. The real API currently returns `current_count: null`, which is an
+  empty-data state, not a valid count.
+- **Vue + Vite:** Scaffolded a temporary, uncommitted Vue app, built it
+  successfully, and rendered an empty/loading/error-aware screen after calling
+  the same real endpoint through a Vite proxy; page and API returned HTTP 200.
+  The spike added no Vue dependencies to the repository.
+- **Native:** No blank-app/API prototype was run. This machine has no Android
+  SDK, `adb`, Gradle, or Flutter installation, and the repository has no native
+  app scaffold. Therefore the native recommendation below is not backed by a
+  runtime/build spike.
+- **QR/chart packages:** No candidate package was added or tested for either
+  web framework or native platform. Select and verify concrete libraries when
+  the corresponding UI stories are implemented.
+
+### Recommendation and alternatives
+
+- **Web:** Retain React + Vite. It is already integrated, builds in the current
+  Docker setup, passes its tests, and successfully calls the live backend. Vue
+  also passed a minimal API spike, but switching would replace working React
+  code without a demonstrated benefit.
+- **Native:** Retain Android native with Kotlin, consistent with the recorded
+  project scope and Android-only target. Do not select Flutter or React Native
+  solely for hypothetical code sharing: both still require a distinct mobile
+  UI/build pipeline, while iOS is out of scope. Swift is not selected because
+  it targets iOS.
+- **Approval / follow-up:** Uyên approved React + Vite and Android native with
+  Kotlin on 2026-11-10. Before native implementation is considered validated,
+  run a 30-minute Kotlin blank-app/API spike on a machine with Android SDK and
+  Gradle; Uyên will assign the runner and record the result in SEAT-48. Do not
+  claim the native build or QR/chart integrations have been tested.
+- **Dependencies:** This decision record is for SEAT-48 and the SRS topics
+  Q-16/Q-17. SEAT-31 remains an upstream dependency for the dependent
+  implementation work.
 ## SEAT-33 thuat toan dem nguoi qua duong ao
 
 - **Trạng thái:** Tài liệu hóa thuật toán đã có trong CV
