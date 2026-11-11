@@ -1,108 +1,83 @@
 # UTH-SeatSense
 
-> Các mục đánh dấu **`[CHƯA CÓ DỮ KIỆN]`** cần được cập nhật sau khi nhóm xác nhận thông tin thực tế. Không điền suy đoán vào các mục này.
-
 ## Mục lục
 
 1. [Giới thiệu dự án](#1-giới-thiệu-dự-án)
 2. [Kiến trúc tổng quan](#2-kiến-trúc-tổng-quan)
 3. [Cấu trúc repository](#3-cấu-trúc-repository)
-4. [Yêu cầu môi trường](#4-yêu-cầu-môi-trường)
-5. [Cài đặt Git và Docker Desktop](#5-cài-đặt-git-và-docker-desktop)
-6. [Thiết lập Git cho thành viên](#6-thiết-lập-git-cho-thành-viên)
-7. [Clone repository](#7-clone-repository)
-8. [Cấu hình biến môi trường](#8-cấu-hình-biến-môi-trường)
-9. [Khởi chạy dự án bằng Docker Compose](#9-khởi-chạy-dự-án-bằng-docker-compose)
-10. [Cổng truy cập](#10-cổng-truy-cập)
-11. [Trạng thái chức năng](#11-trạng-thái-chức-năng)
-12. [Quy ước làm việc nhóm (Git và Jira)](#12-quy-ước-làm-việc-nhóm-git-và-jira)
-13. [Xử lý lỗi thường gặp](#13-xử-lý-lỗi-thường-gặp)
-14. [Kiểm tra README trên máy phát triển](#14-kiểm-tra-readme-trên-máy-phát-triển)
-15. [Lịch sử thay đổi](#15-lịch-sử-thay-đổi)
+4. [Yêu cầu môi trường](#yêu-cầu-môi-trường)
+5. [Cài đặt Git và Docker Desktop](#cài-đặt-git-và-docker-desktop)
+6. [Cài đặt nhanh](#cài-đặt-nhanh-15-phút)
+7. [Kiểm tra hệ thống](#kiểm-tra-hệ-thống)
+8. [Cổng truy cập](#cổng-truy-cập)
+9. [Chạy Computer Vision](#chạy-computer-vision)
+10. [Chạy kiểm thử](#chạy-kiểm-thử)
+11. [Cấu trúc thư mục](#cấu-trúc-thư-mục)
+12. [Dừng và khởi động lại](#dừng-và-khởi-động-lại)
+13. [Xử lý lỗi thường gặp](#xử-lý-lỗi-thường-gặp)
+14. [Quy ước và tài liệu dự án](#quy-ước-làm-việc-nhóm)
+15. [Liên hệ và hỗ trợ](#liên-hệ-và-hỗ-trợ)
 
 ---
 
 ## 1. Giới thiệu dự án
 
-**UTH-SeatSense** (đề tài D6) là hệ thống theo dõi mật độ sử dụng phòng đọc và đặt phòng học nhóm tại Thư viện UTH, dựa trên xử lý hình ảnh và hệ thống quản lý dữ liệu.
+**UTH-SeatSense** (đề tài D6) là hệ thống hỗ trợ theo dõi mật độ sử dụng phòng đọc và đặt phòng học nhóm tại Thư viện UTH. Hệ thống kết hợp xử lý hình ảnh, API, cơ sở dữ liệu và giao diện web.
 
 Mục tiêu của dự án:
 
-- Phát hiện và đếm số người từ camera hoặc video bằng Computer Vision.
-- Tiếp nhận, xử lý và lưu trữ dữ liệu đếm người.
-- Hiển thị số chỗ trống và mức độ đông của phòng đọc gần thời gian thực trên web.
-- Cho phép sinh viên đặt phòng học nhóm theo khung giờ, check-in bằng QR, tự động nhả phòng khi quá hạn.
-- Cung cấp dashboard thống kê cho thủ thư (mật độ theo giờ/ngày, tỷ lệ sử dụng phòng, tỷ lệ no-show).
-- Chạy các thành phần bằng Docker để chuẩn hóa môi trường phát triển và triển khai.
+- Phát hiện và đếm người từ camera hoặc video bằng Computer Vision.
+- Tiếp nhận, xử lý và lưu số liệu đếm.
+- Hiển thị tình trạng chỗ ngồi gần thời gian thực.
+- Hỗ trợ đặt phòng học nhóm, check-in QR và nhả phòng khi quá hạn theo phạm vi chức năng được triển khai.
+- Cung cấp dữ liệu thống kê phục vụ dashboard.
+- Chạy các thành phần bằng Docker Compose để thống nhất môi trường phát triển.
 
 ## 2. Kiến trúc tổng quan
 
 | Thành phần | Vai trò | Công nghệ |
 |---|---|---|
-| CV/AI (`cv/`) | Phát hiện và theo dõi người, đếm vào/ra qua đường ảo | Camera + YOLOv8n + ByteTrack |
-| Backend (`backend/`) | Tiếp nhận dữ liệu đếm, xử lý nghiệp vụ (đặt phòng, check-in, nhả phòng), cung cấp API | FastAPI |
-| PostgreSQL | Lưu trữ dữ liệu hệ thống | PostgreSQL (phiên bản: **`[CHƯA CÓ DỮ KIỆN]`**) |
-| Frontend (`frontend/`) | Hiển thị chỗ trống, đặt phòng, check-in QR, dashboard thủ thư | Web responsive (framework: **`[CHƯA CÓ DỮ KIỆN]`**) |
-| Docker | Đóng gói và chạy các dịch vụ | Docker Compose |
+| CV/AI (`cv/`) | Nhận video, phát hiện/theo dõi người và cung cấp dịch vụ CV | Python, FastAPI, YOLO/ByteTrack theo cấu hình CV |
+| Backend (`backend/`) | API nghiệp vụ và kết nối cơ sở dữ liệu | Python, FastAPI, SQLAlchemy |
+| Database (`db`) | Lưu trữ dữ liệu hệ thống | PostgreSQL 16.6 |
+| Frontend (`frontend/`) | Giao diện web và proxy API | React, Vite, TypeScript |
+| Adminer (`adminer`) | Giao diện quản trị database cho phát triển | Adminer 4.8.1 |
+| Orchestration | Xây dựng và kết nối các dịch vụ | Docker Compose |
 
-**Phương án đã chốt:** nhóm chọn **Phương án B** (phương án hai trong Project Charter): đếm người bằng camera + YOLOv8n + ByteTrack, đếm khi người cắt đường ảo. Toàn bộ hệ thống chạy kèm Docker. Phương án A (cảm biến) không nằm trong phạm vi của repository này.
-
-Luồng xử lý:
-
-1. Thành phần CV/AI nhận hình ảnh từ camera (hoặc video quay sẵn khi đánh giá), đếm người vào/ra.
-2. CV/AI chỉ gửi **con số** (không gửi hình ảnh/video) lên Backend.
-3. Backend tiếp nhận và xử lý dữ liệu.
-4. PostgreSQL lưu trữ dữ liệu.
-5. Frontend gọi API Backend để lấy dữ liệu và hiển thị.
+Luồng dữ liệu dự kiến: CV xử lý hình ảnh tại chỗ và gửi dữ liệu đếm cho Backend; Backend lưu dữ liệu vào PostgreSQL; Frontend gọi API để hiển thị. Cấu hình dịch vụ hiện tại được định nghĩa trong [`docker-compose.yml`](docker-compose.yml).
 
 ```text
-[Camera + YOLOv8n + ByteTrack] -> (số lượng vào/ra) -> Backend (FastAPI) -> PostgreSQL -> Frontend (web)
+[Camera/video] -> CV -> số liệu đếm -> Backend -> PostgreSQL -> Frontend
 ```
 
-Cách CV/AI gửi dữ liệu đến Backend (giao thức, endpoint, định dạng dữ liệu): **`[CHƯA CÓ DỮ KIỆN]`**
-
-**Nguyên tắc giảm tải cho CV/AI** (theo Project Charter):
-
-- Dùng YOLOv8n, độ phân giải đầu vào 320–416 px, xử lý 3–5 khung hình/giây.
-- Cắt vùng quan tâm quanh cửa; có thể xuất sang ONNX/OpenVINO.
-- Phần đánh giá chạy offline trên video quay sẵn; phần demo trực tiếp chạy ở mức nhẹ.
-
-**Quyền riêng tư:**
-
-- Camera đặt trên cao nhìn xuống, xử lý ngay trên máy, **không lưu video**, không nhận diện khuôn mặt hay danh tính.
-- Chỉ lưu số liệu tổng hợp ẩn danh. Dữ liệu đặt phòng gắn với mã sinh viên được thu thập tối thiểu.
-
-Cách CV/AI truy cập camera hoặc video bên trong Docker (thiết bị, đường dẫn, cấu hình): **`[CHƯA CÓ DỮ KIỆN]`**
-
-> Các thành phần được triển khai và tích hợp theo tiến độ phát triển thực tế.
+Thiết kế hướng tới giảm dữ liệu hình ảnh truyền/lưu trữ và không nhận diện khuôn mặt hay danh tính. Khả năng camera, mô hình và từng chức năng cụ thể phụ thuộc cấu hình/runtime hiện có; xem [README CV](cv/README.md) và [README từng thành phần](#readme-từng-thành-phần).
 
 ## 3. Cấu trúc repository
 
 ```text
 UTH-SeatSense/
-  cv/         thị giác máy tính (YOLO), đánh giá
-  backend/    FastAPI, CSDL
-  frontend/   web, dashboard
-  docs/       tài liệu, quyết định kiến trúc, báo cáo
+├── cv/                 # Computer Vision service
+├── backend/            # FastAPI backend
+├── frontend/           # React + Vite frontend
+├── database/init/      # SQL khởi tạo PostgreSQL
+├── docs/               # Tài liệu dự án và kiến trúc
+├── tests/              # Integration tests
+├── docker-compose.yml  # Compose ở thư mục gốc
+└── .env.example        # Mẫu cấu hình môi trường
 ```
 
-Vị trí file Docker Compose (thư mục gốc hay thư mục khác): **`[CHƯA CÓ DỮ KIỆN]`**
+Mỗi thành phần có README riêng với hướng dẫn chi tiết. Không commit `.env`, model riêng tư hoặc dữ liệu video có thể nhận diện người.
 
-Quy tắc:
+## Yêu cầu môi trường
 
-- Mỗi thư mục có `README.md` hướng dẫn chạy ngắn gọn.
-- Mỗi người chủ yếu sửa thư mục của mảng mình. Muốn sửa thư mục của người khác phải qua Pull Request và báo chủ mảng đó.
-- Quyết định kiến trúc ghi vào `docs/decisions.md`.
+Trước khi bắt đầu, đảm bảo máy đã cài:
 
-## 4. Yêu cầu môi trường
+- **Git** - [Tải tại đây](https://git-scm.com/downloads)
+- **Docker Desktop** - [Tải tại đây](https://www.docker.com/products/docker-desktop/)
+  - Windows: Chọn WSL 2 khi cài đặt
+  - Mở Docker Desktop và đợi Engine khởi động
 
-- Git.
-- Docker Desktop.
-- Docker Compose (thường được tích hợp trong Docker Desktop).
-- Visual Studio Code hoặc IDE tương đương.
-- Kết nối Internet khi clone repository và tải Docker images.
-
-Sau khi cài đặt, mở Terminal hoặc PowerShell và kiểm tra:
+Kiểm tra cài đặt thành công:
 
 ```bash
 git --version
@@ -110,488 +85,574 @@ docker --version
 docker compose version
 ```
 
-Nếu các lệnh trả về phiên bản tương ứng, môi trường đã nhận diện được các công cụ cần thiết.
+Nếu các lệnh trả về số phiên bản, môi trường đã sẵn sàng.
 
-## 5. Cài đặt Git và Docker Desktop
+## Cài đặt Git và Docker Desktop
 
-### Git
+1. Tải Git phù hợp với hệ điều hành tại [git-scm.com/downloads](https://git-scm.com/downloads) và cài đặt theo hướng dẫn.
+2. Mở Terminal hoặc PowerShell mới, kiểm tra:
 
-1. Truy cập https://git-scm.com/downloads
-2. Tải phiên bản phù hợp với hệ điều hành và cài đặt theo hướng dẫn.
-3. Kiểm tra: `git --version`
+```bash
+git --version
+```
 
-### Docker Desktop
+### Cài Docker Desktop
 
-1. Truy cập https://www.docker.com/products/docker-desktop/
-2. Tải Docker Desktop phù hợp với hệ điều hành, cài đặt và khởi động. Trên
-   Windows, nếu được hỏi, chọn **Use WSL 2 instead of Hyper-V**.
-3. Nếu Docker Desktop yêu cầu WSL 2 nhưng máy chưa có, mở PowerShell với quyền
-   Administrator, chạy `wsl --install`, khởi động lại máy nếu được yêu cầu rồi
-   mở lại Docker Desktop.
-4. Chờ Docker Desktop báo Docker Engine đang chạy, sau đó mở PowerShell và
-   kiểm tra:
+1. Tải Docker Desktop tại [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/) và cài đặt.
+2. Trên Windows, chọn **Use WSL 2 instead of Hyper-V** nếu trình cài đặt hỏi. Nếu máy chưa có WSL 2, mở PowerShell với quyền Administrator, chạy `wsl --install`, rồi khởi động lại máy khi được yêu cầu.
+3. Mở Docker Desktop, chờ Docker Engine khởi động. Kiểm tra trong PowerShell/Terminal:
 
-```powershell
+```bash
 docker --version
 docker compose version
 docker info
 ```
 
-Nếu `docker info` hoạt động bình thường, Docker Engine đã sẵn sàng.
+Nếu `docker info` trả thông tin Engine mà không báo lỗi kết nối, Docker đã sẵn sàng.
 
-## 6. Thiết lập Git cho thành viên
+### Thiết lập thông tin Git
 
-Thực hiện một lần cho mỗi thành viên.
-
-1. Có tài khoản GitHub, được mời vào organization `uth-seatsense` (quyền Write) và vào Jira site của nhóm.
-2. Cấu hình Git bằng **đúng email của tài khoản Jira**:
+Thiết lập tên và email một lần trên mỗi máy. Dùng email gắn với tài khoản GitHub/Jira của bạn:
 
 ```bash
-git config --global user.name 'Ho Ten'
-git config --global user.email 'email-jira-cua-ban@gmail.com'
+git config --global user.name "Ho Ten"
+git config --global user.email "email-cua-ban@example.com"
 ```
 
-Sai email thì tên và ảnh không hiện trong Jira, smart commit cũng không chạy.
-
-## 7. Clone repository
-
-Clone vào thư mục riêng (không clone vào thư mục đang chứa file khác):
+Kiểm tra lại:
 
 ```bash
+git config --global --get user.name
+git config --global --get user.email
+```
+
+Để tham gia repository riêng của nhóm, tài khoản GitHub cần được cấp quyền truy cập. Không đưa mật khẩu, token hoặc khóa truy cập vào repository.
+
+### Cấu hình nâng cao
+
+Khi cần tra cứu đầy đủ các biến môi trường, cấu hình dịch vụ, và quy trình clone/cập nhật nhánh, xem [README cài đặt đầy đủ](docs/README-full.md).
+
+---
+
+## Cài đặt nhanh (15 phút)
+
+### Bước 1: Clone repository
+
+```bash
+# Clone về máy
 git clone https://github.com/uth-seatsense/UTH-SeatSense.git
 cd UTH-SeatSense
-```
 
-Chuyển sang nhánh `dev`:
-
-```bash
-git fetch origin
+# Chuyển sang nhánh dev
 git checkout dev
 git pull origin dev
 ```
 
-Nếu máy chưa có nhánh `dev` ở local:
+### Bước 2: Tạo file cấu hình `.env`
 
-```bash
-git checkout -b dev origin/dev
+**Windows PowerShell:**
+```powershell
+Copy-Item .env.example .env
 ```
 
-Kiểm tra:
-
+**macOS/Linux:**
 ```bash
-git branch -a
-git status
+cp .env.example .env
 ```
 
-> **Lưu ý:** `dev` là nhánh tích hợp để phát triển. Không push trực tiếp lên `dev` hoặc `main`. Mọi thay đổi làm trên nhánh công việc riêng và gửi Pull Request (xem [mục 12](#12-quy-ước-làm-việc-nhóm-git-và-jira)).
+**Chỉnh sửa `.env`:**
 
-## 8. Cấu hình biến môi trường
-
-File `.env` chứa các biến cấu hình ứng dụng. File `.env.example` là mẫu ban đầu.
-
-1. Kiểm tra thư mục gốc có file `.env.example`.
-2. Tạo file `.env`:
-
-   Windows PowerShell:
-   ```powershell
-   Copy-Item .env.example .env
-   ```
-
-   macOS/Linux:
-
-   ```bash
-   cp .env.example .env
-   ```
-
-3. Mở `.env` và cập nhật giá trị phù hợp với môi trường phát triển. Thay
-   `POSTGRES_PASSWORD` bằng mật khẩu phát triển riêng. Dùng mật khẩu gồm chữ
-   và số để tránh ký tự đặc biệt gây lỗi trong URL kết nối database. Không
-   chia sẻ hoặc commit file `.env`.
-
-| Biến | Dịch vụ sử dụng | Ý nghĩa | Giá trị mẫu |
-|---|---|---|---|
-| `POSTGRES_DB` | PostgreSQL, Backend | Tên cơ sở dữ liệu | `seatsense` |
-| `POSTGRES_USER` | PostgreSQL, Backend | Tên người dùng cơ sở dữ liệu | `seatsense` |
-| `POSTGRES_PASSWORD` | PostgreSQL, Backend | Mật khẩu phát triển cục bộ | Thay bằng mật khẩu riêng |
-| `POSTGRES_PORT` | PostgreSQL | Cổng trên máy host | `5432` |
-| `BACKEND_PORT` | Backend | Cổng API trên máy host | `8000` |
-| `CV_PORT` | CV/AI | Cổng API trên máy host | `8001` |
-| `FRONTEND_PORT` | Frontend | Cổng web trên máy host | `3000` |
-| `VITE_API_BASE_URL` | Frontend | Đường dẫn API | `/api/v1` |
-| `VITE_BACKEND_PROXY_TARGET` | Frontend | URL Backend trong Docker network | `http://backend:8000` |
-
-**Lưu ý bảo mật:**
-
-- Không commit file `.env`. File này đã nằm trong `.gitignore`.
-- Không đưa mật khẩu Wi-Fi, API key, token, thông tin đăng nhập cơ sở dữ liệu lên GitHub.
-- Khi thêm biến mới, cập nhật `.env.example` (không chứa giá trị thật) để các thành viên khác cấu hình được.
-- Các biến phải thống nhất với cấu hình Docker Compose và từng dịch vụ.
-
-## 9. Khởi chạy dự án bằng Docker Compose
-
-Thực hiện tại thư mục chứa file `compose.yaml`, `compose.yml`, `docker-compose.yaml` hoặc `docker-compose.yml`.
-
-### 9.0. Các dịch vụ chạy bằng Docker
-
-| Thành phần | Thư mục mã nguồn | Tên dịch vụ trong Compose | Ghi chú |
-|---|---|---|---|
-| CV/AI | `cv/` | `cv` | API scaffold; camera/video chưa được tích hợp |
-| Backend (FastAPI) | `backend/` | `backend` | API scaffold; chờ PostgreSQL và CV healthy |
-| PostgreSQL | Image `postgres:16.6-alpine` | `db` | Chờ healthcheck; dữ liệu lưu ở volume `postgres_data` |
-| Frontend | `frontend/` | `frontend` | Dashboard đang phát triển; chờ Backend healthy |
-
-Các service giao tiếp nội bộ qua network bridge `seatsense_network`. Backend kết
-nối PostgreSQL bằng hostname `db`; Frontend proxy đường dẫn `/api` tới hostname
-`backend`.
-
-Không cần cài Node.js, Python hoặc PostgreSQL trên máy host khi chạy toàn bộ
-dự án bằng Docker Desktop.
-
-### 9.1. Kiểm tra cấu hình
+Mở file `.env` bằng editor và **thay đổi dòng này** (bắt buộc):
 
 ```bash
-docker compose config
+# Đổi từ:
+POSTGRES_PASSWORD=replace-with-a-local-development-password
+
+# Thành (ví dụ):
+POSTGRES_PASSWORD=dev123456
 ```
 
-Chạy lệnh tại thư mục gốc repository, nơi có `docker-compose.yml`. Nếu có lỗi,
-kiểm tra file Compose và biến môi trường trước khi tiếp tục.
+Dùng mật khẩu đơn giản gồm chữ và số, không dấu. Đây chỉ là mật khẩu phát triển cục bộ.
 
-### 9.2. Khởi chạy
+> **Lưu ý:** Không đổi các giá trị khác trừ khi port bị conflict với ứng dụng khác đang chạy.
+
+### Bước 3: Khởi động hệ thống
 
 ```bash
-docker compose up --build -d
+docker compose up -d --build
 ```
 
-- `up`: tạo và khởi chạy các dịch vụ.
-- `--build`: build lại image khi cần.
-- `-d`: chạy nền để có thể tiếp tục dùng terminal. Bỏ `-d` nếu muốn xem log
-  trực tiếp trong terminal.
+Lần đầu chạy sẽ mất 3-5 phút để tải images và build. Chờ đến khi thấy:
 
-Trên Windows, chạy các lệnh trong PowerShell từ thư mục gốc dự án. Lần chạy
-đầu Docker sẽ tải images và build ứng dụng nên có thể mất vài phút.
+```
+✔ Container uth-seatsense-db-1       Healthy
+✔ Container uth-seatsense-cv-1       Healthy  
+✔ Container uth-seatsense-backend-1  Healthy
+✔ Container uth-seatsense-frontend-1 Started
+✔ Container uth-seatsense-adminer-1  Started
+```
 
-Các dịch vụ hiện cung cấp PostgreSQL, health check và API scaffold; chức năng đặt phòng, check-in, phát hiện mật độ, xác thực và dashboard chưa được triển khai.
+---
 
-### 9.3. Kiểm tra trạng thái
+## Kiểm tra hệ thống
+
+### Kiểm tra trạng thái containers
 
 ```bash
 docker compose ps
 ```
 
-Đợi `db`, `cv` và `backend` báo `healthy`, đồng thời `frontend` ở trạng thái
-`running`. Có thể xem trạng thái container và log trong tab **Containers** của
-Docker Desktop.
+Kết quả mong đợi:
 
-### 9.4. Xem log
-
-```bash
-docker compose logs                  # tất cả dịch vụ
-docker compose logs -f               # theo dõi liên tục
-docker compose logs -f <service_name>  # một dịch vụ cụ thể
+```
+NAME                      STATUS
+uth-seatsense-db-1        Up (healthy)
+uth-seatsense-cv-1        Up (healthy)
+uth-seatsense-backend-1   Up (healthy)
+uth-seatsense-frontend-1  Up
+uth-seatsense-adminer-1   Up
 ```
 
-Tên dịch vụ trong file Compose: `db`, `backend`, `cv`, `frontend`.
-
-### 9.5. Khởi động lại
+### Kiểm tra health endpoints
 
 ```bash
-docker compose restart
-docker compose restart <service_name>
+# Backend health check (kết nối database)
+curl http://localhost:8000/health/db
+
+# CV service health check
+curl http://localhost:8001/health
 ```
 
-### 9.6. Dừng dự án
+Nếu cả hai trả về status `200 OK`, hệ thống đã sẵn sàng.
+
+### Xem logs
+
+```bash
+# Xem log tất cả services
+docker compose logs -f
+
+# Xem log một service cụ thể
+docker compose logs -f backend
+docker compose logs -f cv
+docker compose logs -f frontend
+```
+
+Nhấn `Ctrl+C` để thoát.
+
+---
+
+## Cổng truy cập
+
+Sau khi khởi động thành công, truy cập các địa chỉ sau:
+
+| Thành phần | URL | Mô tả |
+|-----------|-----|-------|
+| **Frontend** | http://localhost:3000 | Giao diện web chính |
+| **Backend API** | http://localhost:8000/docs | Swagger UI - tài liệu API |
+| **CV Service** | http://localhost:8001 | Giao diện kiểm thử CV |
+| **CV API Docs** | http://localhost:8001/docs | API tài liệu CV service |
+| **Adminer** | http://localhost:8080 | Web UI quản lý PostgreSQL |
+
+### Đăng nhập Adminer (quản lý database)
+
+1. Mở http://localhost:8080
+2. Điền thông tin (lấy từ file `.env`):
+   - **System:** PostgreSQL
+   - **Server:** `db`
+   - **Username:** `seatsense` (hoặc giá trị `POSTGRES_USER`)
+   - **Password:** Mật khẩu bạn đã đặt trong `POSTGRES_PASSWORD`
+   - **Database:** `seatsense` (hoặc giá trị `POSTGRES_DB`)
+
+---
+
+## Chạy Computer Vision
+
+Dịch vụ CV có **hai chế độ chạy**:
+
+### Chế độ 1: Trong Docker với video mẫu (mặc định)
+
+CV service đã chạy trong Docker khi bạn `docker compose up`.
+
+- Truy cập: http://localhost:8001
+- Upload video để kiểm thử
+- Chọn "Uploaded File" → chọn video → "Start Test"
+
+**Không hỗ trợ webcam trong Docker.**
+
+### Chế độ 2: Ngoài Docker với camera thật
+
+Để dùng camera laptop hoặc camera USB:
+
+**1. Dừng CV container:**
+```bash
+docker compose stop cv
+```
+
+**2. Tải model (chỉ lần đầu):**
+- Tải `best.pt` từ [Google Drive](https://drive.google.com/drive/folders/1q9-reDJxYw5hAdOfVUG4kNONaYuXL7j0)
+- Đặt vào thư mục: `cv/models/best.pt`
+
+**3. Cài môi trường Python:**
+
+**Windows:**
+```powershell
+cd cv
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+**macOS/Linux:**
+```bash
+cd cv
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+**4. Khởi động CV service:**
+
+**Windows:**
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8001
+```
+
+**macOS/Linux:**
+```bash
+python -m uvicorn main:app --host 127.0.0.1 --port 8001
+```
+
+**5. Truy cập và dùng camera:**
+- Mở: http://127.0.0.1:8001
+- Chọn "USB Webcam" → "Start Test" → cho phép camera trong browser
+
+**Lưu ý:** 
+- Backend vẫn chạy trong Docker và sẽ không kết nối được CV khi CV chạy ngoài Docker
+- Để Backend kết nối CV ngoài Docker, sửa `CV_SERVICE_URL` thành `http://host.docker.internal:8001`
+
+### CLI - Xử lý video offline (không cần API)
+
+```powershell
+cd cv
+.\.venv\Scripts\python.exe run_video.py --video videos/sample.mp4 --annotate
+```
+
+Kết quả xuất ra thư mục `cv/outputs/`.
+
+Chi tiết xem [cv/README.md](cv/README.md).
+
+---
+
+## Chạy kiểm thử
+
+### Backend Tests
+
+```bash
+# Từ thư mục gốc
+docker compose exec backend pytest
+
+# Hoặc chạy trực tiếp trên máy
+cd backend
+python -m pytest
+```
+
+### CV Tests
+
+```bash
+# Cần tải model trước (xem phần "Chạy Computer Vision")
+cd cv
+
+# Windows
+.\.venv\Scripts\python.exe -m pytest tests/
+
+# macOS/Linux  
+python -m pytest tests/
+```
+
+Chi tiết kiểm thử xem:
+- [cv/tests/PHASE1_RESULTS.md](cv/tests/PHASE1_RESULTS.md)
+- [cv/tests/PHASE3_RESULTS.md](cv/tests/PHASE3_RESULTS.md)
+
+### Frontend Tests
+
+```bash
+cd frontend
+npm test
+```
+
+---
+
+## Cấu trúc thư mục
+
+```
+UTH-SeatSense/
+├── cv/                     # Computer Vision - YOLOv8n + ByteTrack
+│   ├── main.py            # CV API service (FastAPI)
+│   ├── run_video.py       # CLI xử lý video offline
+│   ├── app/               # Detection, tracking, counting logic
+│   ├── models/            # Model files (best.pt) - KHÔNG trong Git
+│   ├── videos/            # Video mẫu để test - KHÔNG trong Git
+│   ├── tests/             # Unit tests và integration tests
+│   └── README.md          # Hướng dẫn chi tiết CV
+│
+├── backend/               # FastAPI Backend
+│   ├── main.py           # Entry point
+│   ├── app/              
+│   │   ├── api/          # REST API endpoints
+│   │   ├── models/       # SQLAlchemy ORM models
+│   │   ├── schemas/      # Pydantic schemas
+│   │   ├── services/     # Business logic
+│   │   └── db/           # Database connection
+│   ├── tests/            # Backend tests
+│   └── README.md         # Hướng dẫn chi tiết Backend
+│
+├── frontend/             # React + Vite Frontend
+│   ├── src/
+│   │   ├── components/   # React components
+│   │   ├── pages/        # Page components
+│   │   ├── services/     # API client
+│   │   └── App.tsx       # Main app
+│   ├── tests/            # Frontend tests
+│   └── README.md         # Hướng dẫn chi tiết Frontend
+│
+├── database/             # Database scripts
+│   └── init/             # Init SQL scripts (chạy khi tạo DB lần đầu)
+│
+├── docs/                 # Tài liệu dự án
+│   ├── architecture/     # Kiến trúc, deployment, ADR
+│   │   ├── deployment-diagram.md
+│   │   └── cv-data-contract.md
+│   ├── README-full.md    # README phiên bản đầy đủ (quy ước Git/Jira chi tiết)
+│   └── README.md
+│
+├── tests/                # Integration tests (cross-service)
+│
+├── docker-compose.yml    # Cấu hình Docker Compose
+├── .env.example          # Mẫu file cấu hình (có chú thích)
+├── .env                  # File cấu hình thực tế - KHÔNG commit
+├── .gitignore            # Loại trừ .env, models, videos khỏi Git
+└── README.md             # File này
+```
+
+### Quy tắc quan trọng
+
+- Mỗi thư mục con có `README.md` riêng với hướng dẫn chi tiết
+- **KHÔNG commit** các file sau:
+  - `.env` (chứa mật khẩu)
+  - `cv/models/*.pt` (model lớn, lưu trên Google Drive)
+  - `cv/videos/*.mp4` (video mẫu có thể chứa người thật)
+  - `__pycache__/`, `node_modules/`, `.venv/`
+
+---
+
+## Dừng và khởi động lại
+
+### Dừng hệ thống (giữ dữ liệu)
 
 ```bash
 docker compose down
 ```
 
-Lệnh này dừng và xóa container cùng network `seatsense_network`. Dữ liệu trong volume thường vẫn được giữ.
+Lệnh này dừng và xóa containers, nhưng **GIỮ volume `postgres_data`**.
 
-> **Không dùng `docker compose down -v` nếu chưa chắc chắn**, vì lệnh này có thể xóa volume chứa dữ liệu cơ sở dữ liệu.
+**TC-12 compliant:** Dữ liệu PostgreSQL vẫn còn khi khởi động lại.
 
-Nếu muốn khởi tạo database từ đầu và chấp nhận xóa toàn bộ dữ liệu cục bộ, chạy:
+### Khởi động lại
 
 ```bash
+docker compose up -d
+```
+
+Dữ liệu database từ lần chạy trước vẫn còn nguyên.
+
+### Reset toàn bộ (XÓA dữ liệu)
+
+```bash
+# Dừng và xóa containers + volumes
 docker compose down -v
-docker compose up --build -d
+
+# Khởi động lại với database trống
+docker compose up -d --build
 ```
 
-## 10. Cổng truy cập
+> **Cảnh báo:** `-v` xóa toàn bộ dữ liệu PostgreSQL. Chỉ dùng khi muốn reset hệ thống.
 
-| Thành phần | Cổng | Địa chỉ truy cập |
-|---|---|---|
-| Frontend | `3000` | <http://localhost:3000> |
-| Backend API | `8000` | <http://localhost:8000/docs> |
-| PostgreSQL | `5432` | Không truy cập bằng trình duyệt |
-| CV/AI | `8001` | <http://localhost:8001/docs> |
-
-Để xác định cổng thực tế, chạy `docker compose ps` và kiểm tra phần `ports` trong file Compose cùng các biến môi trường liên quan.
-
-## 11. Trạng thái chức năng
-
-Chỉ đánh dấu "Hoàn thành" khi đã được kiểm thử hoặc xác nhận trong môi trường phát triển.
-
-| Nhóm | Nội dung cần làm | Trạng thái |
-|---|---|---|
-| CV/AI | Kiểm thử và hoàn thiện phát hiện, theo dõi, đếm người | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Backend | Hoàn thiện API tiếp nhận và truy xuất dữ liệu | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Backend | Đặt phòng theo khung giờ, kiểm tra trùng lịch | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Backend | Check-in QR và tự động nhả phòng khi quá 10–15 phút | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Database | Hoàn thiện cấu trúc bảng và cơ chế lưu trữ | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Frontend | Hiển thị chỗ trống gần thời gian thực, đặt phòng | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Frontend | Dashboard thống kê cho thủ thư | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Tích hợp | Kiểm thử luồng dữ liệu CV/AI, Backend, PostgreSQL, Frontend | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Docker | Chạy đủ các dịch vụ bằng `docker compose up -d --build` | Đã kiểm tra: PostgreSQL, CV và Backend healthy; Frontend truy cập Backend qua proxy `/api`. |
-| Thực nghiệm | Đối chiếu với đếm tay, thử nghiệm người dùng (SUS) | **`[CHƯA CÓ DỮ KIỆN]`** |
-
-### Chỉ tiêu mục tiêu (theo Project Charter)
-
-| Chỉ số | Mục tiêu | Kết quả đo được |
-|---|---|---|
-| Sai số đếm | ≤ 10% so với đếm tay (5–10 phiên × 30–60 phút) | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Độ trễ cập nhật | ≤ 5 giây, từ lúc có người vào đến lúc web hiển thị | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Tốc độ xử lý CV/AI | ≥ 5 FPS ở 416 px (hoặc chạy offline nếu thấp hơn) | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Trải nghiệm người dùng | Điểm SUS ≥ 70 (15–30 sinh viên dùng thử) | **`[CHƯA CÓ DỮ KIỆN]`** |
-
-Các chỉ tiêu này sẽ được rà soát lại sau khảo sát thực địa.
-
-## 12. Quy ước làm việc nhóm (Git và Jira)
-
-Áp dụng cho mọi thành viên. Muốn đổi quy ước phải thống nhất trong buổi họp tuần và ghi vào [mục 15](#15-lịch-sử-thay-đổi).
-
-### 12.1. Quy ước Jira
-
-**Ba cấp công việc**
-
-| Cấp | Dùng cho | Ví dụ |
-|---|---|---|
-| Epic | Một mảng lớn của dự án | CV/AI (phát hiện và đếm người) |
-| Story | Một kết quả có giá trị, làm xong trong 1 sprint | Phát hiện được người trong video mẫu |
-| Task (sub-task) | Một bước nhỏ, một người làm, 1–2 ngày | Viết hàm đọc khung hình từ video |
-
-Nhánh Git và Pull Request luôn gắn với mã của Task đang làm. Story và Epic do nhóm trưởng chuyển Done sau khi mọi Task con xong và đã demo.
-
-**Tiêu đề và mô tả**
-
-- Tiêu đề bắt đầu bằng động từ, nêu rõ đối tượng, dưới 80 ký tự. Ví dụ: *Viết endpoint POST /events nhận sự kiện vào/ra*.
-- Mô tả ghi mục tiêu và **tiêu chí hoàn thành** dạng gạch đầu dòng.
-- Mỗi issue có đúng **một người phụ trách** (Assignee).
-
-**Ý nghĩa các cột trên bảng**
-
-| Cột | Ý nghĩa | Ai chuyển |
-|---|---|---|
-| To Do | Đã vào sprint, chưa bắt đầu | Nhóm trưởng |
-| In Progress | Đang làm | Tự động khi tạo nhánh có mã issue |
-| In Review | Đã mở Pull Request, chờ review | Tự động khi mở PR |
-| Done | PR đã merge | Tự động khi merge PR |
-
-**Ước lượng và nhãn**
-
-- Story point theo dãy **1, 2, 3, 5, 8**: 1 là dưới nửa ngày, 2 khoảng một ngày, 3 một đến hai ngày, 5 khoảng ba ngày. Việc lớn hơn 5 cố gắng tách nhỏ; lớn hơn 8 bắt buộc tách.
-- Nhãn vai trò: `PM`, `CV`, `BE`, `FE`. Nhãn sprint: `Sprint-0`, `Sprint-1`, ...
-
-**Nguyên tắc làm việc**
-
-- Không làm việc không có issue. Việc phát sinh thì tạo issue trước.
-- Mỗi người tối đa **2 việc In Progress** cùng lúc.
-- Vướng quá một ngày: comment trên issue, gắn tên người liên quan và báo trong standup.
-- **Definition of Ready:** có tiêu đề rõ, tiêu chí hoàn thành, ước lượng, người nhận.
-- **Definition of Done:** code đã review và merge, chạy được, có bằng chứng (ảnh, video ngắn hoặc bảng số liệu), có ghi chú tài liệu nếu thay đổi cách dùng.
-
-### 12.2. Quy ước Git
-
-**Nhánh**
-
-| Nhánh | Mục đích | Quy tắc |
-|---|---|---|
-| `main` | Bản ổn định để demo và nộp | Cấm push trực tiếp. Chỉ merge từ `dev` qua PR do nhóm trưởng duyệt |
-| `dev` | Nơi gộp công việc hằng ngày | Cấm push trực tiếp, chỉ merge qua PR |
-| `feature/SEAT-x-ten-ngan` | Làm tính năng | Tạo từ `dev` |
-| `fix/SEAT-x-ten-ngan` | Sửa lỗi | Tạo từ `dev` |
-| `docs/SEAT-x-ten-ngan` | Tài liệu, báo cáo | Tạo từ `dev` |
-
-Đặt tên nhánh: chữ thường, không dấu, nối bằng gạch ngang, bắt đầu bằng loại nhánh và mã issue. Ví dụ: `feature/SEAT-12-api-nhan-su-kien`. Mã issue phải **viết hoa đúng** (`SEAT-12`), nếu không Jira không nhận ra.
-
-**Commit**
-
-Dạng: `SEAT-x loai: noi dung ngan`
-
-| Loại | Dùng khi |
-|---|---|
-| `feat` | Thêm tính năng |
-| `fix` | Sửa lỗi |
-| `docs` | Sửa tài liệu |
-| `refactor` | Sắp xếp lại code, không đổi chức năng |
-| `test` | Thêm hoặc sửa kiểm thử |
-| `chore` | Việc lặt vặt (cấu hình, thư viện) |
+### Rebuild sau khi sửa code
 
 ```bash
-git commit -m 'SEAT-12 feat: them endpoint nhan su kien vao ra'
-git commit -m 'SEAT-12 fix: sua loi dem trung khi 2 nguoi di sat nhau'
+# Rebuild tất cả
+docker compose up -d --build
+
+# Rebuild một service
+docker compose up -d --build backend
 ```
 
-- Viết tiếng Việt không dấu hoặc tiếng Anh, tối đa khoảng 72 ký tự.
-- Mỗi commit một thay đổi có ý nghĩa; commit thường xuyên.
-- Có thể ghi chú lên Jira từ commit: `SEAT-12 #comment da xong phan luu CSDL #time 2h`.
-- **Không** dùng `#done` hay `#in-progress` trong commit, vì trạng thái do tự động hóa quản lý.
+### Xem resource usage
 
-**Không đưa vào Git**
+```bash
+docker compose stats
+```
 
-- Mật khẩu Wi-Fi, API key, token: để trong `.env` (đã có trong `.gitignore`), kèm `.env.example` không chứa giá trị thật.
-- **Video và ảnh quay trong thư viện:** không commit vì liên quan quyền riêng tư. Lưu cục bộ, xóa sau khi xử lý xong.
-- File lớn (model `.pt`, dữ liệu thô trên 50 MB): để trên Google Drive, ghi link trong `docs/`.
-- File sinh tự động: `__pycache__`, `node_modules`, `.venv`, thư mục build.
+---
 
-### 12.3. Quy trình cho mỗi công việc
+## Xử lý lỗi thường gặp
 
-1. Nhận Task trên Jira, gán tên mình, đảm bảo thẻ đang ở **To Do**.
-2. Cập nhật `dev`:
+### Lỗi: Port đã được sử dụng
 
+```
+Error: bind: address already in use
+```
+
+**Giải pháp:**
+1. Tìm ứng dụng đang dùng port:
    ```bash
-   git checkout dev
-   git pull
+   # Windows
+   netstat -ano | findstr :8000
+   
+   # macOS/Linux
+   lsof -i :8000
    ```
 
-3. Tạo nhánh có mã issue (Jira tự chuyển thẻ sang **In Progress**):
-
+2. Đổi port trong `.env`:
    ```bash
-   git checkout -b feature/SEAT-12-api-nhan-su-kien
+   BACKEND_PORT=8001
    ```
 
-4. Làm việc, commit thường xuyên theo quy ước ở trên.
-5. Trước khi push, lấy `dev` mới nhất để giảm xung đột:
-
+3. Restart:
    ```bash
-   git fetch origin
-   git merge origin/dev
+   docker compose up -d --build
    ```
 
-6. Push nhánh:
+### Lỗi: Thiếu POSTGRES_PASSWORD
 
+```
+Error: Set POSTGRES_PASSWORD in .env
+```
+
+**Giải pháp:**
+1. Kiểm tra file `.env` tồn tại:
    ```bash
-   git push -u origin feature/SEAT-12-api-nhan-su-kien
+   ls -la .env
    ```
 
-7. Mở Pull Request vào `dev` (Jira tự chuyển thẻ sang **In Review**).
-8. Sau khi được duyệt, bấm **Squash and merge**, xóa nhánh (Jira tự chuyển thẻ sang **Done**). Về máy:
-
+2. Nếu chưa có, tạo từ `.env.example`:
    ```bash
-   git checkout dev
-   git pull
+   cp .env.example .env
    ```
 
-### 12.4. Pull Request
+3. Mở `.env` và điền `POSTGRES_PASSWORD=dev123456`
 
-- **Tiêu đề** có mã issue: `SEAT-12 Them endpoint nhan su kien`.
-- **Base** là `dev` (riêng PR từ `dev` vào `main` do nhóm trưởng tạo khi chốt mốc).
-- **Mô tả** theo mẫu:
+### Lỗi: Service không healthy
 
-  ```markdown
-  ## Lam gi
-  (1-2 cau)
+```bash
+# Xem log để tìm lỗi
+docker compose logs db
+docker compose logs backend
+docker compose logs cv
 
-  ## Cach kiem tra
-  (cac buoc de nguoi review chay thu)
+# Restart service
+docker compose restart backend
+```
 
-  ## Anh / ket qua
-  (anh chup, bang so lieu neu co)
+### Lỗi: Cannot connect to Docker daemon
 
-  ## Lien quan
-  SEAT-12
-  ```
+**Giải pháp:**
+1. Mở Docker Desktop
+2. Đợi Engine khởi động (icon Docker trên taskbar không còn loading)
+3. Chạy lại `docker compose up -d`
 
-- Một PR chỉ giải quyết **một issue** và nên nhỏ (khoảng dưới 300 dòng thay đổi nếu có thể).
-- Cần **ít nhất một người khác** review. Tác giả không tự merge PR của mình.
-- Người được nhờ review trả lời trong vòng **24 giờ**.
-- **Checklist review:** chạy được theo mục "Cách kiểm tra", đúng yêu cầu issue, không lộ bí mật hay dữ liệu cá nhân, tên rõ ràng, không có file thừa.
-- Merge bằng **Squash and merge**, giữ mã issue ở đầu thông điệp commit gộp.
+### Lỗi: Camera không hoạt động trong Docker
 
-### 12.5. Tự động hóa Jira và GitHub
+**Nguyên nhân:** Docker container không truy cập được webcam.
 
-| Sự kiện trên GitHub | Jira tự chuyển | Điều kiện |
-|---|---|---|
-| Tạo nhánh có mã issue | To Do -> In Progress | Thẻ đang ở To Do |
-| Mở Pull Request có mã issue | In Progress hoặc To Do -> In Review | Thẻ đang ở một trong hai cột này |
-| Merge Pull Request | In Review hoặc In Progress -> Done | Thẻ đang ở một trong hai cột này |
+**Giải pháp:** Chạy CV ngoài Docker (xem phần [Chạy Computer Vision](#chạy-computer-vision)).
 
-- Chỉ chạy khi tên nhánh hoặc tiêu đề PR chứa **mã issue đúng, viết hoa**.
-- Tự động hóa chỉ phản ứng với sự kiện **mới**. Tạo issue **trước** khi tạo nhánh.
-- Thẻ không tự chuyển: kiểm tra mã, kiểm tra thẻ có đang ở đúng cột điều kiện không, rồi xem **Space settings -> Automation -> Audit log**.
-- Chỉ kéo thẻ tay khi cần, ví dụ PR bị từ chối thì kéo về In Progress.
+### Database connection refused
 
-### 12.6. Nhịp làm việc theo sprint (1 tuần)
+```bash
+# Kiểm tra db container
+docker compose ps db
 
-| Buổi | Thời gian | Nội dung |
-|---|---|---|
-| Sprint Planning | Thứ Hai, 30 phút | Chọn việc từ Backlog, giao người, ước lượng |
-| Daily Standup | 15 phút mỗi ngày (hoặc nhắn trong nhóm chat) | Hôm qua làm gì, hôm nay làm gì, đang vướng gì |
-| Sprint Review và Retro | Cuối tuần, 45 phút | Demo kết quả thật, rút kinh nghiệm |
+# Restart db
+docker compose restart db
 
-### 12.7. Checklist trước khi push
+# Kiểm tra kết nối từ backend
+docker compose exec backend python -c "import psycopg2; print('OK')"
+```
 
-- [ ] Tên nhánh và commit có đúng mã issue, viết hoa.
-- [ ] Code chạy được trên máy mình.
-- [ ] Không có bí mật, video, ảnh thư viện hay file lớn trong thay đổi (`git status`).
-- [ ] Đã `git merge origin/dev` và xử lý xung đột.
-- [ ] Issue Jira đã gán tên mình và có tiêu chí hoàn thành.
+---
 
-### 12.8. Ứng xử trong nhóm
+## Quy ước làm việc nhóm
 
-- Review code để cải thiện sản phẩm, không để chê người. Góp ý cụ thể, lịch sự.
-- Báo sớm khi trễ hoặc vướng.
-- Tôn trọng quyền riêng tư: không chia sẻ dữ liệu khảo sát có thông tin cá nhân ra ngoài nhóm.
+### Quy tắc ngắn gọn
 
-## 13. Xử lý lỗi thường gặp
+1. **Nhánh:**
+   - `main` - Bản ổn định (cấm push trực tiếp)
+   - `dev` - Nhánh phát triển (cấm push trực tiếp)
+   - `feature/SEAT-X-ten-ngan` - Làm tính năng mới
+   - `fix/SEAT-X-ten-ngan` - Sửa lỗi
 
-### Docker và môi trường
+2. **Commit message:**
+   ```bash
+   SEAT-12 feat: them endpoint nhan su kien
+   SEAT-12 fix: sua loi dem trung
+   ```
 
-| Tình huống | Cách xử lý |
-|---|---|
-| Docker không chạy | Mở Docker Desktop, chờ Docker Engine khởi động, chạy `docker info`; khởi động lại Docker Desktop nếu cần |
-| Không tìm thấy file `.env` | Kiểm tra đang ở đúng thư mục dự án và đã tạo `.env` từ `.env.example` |
-| Không khởi chạy được Compose | Chạy `docker compose config`, `docker compose logs`, `docker compose ps`; kiểm tra biến môi trường, tên dịch vụ, cấu hình cổng |
-| Thiếu `POSTGRES_PASSWORD` | Tạo `.env` từ `.env.example` và điền mật khẩu phát triển vào biến `POSTGRES_PASSWORD` |
-| Cổng đã được sử dụng | Tìm ứng dụng khác đang dùng cổng. Đổi cổng host tương ứng trong `.env` (ví dụ `FRONTEND_PORT=3001`), sau đó chạy lại `docker compose up --build -d` |
-| Dịch vụ chưa healthy hoặc không khởi động | Kiểm tra `docker compose ps` và `docker compose logs <service_name>`; chờ health check hoàn tất rồi xem log dịch vụ báo lỗi |
-| Thay đổi mã nguồn nhưng ứng dụng chưa cập nhật | Build lại bằng `docker compose up --build -d` |
-| Cần cập nhật mã nguồn mới nhất | `git checkout dev` rồi `git pull origin dev`. Nếu đang ở nhánh cá nhân, lưu hoặc commit thay đổi trước khi chuyển nhánh |
+3. **Pull Request:**
+   - Tạo PR vào `dev`
+   - Cần ít nhất 1 người review
+   - Merge bằng "Squash and merge"
 
-### Git và Jira
+4. **KHÔNG commit:**
+   - File `.env` (password)
+   - Video/ảnh người dùng thật
+   - Model files (`*.pt`)
+   - API keys, tokens
 
-| Tình huống | Cách xử lý |
-|---|---|
-| Quên mã issue ở commit cuối, **chưa push** | `git commit --amend -m 'SEAT-12 feat: noi dung'` |
-| Lỡ commit trực tiếp trên `dev`, chưa push | Tạo nhánh giữ lại công việc: `git branch feature/SEAT-12-ten`, rồi đưa `dev` về đồng bộ: `git reset --hard origin/dev`. Nếu không chắc, hỏi nhóm trưởng trước |
-| Xung đột khi merge | Mở file có dấu `<<<<<<<`, giữ đoạn đúng, xóa các dấu, rồi `git add` và `git commit`. Không chắc thì hỏi người viết đoạn đó |
-| Jira không hiện commit hoặc nhánh | Kiểm tra mã issue, email Git, repo đã được cấp quyền cho app GitHub for Atlassian |
-| Thẻ không tự chuyển | Xem [mục 12.5](#125-tự-động-hóa-jira-và-github) |
-| Commit sai email | Sửa `git config user.email` rồi commit mới. Commit cũ sai email có thể bỏ qua |
-| Lỡ đẩy mật khẩu hoặc API key lên repo | Báo nhóm trưởng ngay và **đổi mật khẩu hoặc key lập tức**. Xóa file là chưa đủ vì lịch sử vẫn còn |
+**Quy ước đầy đủ (Git, Jira, Sprint):** Xem [docs/README-full.md](docs/README-full.md)
 
-Các lỗi riêng của từng thành phần (CV/AI, Backend, Frontend): **`[CHƯA CÓ DỮ KIỆN]`**
+---
 
-## 14. Kiểm tra README trên máy phát triển
+## Tài liệu chi tiết
 
-Sau khi hoàn thành hướng dẫn, kiểm tra theo trình tự:
+### Kiến trúc và thiết kế
 
-1. Clone repository trên máy phát triển.
-2. Checkout và cập nhật nhánh `dev`.
-3. Tạo `.env` từ `.env.example`.
-4. Chạy `docker compose config`.
-5. Chạy `docker compose up -d --build`.
-6. Kiểm tra trạng thái bằng `docker compose ps`.
-7. Kiểm tra log bằng `docker compose logs`.
-8. Xác nhận các dịch vụ khởi động đúng và truy cập được tại các cổng đã công bố.
-9. Kiểm tra chức năng đã triển khai và ghi nhận chức năng còn thiếu.
-10. Cập nhật README nếu phát hiện bước nào không chính xác hoặc chưa đầy đủ.
+- [docs/architecture/deployment-diagram.md](docs/architecture/deployment-diagram.md) - Sơ đồ triển khai Docker
+- [docs/architecture/cv-data-contract.md](docs/architecture/cv-data-contract.md) - Hợp đồng dữ liệu CV → Backend
+- [docs/decisions.md](docs/decisions.md) - Các quyết định kiến trúc (ADR)
 
-**Trạng thái kiểm thử hướng dẫn:** Chưa xác nhận. Chỉ cập nhật thành "Đã kiểm tra" sau khi thực hiện thành công trên ít nhất một máy phát triển.
+### README từng thành phần
 
-## 15. Lịch sử thay đổi
+- [cv/README.md](cv/README.md) - Computer Vision service
+- [backend/README.md](backend/README.md) - Backend API
+- [frontend/README.md](frontend/README.md) - Frontend web
+- [database/README.md](database/README.md) - Database schema
 
-| Phiên bản | Ngày | Thay đổi | Người cập nhật |
-|---|---|---|---|
-| 1.0 | 26/10/2026 | Bản quy ước làm việc nhóm đầu tiên | [LD] |
-| 1.1 | 28/10/2026 | Gộp README và quy ước Git/Jira thành một tài liệu; để trống các mục chưa có dữ kiện | **`** |
-| 1.2 | 28/10/2026 | Bỏ phần cứng; chốt Phương án B (camera + YOLOv8n + ByteTrack) kèm Docker theo Project Charter; bổ sung đặt phòng, dashboard, chỉ tiêu | **`** |
+### Quy ước và quy trình
+
+- [docs/README-full.md](docs/README-full.md) - Quy ước Git/Jira, Sprint, Review, Checklist đầy đủ
+
+### Kiểm thử
+
+- [cv/tests/PHASE1_RESULTS.md](cv/tests/PHASE1_RESULTS.md) - Kết quả test CV giai đoạn 1
+- [cv/tests/PHASE3_RESULTS.md](cv/tests/PHASE3_RESULTS.md) - Kết quả test CV giai đoạn 3
+- [tests/README.md](tests/README.md) - Integration tests
+
+---
+
+## Liên hệ và hỗ trợ
+
+- **GitHub:** https://github.com/uth-seatsense/UTH-SeatSense
+- **Jira:** Liên hệ nhóm trưởng để được mời vào workspace
+
+### Báo lỗi hoặc đề xuất
+
+Tạo issue trên GitHub hoặc Jira task với:
+- Mô tả vấn đề
+- Các bước tái hiện
+- Logs liên quan (`docker compose logs`)
+- Screenshots nếu có
+
+---
+
+**Cập nhật lần cuối:** 2026-11-09  
+**Phiên bản README:** 2.0 (Streamlined for quick start)
