@@ -321,3 +321,310 @@ These are CV testing routes, not Backend business endpoints. Job metadata is in 
 - `POST /api/webcam/{id}/frame`: JPEG bytes, maximum 2 MB and maximum decoded edge 1920 px. Returns a count record with `source_type: webcam` and debug bounding boxes. One frame at a time; `409` if busy/stopped, `422` for an invalid frame.
 - Stop and exports use the same job endpoints. Webcam source timestamps use monotonic time since session start; `recorded_at` is UTC processing time.
 - The browser obtains camera access only after explicit Start Test and permission. No audio or webcam video recording. Stop before leaving the page; a crashed client may require restarting the local service to release an orphan session.
+
+---
+
+## 13. UC-01: Xem chỗ trống - Sequence Diagram và API Spec
+
+> **Task:** SEAT-39 - Sequence UC-01 và đặc tả API occupancy, rooms  
+> **Status:** Draft - sẽ được finalize trong SEAT-40  
+> **Last updated:** 2026-11-11
+
+### 13.1 Sequence Diagram
+
+Luồng UC-01: Sinh viên xem tình trạng khu tự học tự do
+
+```mermaid
+sequenceDiagram
+    participant User as Sinh viên
+    participant Frontend as Frontend
+    participant API as OccupancyRouter
+    participant Service as OccupancyService
+    participant Repo as OccupancyRepository
+    participant DB as PostgreSQL
+
+    User->>Frontend: Mở trang chủ / chọn cơ sở
+    Frontend->>API: GET /api/v1/occupancy/current?campus=CS1
+    
+    API->>Service: get_current_occupancy(campus)
+    Service->>Repo: get_latest_per_room(campus)
+    Repo->>DB: SELECT latest occupancy_records<br/>WHERE room.campus = 'CS1'
+    DB-->>Repo: List[OccupancyRecord]
+    
+    alt Có dữ liệu
+        Repo-->>Service: List[OccupancyRecord]
+        Service->>Service: calculate_available_seats()<br/>check_stale_threshold()
+        Service-->>API: CurrentOccupancyResponse
+        API-->>Frontend: 200 OK + JSON
+        Frontend->>Frontend: Hiển thị: số người, chỗ trống,<br/>mức độ đông, thời gian cập nhật
+        Frontend-->>User: Hiển thị dashboard
+    else Không có dữ liệu
+        Repo-->>Service: []
+        Service-->>API: 404 occupancy_not_found
+        API-->>Frontend: 404 + error JSON
+        Frontend-->>User: "Chưa có dữ liệu mật độ"
+    else Dữ liệu cũ (>30s)
+        Repo-->>Service: OccupancyRecord (cũ)
+        Service->>Service: is_stale = true
+        Service-->>API: CurrentOccupancyResponse<br/>(is_stale: true)
+        API-->>Frontend: 200 OK + cảnh báo
+        Frontend-->>User: Hiển thị + cảnh báo "Dữ liệu lỗi thời"
+    end
+    
+    Note over Frontend: Polling mỗi 5 giây
+    Frontend->>API: GET /api/v1/occupancy/current?campus=CS1
+```
+
+### 13.2 API Endpoint: GET /api/v1/occupancy/current
+
+Lấy mật độ hiện tại của tất cả phòng đang hoạt động.
+
+**Query Parameters:**
+
+| Tham số | Kiểu | Bắt buộc | Mô tả |
+|---------|------|----------|-------|
+| `campus` | string | No | Lọc theo cơ sở: 'CS1', 'CS3'. Không truyền = tất cả cơ sở |
+
+**Success Response (200 OK):**
+
+```json
+{
+  "campus": "CS1",
+  "rooms": [
+    {
+      "room_id": 1,
+      "room_code": "A101",
+      "room_name": "Khu tự học CS1",
+      "room_type": "free_area",
+      "capacity": 50,
+      "current_count": 23,
+      "available_seats": 27,
+      "occupancy_level": "medium",
+      "recorded_at": "2026-11-11T10:25:30Z",
+      "updated_at": "2026-11-11T10:25:30Z",
+      "is_stale": false,
+      "device_status": "online"
+    },
+    {
+      "room_id": 2,
+      "room_code": "A201",
+      "room_name": "Phòng học nhóm 1",
+      "room_type": "topic_room",
+      "capacity": 10,
+      "current_count": 8,
+      "available_seats": 2,
+      "occupancy_level": "high",
+      "recorded_at": "2026-11-11T10:25:15Z",
+      "updated_at": "2026-11-11T10:25:15Z",
+      "is_stale": false,
+      "device_status": "online"
+    }
+  ],
+  "total_rooms": 2,
+  "last_updated": "2026-11-11T10:25:30Z"
+}
+```
+
+**Field Descriptions:**
+
+- `current_count`: Số người ước tính hiện tại (null nếu chưa có dữ liệu)
+- `available_seats`: Số ghế trống = `max(0, capacity - current_count)` (null nếu chưa cấu hình)
+- `occupancy_level`: Mức độ đông: `low` (≤50%), `medium` (>50% và <80%), `high` (≥80%)
+- `is_stale`: `true` nếu dữ liệu cũ hơn 30 giây (dựa vào `updated_at`)
+- `device_status`: Trạng thái thiết bị: `online`, `offline`, `error`
+
+**No Data Response (404 Not Found):**
+
+```json
+{
+  "error": {
+    "code": "occupancy_not_found",
+    "message": "Chưa có dữ liệu mật độ cho cơ sở này"
+  }
+}
+```
+
+**Service Unavailable (503):**
+
+```json
+{
+  "error": {
+    "code": "service_unavailable",
+    "message": "Không thể kết nối tới nguồn dữ liệu"
+  }
+}
+```
+
+### 13.3 API Endpoint: GET /api/v1/rooms
+
+Lấy danh sách phòng có thể lọc theo cơ sở và loại phòng.
+
+**Query Parameters:**
+
+| Tham số | Kiểu | Bắt buộc | Mô tả |
+|---------|------|----------|-------|
+| `campus` | string | No | Lọc theo cơ sở: 'CS1', 'CS3' |
+| `room_type` | string | No | Lọc theo loại: 'free_area', 'topic_room' |
+| `status` | string | No | Lọc theo trạng thái: 'active', 'maintenance', 'closed' |
+
+**Success Response (200 OK):**
+
+```json
+{
+  "rooms": [
+    {
+      "id": 1,
+      "code": "A101",
+      "name": "Khu tự học CS1",
+      "room_type": "free_area",
+      "building": "CS1",
+      "capacity": 50,
+      "location": "Tầng 1, Khu A",
+      "status": "active",
+      "is_active": true,
+      "created_at": "2026-10-01T00:00:00Z"
+    },
+    {
+      "id": 2,
+      "code": "A201",
+      "name": "Phòng học nhóm 1",
+      "room_type": "topic_room",
+      "building": "CS1",
+      "capacity": 10,
+      "location": "Tầng 2, Khu A",
+      "status": "active",
+      "is_active": true,
+      "created_at": "2026-10-01T00:00:00Z"
+    }
+  ],
+  "total": 2
+}
+```
+
+### 13.4 API Endpoint: GET /api/v1/rooms/{room_id}
+
+Lấy chi tiết một phòng cụ thể.
+
+**Success Response (200 OK):**
+
+```json
+{
+  "id": 1,
+  "code": "A101",
+  "name": "Khu tự học CS1",
+  "room_type": "free_area",
+  "building": "CS1",
+  "capacity": 50,
+  "location": "Tầng 1, Khu A",
+  "status": "active",
+  "is_active": true,
+  "created_at": "2026-10-01T00:00:00Z"
+}
+```
+
+**Room Not Found (404):**
+
+```json
+{
+  "error": {
+    "code": "room_not_found",
+    "message": "Không tìm thấy phòng với ID này"
+  }
+}
+```
+
+### 13.5 API Endpoint: GET /api/v1/rooms/{room_id}/occupancy/history
+
+Lấy lịch sử mật độ của một phòng.
+
+**Query Parameters:**
+
+| Tham số | Kiểu | Bắt buộc | Mô tả |
+|---------|------|----------|-------|
+| `start_time` | datetime | Yes | Thời gian bắt đầu (ISO 8601) |
+| `end_time` | datetime | Yes | Thời gian kết thúc (ISO 8601) |
+| `limit` | integer | No | Số bản ghi tối đa (mặc định: 100, max: 500) |
+
+**Success Response (200 OK):**
+
+```json
+{
+  "room_id": 1,
+  "room_code": "A101",
+  "room_name": "Khu tự học CS1",
+  "start_time": "2026-11-11T09:00:00Z",
+  "end_time": "2026-11-11T10:00:00Z",
+  "records": [
+    {
+      "id": 1001,
+      "current_count": 20,
+      "available_seats": 30,
+      "recorded_at": "2026-11-11T09:00:00Z",
+      "source": "cv",
+      "device_status": "online"
+    },
+    {
+      "id": 1002,
+      "current_count": 25,
+      "available_seats": 25,
+      "recorded_at": "2026-11-11T09:05:00Z",
+      "source": "cv",
+      "device_status": "online"
+    }
+  ],
+  "total": 2
+}
+```
+
+### 13.6 Edge Cases và Error Handling
+
+**Dữ liệu lỗi thời (Stale Data):**
+- Ngưỡng: Dữ liệu cũ hơn **30 giây** được đánh dấu `is_stale: true`
+- Frontend hiển thị cảnh báo: "⚠️ Dữ liệu lỗi thời - cập nhật lần cuối lúc {time}"
+- Response vẫn trả 200 OK nhưng có flag `is_stale`
+
+**Mất kết nối (Connection Loss):**
+- Khi `device_status: "offline"` hoặc không nhận được dữ liệu mới
+- Frontend hiển thị: "❌ Mất kết nối với camera"
+- Giữ dữ liệu cũ nhưng disable polling tạm thời
+
+**Không có dữ liệu ban đầu:**
+- `current_count: null`, `available_seats: null`
+- Frontend hiển thị: "Chưa có dữ liệu - Đang chờ cấu hình"
+
+**Error Codes Summary:**
+
+| HTTP Code | Error Code | Khi nào xảy ra | Frontend xử lý |
+|-----------|------------|----------------|----------------|
+| 200 | — | Thành công, có thể có `is_stale: true` | Hiển thị dữ liệu + cảnh báo nếu stale |
+| 404 | `occupancy_not_found` | Phòng tồn tại nhưng chưa có dữ liệu | "Chưa có dữ liệu mật độ" |
+| 404 | `room_not_found` | Room ID không tồn tại | "Không tìm thấy phòng" |
+| 503 | `service_unavailable` | Database/service down | "Hệ thống tạm thời không khả dụng" |
+
+### 13.7 Frontend Integration Notes
+
+**Polling Strategy:**
+- Interval: **5 giây** (đã thống nhất với Frontend)
+- Chỉ poll khi tab active (sử dụng Page Visibility API)
+- Exponential backoff khi gặp lỗi: 5s → 10s → 20s → 30s (max)
+
+**Display Logic:**
+```javascript
+if (data.is_stale) {
+  showWarning("Dữ liệu lỗi thời");
+}
+if (data.device_status === "offline") {
+  showError("Mất kết nối camera");
+}
+if (data.current_count === null) {
+  showPlaceholder("Chưa có dữ liệu");
+} else if (data.current_count === 0) {
+  showCount(0); // Zero là giá trị hợp lệ
+}
+```
+
+**Occupancy Level Colors:**
+- `low` (≤50%): Xanh lá 🟢
+- `medium` (>50%, <80%): Vàng 🟡
+- `high` (≥80%): Đỏ 🔴
+
