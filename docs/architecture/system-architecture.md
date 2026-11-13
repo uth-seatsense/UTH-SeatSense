@@ -10,3 +10,7 @@ The repository is organized as a Docker Compose monorepo:
 The backend is intended to orchestrate application workflows and consume
 occupancy data from the CV service. Authentication, API contracts, and service
 communication are not implemented in the scaffold.
+
+## Booking workflow
+
+The booking lifecycle, state transitions, and UC-02/03/04 sequence diagrams are documented in [Booking lifecycle](booking-lifecycle.md).

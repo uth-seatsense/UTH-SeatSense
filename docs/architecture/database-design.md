@@ -212,7 +212,9 @@ Phòng học/đọc khả dụng để đặt chỗ.
 - `ck_bookings_time_order`: end_time > start_time
 - **`no_overlapping_bookings` (TC-07):** EXCLUDE USING gist (room_id WITH =, tstzrange(start_time, end_time) WITH &&) WHERE (status IN ('booked', 'checked_in'))
 
-**State diagram và điều kiện chuyển:** xem [booking-lifecycle.md](booking-lifecycle.md). Trạng thái lưu trong ERD là `booked`, `checked_in`, `completed`, `cancelled`, `no_show`; `checkin_at` nằm trên Booking để thể hiện check-in thành công. `pending` không được lưu: tạo booking thành công và chiếm lịch trong một transaction sẽ tạo thẳng trạng thái `booked`.
+**State diagram và điều kiện chuyển:** xem [booking-lifecycle.md](booking-lifecycle.md).
+
+> `database/init/008_booking_status_lifecycle.sql` migrates legacy booking values to this canonical status set and adds `checkin_at` without dropping booking rows. Trạng thái lưu trong ERD là `booked`, `checked_in`, `completed`, `cancelled`, `no_show`; `checkin_at` nằm trên Booking để thể hiện check-in thành công. `pending` không được lưu: tạo booking thành công và chiếm lịch trong một transaction sẽ tạo thẳng trạng thái `booked`.
 
 ---
 
