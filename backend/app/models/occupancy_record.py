@@ -50,4 +50,3 @@ class OccupancyRecord(Base):
         String(30), nullable=False, server_default=text("'cv'")
     )
     device_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
-

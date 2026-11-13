@@ -9,14 +9,14 @@ Hệ thống theo dõi mật độ sử dụng phòng đọc<br>và đặt phòn
 | Thông tin | Nội dung |
 | --- | --- |
 | Mã đề tài | D6 – Đặt chỗ và theo dõi mật độ sử dụng phòng đọc |
-| Phiên bản | 1.8 – Duyệt nội bộ; chờ xác nhận thư viện trước triển khai |
+| Phiên bản | 1.9 – Bổ sung đánh giá SEAT-48; Uyên duyệt nội bộ |
 | Ngày cập nhật | 10/11/2026 |
 | Đơn vị hưởng lợi | Trung tâm Thông tin Thư viện UTH |
 | Quản lý dự án | Vũ Nguyễn Nhã Uyên |
 | Giáo viên hướng dẫn | TS. Đặng Nhân Cánh |
 | Nhóm phát triển | Nhóm dự án UTH-SeatSense |
 | Thời gian dự án | 26/10/2026 – 26/12/2026 |
-| Trạng thái | Uyên duyệt nội bộ ngày 10/11/2026; 5 email thư viện hoãn đến trước triển khai tại thư viện |
+| Trạng thái | Uyên duyệt nội bộ SRS 1.9 ngày 10/11/2026; native Kotlin chưa có PoC build/runtime; xác nhận thư viện vẫn cần trước triển khai |
 
 Tài liệu làm cơ sở thống nhất yêu cầu, thiết kế, phát triển, kiểm thử và đánh giá sản phẩm.
 
@@ -33,6 +33,7 @@ Tài liệu làm cơ sở thống nhất yêu cầu, thiết kế, phát triển
 | 1.6 | 07/11/2026 | Chốt dùng webcam của máy tính cho cả kiểm thử và triển khai; bỏ chi phí mua camera; cập nhật mô tả camera, giả định, rủi ro | Chờ rà soát |
 | 1.7 | 10/11/2026 | Chuẩn hóa quyết định, cập nhật FR/BR/KPI và ghi nhận Uyên duyệt nội bộ; email thư viện hoãn đến trước triển khai tại thư viện | Duyệt nội bộ |
 | 1.8 | 10/11/2026 | Đối chiếu lại với Charter; chốt ByteTrack, quy trình ghi nhận số người ban đầu, hiệu chỉnh có truy vết và truy cập thử nghiệm qua Wi-Fi; đổi tên bản SRS cho khớp phiên bản | Duyệt nội bộ |
+| 1.9 | 10/11/2026 | Bổ sung so sánh framework và bằng chứng thử nhanh cho Q-16/Q-17 theo SEAT-48; Uyên duyệt hướng React + Vite và Android Kotlin; PoC native chưa thực hiện do thiếu toolchain | Duyệt nội bộ; native PoC còn chờ |
 
 ## Mục lục nội dung
 
@@ -508,12 +509,12 @@ Phân nhóm đầu mối cần trả lời/xác nhận (một số mục cần p
 | Q-13. Mục tiêu chạy liên tục? | Tạm đo một phiên 4 giờ liên tục, ghi thời gian gián đoạn và lỗi; đây là mục tiêu kiểm thử, không phải cam kết SLA. Hệ quả: đo được trong phạm vi đồ án mà không hàm ý vận hành 24/7. | UYÊN BÁO ĐÃ XÁC NHẬN — người duyệt mục tiêu chạy liên tục gốc chưa được cung cấp. | Vũ Nguyễn Nhã Uyên (báo đã xác nhận); TS. Đặng Nhân Cánh là đầu mối xác nhận học thuật. | 10/11/2026 (Uyên xác nhận) | NFR-REL-01; AT-05; FR-OPS-01 |
 | Q-14. Môi trường, tải và công thức KPI? | Tạm dùng công thức sai số tổng hợp tại AT-01; 5–10 phiên ở nhiều mức đông; phiên tổng đếm tay bằng 0 báo sai số tuyệt đối; p95 độ trễ ≤5 giây; trung vị ≥5 FPS ở 416 px trong ít nhất 60 giây; SUS ≥70 với 15–30 người. Hệ quả: kết quả có thể so sánh, nhưng mẫu nhỏ phải nêu giới hạn. | UYÊN BÁO ĐÃ XÁC NHẬN — người duyệt KPI gốc/công thức chi tiết chưa được cung cấp; giữ các giới hạn đo trong báo cáo. | Vũ Nguyễn Nhã Uyên (báo đã xác nhận); TS. Đặng Nhân Cánh là đầu mối KPI; Lê Văn Trí đo CV. | 10/11/2026 (Uyên xác nhận) | FR-EXP-01–02; NFR-PER-01–02; NFR-ACC-01; NFR-USA-03; AT-01–04 |
 | Q-15. Xử lý bỏ sót hoặc lệch số đếm? | Tạo bản ghi điều chỉnh riêng có lý do, người thực hiện và thời gian; cho phép cập nhật số hiện tại bởi vai trò được cấp quyền, nhưng không sửa/xóa sự kiện CV thô hoặc lịch sử đã lưu. Hệ quả: có truy vết và phân biệt đo tự động với hiệu chỉnh thủ công. | UYÊN BÁO ĐÃ XÁC NHẬN — người trả lời kỹ thuật gốc chưa được cung cấp; cơ chế còn cần tích hợp và kiểm thử. | Vũ Nguyễn Nhã Uyên (báo đã xác nhận); nhóm Backend/CV thực hiện. | 10/11/2026 (Uyên xác nhận) | FR-OCC-01–02, FR-ADMIN-01; BR-13, BR-21 |
-| Q-16. Framework frontend và payload CV/backend? | Frontend React + Vite (JavaScript), theo Charter; dùng hợp đồng dữ liệu CV schema 1.0 hiện có. Endpoint mạng, xác thực, retry và mã phòng ánh xạ phải được chốt cùng trước tích hợp. Hệ quả: giữ tương thích hợp đồng hiện tại, tránh coi JSONL cục bộ là API đã triển khai. | UYÊN BÁO ĐÃ XÁC NHẬN — framework/schema đối chiếu được trong tài liệu; endpoint mạng và retry vẫn chưa có trong hợp đồng. | Vũ Nguyễn Nhã Uyên (báo đã xác nhận); nhóm Frontend/Backend/CV hoàn thiện endpoint. | 10/11/2026 (Uyên xác nhận; repo đối chiếu) | FR-CV-01–04; FR-OCC-01; NFR-DAT-01; hợp đồng dữ liệu CV v1.0 |
-| Q-17 (P0). Nền tảng ứng dụng: Android hay iOS; công nghệ và phát hành? | Theo Charter: Android native cho sinh viên, iOS ngoài phạm vi; tạm chọn Kotlin, phát hành APK trực tiếp và kiểm thử trên thiết bị Android nhóm mượn. Hệ quả: giữ được camera quét QR, không phát sinh chi phí cửa hàng; nếu thiếu thời gian, ưu tiên web/API vì ứng dụng là Should. | UYÊN BÁO ĐÃ XÁC NHẬN — quy định nền tảng/phát hành của trường và người duyệt công nghệ Android gốc chưa được cung cấp. | Vũ Nguyễn Nhã Uyên (báo đã xác nhận); đầu mối CNTT nhà trường chưa được chỉ định; nhóm Android chưa phân công. | 10/11/2026 (Uyên xác nhận) | FR-APP-01; FR-PWA-01; FR-CHK-01–03; NFR-USA-02; TC-11, TC-17 |
+| Q-16. Framework frontend và payload CV/backend? | Giữ React + Vite (JavaScript), phù hợp frontend hiện có; dùng hợp đồng dữ liệu CV schema 1.0. PoC React build thành công, 9/9 test đạt và gọi API thật HTTP 200; PoC Vue trống cũng build/call API thành công nhưng không có lợi ích đủ để thay thế code React hiện hữu. Endpoint mạng, xác thực, retry, ánh xạ mã phòng và thư viện QR/biểu đồ vẫn cần chốt. Hệ quả: giảm chi phí chuyển đổi; không xem PoC UI/API là hoàn tất tích hợp payload CV. | Uyên duyệt giữ React + Vite ngày 10/11/2026 sau khi xem kết quả so sánh SEAT-48; Vue cũng chạy được PoC tối thiểu. | Vũ Nguyễn Nhã Uyên (người duyệt); nhóm Frontend/Backend/CV hoàn thiện endpoint và chọn thư viện sau khi kiểm thử. | 10/11/2026 (PoC web và Uyên duyệt) | FR-CV-01–04; FR-OCC-01; NFR-DAT-01; hợp đồng dữ liệu CV v1.0 |
+| Q-17 (P0). Nền tảng ứng dụng: Android hay iOS; công nghệ và phát hành? | Giữ Android native bằng Kotlin theo Charter; iOS ngoài phạm vi; dự kiến phát hành APK trực tiếp. Kotlin phù hợp mục tiêu Android-only và truy cập camera/QR nền tảng; Flutter/React Native cần toolchain mobile và UI riêng, còn Swift hướng iOS. Chưa chạy PoC native: môi trường thiếu Android SDK, adb, Gradle và Flutter; không ghi nhận build hoặc gọi API thành công. Hệ quả: hướng công nghệ đã được Uyên duyệt nhưng cần spike 30 phút (app trống + gọi API) trên máy có Android toolchain trước khi xác nhận khả năng build/tích hợp. | Uyên duyệt hướng Android/Kotlin ngày 10/11/2026; SEAT-48 chưa kiểm chứng native bằng build/runtime. Uyên sẽ chỉ định người chạy spike trên máy Android phù hợp. | Vũ Nguyễn Nhã Uyên (người duyệt và phân công người chạy spike); đầu mối CNTT nhà trường chưa được chỉ định. | 10/11/2026 (Uyên duyệt; PoC native chờ thực hiện) | FR-APP-01; FR-PWA-01; FR-CHK-01–03; NFR-USA-02; TC-11, TC-17 |
 
 ### Trạng thái xác nhận
 
-- Uyên đã duyệt nội bộ SRS 1.8 ngày 10/11/2026; 17/17 mục có trạng thái.
+- Uyên đã duyệt nội bộ SRS 1.9 ngày 10/11/2026; 17/17 mục có trạng thái. PoC native và tích hợp thư viện QR/biểu đồ chưa được thực hiện/kiểm chứng; đây là việc xác minh kỹ thuật tiếp theo, không thay đổi quyết định công nghệ.
 - Uyên báo 12 mục ngoài Q-03/04/05/06/08 đã được xác nhận; tên người trả lời gốc và ngày trả lời cụ thể chưa được cung cấp, nên hồ sơ không gán các câu trả lời trực tiếp cho nhà trường/thầy hướng dẫn/nhóm.
 - Theo chỉ đạo của Uyên, email thư viện cho Q-03/04/05/06/08 được hoãn ở giai đoạn nội bộ. Chưa có email trong repo; phải lấy văn bản đồng ý và xác nhận quy tắc liên quan trước khi đặt webcam, thu thập dữ liệu hoặc vận hành tại thư viện.
 - Các giá trị được Uyên duyệt chỉ dùng cho phát triển/kiểm thử nội bộ; không thay thế phê duyệt nghiệp vụ/quyền riêng tư của thư viện hoặc nhà trường.
@@ -522,11 +523,11 @@ Phân nhóm đầu mối cần trả lời/xác nhận (một số mục cần p
 
 | Vai trò | Người phê duyệt | Ngày | Chữ ký |
 | --- | --- | --- | --- |
-| Đại diện nhóm dự án | Vũ Nguyễn Nhã Uyên | 10/11/2026 | Đã duyệt nội bộ SRS 1.8 theo xác nhận trong phiên làm việc |
+| Đại diện nhóm dự án | Vũ Nguyễn Nhã Uyên | 10/11/2026 | Đã duyệt nội bộ SRS 1.9 theo xác nhận trong phiên làm việc |
 | Giáo viên hướng dẫn | TS. Đặng Nhân Cánh | Chưa ghi nhận chữ ký; Uyên báo các xác nhận ngoài nhóm email đã có | Chưa có chữ ký trong repo |
 | Đại diện Thư viện UTH | Chưa được chỉ định | Hoãn xác nhận email cho giai đoạn nội bộ | Cần văn bản trước khi triển khai tại thư viện |
 
-Kết luận: SRS 1.8 đã được Uyên duyệt cho giai đoạn phát triển/kiểm thử nội bộ theo Project Charter UTH-SeatSense phiên bản 1.7. Đây chưa phải phê duyệt triển khai tại thư viện; xác nhận/email thư viện cho Q-03/04/05/06/08 được hoãn theo chỉ đạo của Uyên và vẫn là điều kiện trước khi đặt webcam, thu thập dữ liệu hoặc áp dụng chính sách thật.
+Kết luận: SRS 1.9 đã được Uyên duyệt cho giai đoạn phát triển/kiểm thử nội bộ theo Project Charter UTH-SeatSense phiên bản 1.7. Quyết định công nghệ được chốt nội bộ; PoC native chưa được thực hiện nên khả năng build/tích hợp chưa được xác minh. Đây chưa phải phê duyệt triển khai tại thư viện; xác nhận/email thư viện cho Q-03/04/05/06/08 được hoãn theo chỉ đạo của Uyên và vẫn là điều kiện trước khi đặt webcam, thu thập dữ liệu hoặc áp dụng chính sách thật.
 
 ## Phụ lục A. Nguồn dự án
 
