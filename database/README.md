@@ -43,3 +43,20 @@ thống nhất cách cập nhật và sao lưu dữ liệu cần giữ.
 - Không đưa mật khẩu, `.env` hay bản sao cơ sở dữ liệu thật lên Git.
 - Giới hạn quyền truy cập dữ liệu thật, lưu bản sao ở nơi riêng và thống nhất
   thời hạn giữ hoặc xóa sau khi kết thúc dự án.
+
+## Booking status migration
+
+`init/008_booking_status_lifecycle.sql` is applied automatically when PostgreSQL
+initializes a fresh volume. Docker does not rerun init scripts for an existing
+volume, so apply the migration manually after backing up the database:
+
+```sh
+docker compose exec -T db psql -U seatsense -d seatsense \
+  -v ON_ERROR_STOP=1 \
+  -f /docker-entrypoint-initdb.d/008_booking_status_lifecycle.sql
+```
+
+Replace the database user/name if `.env` uses values other than `seatsense`.
+The migration takes exclusive locks on reservation tables, preserves rows,
+maps `pending`/`confirmed` to `booked` and `expired` to `no_show`, and can be
+safely reapplied.

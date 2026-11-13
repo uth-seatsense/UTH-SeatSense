@@ -14,8 +14,9 @@ CREATE TABLE IF NOT EXISTS reservations (
     reserver_name VARCHAR(150) NOT NULL,
     starts_at TIMESTAMPTZ NOT NULL,
     ends_at TIMESTAMPTZ NOT NULL,
-    status VARCHAR(30) NOT NULL DEFAULT 'pending'
-        CHECK (status IN ('pending', 'confirmed', 'checked_in', 'cancelled', 'expired')),
+    status VARCHAR(30) NOT NULL DEFAULT 'booked'
+        CONSTRAINT ck_reservations_status
+        CHECK (status IN ('booked', 'checked_in', 'completed', 'cancelled', 'no_show')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CHECK (ends_at > starts_at)
 );

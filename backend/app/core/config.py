@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     app_name: str = "UTH-SeatSense API"
     database_url: str = "postgresql+psycopg://seatsense:seatsense@localhost:5432/seatsense"
     cv_service_url: str = "http://localhost:8001"
+    no_show_wait_minutes: int = Field(default=15, gt=0, le=1440)
 
     model_config = SettingsConfigDict(extra="ignore")
 
