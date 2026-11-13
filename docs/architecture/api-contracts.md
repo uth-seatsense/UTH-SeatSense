@@ -1,61 +1,61 @@
-# API Contracts - UTH-SeatSense
+# Hợp đồng API – UTH-SeatSense
 
-> **Task:** SEAT-18 - API contract with the CV module
-> **Status:** Contract agreed by Backend, CV, and Frontend; SEAT-19 Backend routes are implemented. CV-to-Backend sender integration remains pending.
-> **Source:** CV Data Contract v1.0 and the SEAT-24 PostgreSQL persistence design.
-> **Last updated:** 2026-10-30
+> **Nhiệm vụ:** SEAT-18 – Hợp đồng API với mô-đun CV
+> **Trạng thái:** Nhóm máy chủ, CV và giao diện đã thống nhất hợp đồng. Các tuyến API phía máy chủ của SEAT-19 đã được triển khai. Phần gửi dữ liệu từ CV lên máy chủ còn chờ tích hợp.
+> **Nguồn:** Hợp đồng dữ liệu CV v1.0 và thiết kế lưu trữ PostgreSQL của SEAT-24.
+> **Cập nhật lần cuối:** 2026-10-30
 
-## Dashboard occupancy endpoint
+## API tổng hợp số người cho bảng tổng quan
 
-- `GET /api/v1/occupancy/current` returns the total occupancy from the latest
-  record for each active room, with `current_count`, `updated_at`, and
-  `location`. The count and timestamp are `null` when no records exist.
-- The endpoint aggregates all active rooms because the current room schema has
-  no campus identifier. Campus-specific filtering requires adding that mapping
-  to the data model.
+- `GET /api/v1/occupancy/current` trả về tổng số người dựa trên bản ghi mới nhất
+  của từng phòng đang hoạt động, gồm `current_count`, `updated_at` và
+  `location`. Số người và thời điểm cập nhật là `null` khi chưa có bản ghi.
+- API tổng hợp tất cả phòng đang hoạt động vì mô hình phòng hiện tại
+  chưa có mã cơ sở. Để lọc theo cơ sở, cần bổ sung ánh xạ này
+  vào mô hình dữ liệu.
 
-## 1. Purpose and status
+## 1. Mục đích và trạng thái
 
-This document records the agreed wire contract for CV count records and the latest occupancy data shown by Frontend. The CV owner agreed to follow the Backend contract, with already committed CV work left untouched. Frontend approved the GET response and display behavior, including null versus zero, no-data handling, the 30-second stale threshold, and 5-second polling.
+Tài liệu ghi lại hợp đồng trao đổi dữ liệu đã thống nhất cho bản ghi số đếm CV và số người mới nhất hiển thị trên giao diện. Nhóm CV đồng ý theo hợp đồng của máy chủ và giữ nguyên phần CV đã đưa vào Git. Nhóm giao diện đã xác nhận phản hồi GET và cách hiển thị, gồm phân biệt giá trị chưa biết với số 0, xử lý khi thiếu dữ liệu, ngưỡng lỗi thời 30 giây và chu kỳ truy vấn 5 giây.
 
-The CV v1.0 producer currently writes local JSONL records. This document defines the HTTP boundary used by the SEAT-19 Backend routes; the CV sender/retry integration is still pending. CV's local video and webcam testing routes are described in section 12 and are not Backend business endpoints. The existing SEAT-19 occupancy request format remains separate from raw per-frame CV records.
+Mô-đun CV v1.0 hiện ghi bản ghi JSONL cục bộ. Tài liệu xác định giao tiếp HTTP cho các tuyến máy chủ của SEAT-19. Việc tích hợp bộ gửi và cơ chế gửi lại của CV còn chờ thực hiện. Mục 12 mô tả các tuyến thử video và webcam cục bộ của CV. Các tuyến này tách riêng với API nghiệp vụ của máy chủ. Định dạng yêu cầu về số người hiện có của SEAT-19 tách riêng với bản ghi thô theo từng khung hình.
 
-## 2. General conventions
+## 2. Quy ước chung
 
-- API base path: `/api/v1`.
-- Request and response bodies use UTF-8 JSON with `snake_case` field names.
-- JSON integers are numbers, not numeric strings. A missing value is not the same as `0`.
-- Timestamps are ISO 8601 date-time strings with a timezone. Backend normalizes returned timestamps to UTC with a `Z` suffix.
-- `timestamp_ms` is a relative offset within the source or session timeline. It is not Unix time.
-- CV v1.0 payloads reject unknown fields. Do not rename fields silently.
-- A `CountResult` is a frame record. A `CrossingEvent` is a separate event and is not accepted by the v1 count-record endpoint below.
+- Đường dẫn gốc của API là `/api/v1`.
+- Nội dung yêu cầu và phản hồi dùng JSON UTF-8 với tên trường theo kiểu `snake_case`.
+- Biểu diễn số nguyên bằng giá trị số trong JSON. Phân biệt giá trị bị thiếu với `0`.
+- Dấu thời gian dùng chuỗi ngày giờ ISO 8601 có múi giờ. Máy chủ chuẩn hóa thời gian trả về sang UTC với hậu tố `Z`.
+- `timestamp_ms` là độ lệch tương đối trên dòng thời gian của nguồn hoặc phiên. Trường này dùng mốc của nguồn hoặc phiên thay cho mốc Unix.
+- Dữ liệu CV v1.0 bị từ chối nếu có trường chưa định nghĩa. Cần thông báo nếu đổi tên trường.
+- `CountResult` là bản ghi theo khung hình. `CrossingEvent` là sự kiện riêng và tuyến nhận bản ghi số đếm v1 bên dưới từ chối kiểu này.
 
-## 3. CV v1.0 data fields
+## 3. Các trường dữ liệu CV v1.0
 
-### 3.1 CountResult
+### 3.1 Bản ghi CountResult
 
-| Field | Type | Required | Meaning and validation |
+| Trường | Kiểu | Bắt buộc | Ý nghĩa và quy tắc kiểm tra |
 |---|---|---:|---|
-| `schema_version` | string | No; defaults to `"1.0"` | CV contract version. Backend supports `1.0`. |
-| `session_id` | UUID string | Yes | Identifier for one CV processing session. |
-| `camera_id` | string | Yes | Camera identifier; 1-100 non-blank characters. |
-| `room_id` | string or null | No | CV room code; 1-100 non-blank characters when present. Backend preserves it as `room_code` and links it to `rooms.id` only when it exactly matches `rooms.code`. |
-| `source_type` | string | No; defaults to `"video"` | `"video"` or `"webcam"`. Only webcam records feed the current-occupancy GET endpoint. |
-| `frame_index` | integer | Yes | Zero-based frame number; non-negative. |
-| `timestamp_ms` | number | Yes | Non-negative, finite offset within the video/session. |
-| `recorded_at` | date-time string | Yes | Time CV processed the record; must include a timezone. It is not necessarily camera capture time. |
-| `people_count` | integer | Yes | People detected in this frame, including detections without confirmed track IDs; non-negative. It is not guaranteed whole-room occupancy. |
-| `tracked_count` | integer | Yes | Detected people with confirmed track IDs; `0 <= tracked_count <= people_count`. |
-| `line_enabled` | boolean | Yes | Whether virtual-line counting is enabled. |
-| `in_count` | integer or null | No | Cumulative IN count for this session. Required when `line_enabled` is true; null when false. |
-| `out_count` | integer or null | No | Cumulative OUT count for this session. Required when `line_enabled` is true; null when false. |
-| `initial_occupancy` | integer or null | No | Known starting number of people; non-negative. |
-| `estimated_occupancy` | integer or null | No | `max(0, initial_occupancy + in_count - out_count)` when calculable; otherwise null. |
-| `occupancy_underflow` | boolean | No; defaults to false | True when the unclamped estimate was negative. |
+| `schema_version` | Chuỗi | Không, mặc định `"1.0"` | Phiên bản hợp đồng CV. Máy chủ hỗ trợ `1.0`. |
+| `session_id` | Chuỗi UUID | Có | Mã định danh của một phiên xử lý CV. |
+| `camera_id` | Chuỗi | Có | Mã camera, dài 1–100 ký tự và không được để trắng. |
+| `room_id` | Chuỗi hoặc `null` | Không | Mã phòng do CV gửi. Khi có giá trị, mã dài 1–100 ký tự và không được để trắng. Máy chủ giữ mã dưới trường `room_code` và chỉ liên kết với `rooms.id` khi trùng chính xác `rooms.code`. |
+| `source_type` | Chuỗi | Không, mặc định `"video"` | Nhận `"video"` hoặc `"webcam"`. Tuyến GET lấy số người hiện tại chỉ dùng bản ghi webcam. |
+| `frame_index` | Số nguyên | Có | Số thứ tự khung hình, bắt đầu từ 0. |
+| `timestamp_ms` | Số | Có | Độ lệch hữu hạn và không âm trong video hoặc phiên. |
+| `recorded_at` | Chuỗi ngày giờ | Có | Thời điểm CV xử lý bản ghi, bắt buộc có múi giờ. Thời điểm này có thể khác thời điểm camera ghi hình. |
+| `people_count` | Số nguyên | Có | Số người phát hiện trong khung hình, kể cả người chưa có mã theo dõi đã xác nhận. Giá trị không âm và chỉ phản ánh vùng quan sát. |
+| `tracked_count` | Số nguyên | Có | Số người phát hiện có mã theo dõi đã xác nhận. Điều kiện `0 <= tracked_count <= people_count`. |
+| `line_enabled` | Luận lý | Có | Cho biết chế độ đếm qua đường ảo đã bật hay chưa. |
+| `in_count` | Số nguyên hoặc `null` | Không | Số lượt vào cộng dồn trong phiên. Bắt buộc khi `line_enabled` là `true`, nhận `null` khi là `false`. |
+| `out_count` | Số nguyên hoặc `null` | Không | Số lượt ra cộng dồn trong phiên. Bắt buộc khi `line_enabled` là `true`, nhận `null` khi là `false`. |
+| `initial_occupancy` | Số nguyên hoặc `null` | Không | Số người ban đầu đã biết, có giá trị không âm. |
+| `estimated_occupancy` | Số nguyên hoặc `null` | Không | Tính theo `max(0, initial_occupancy + in_count - out_count)` khi đủ dữ liệu. Nếu thiếu dữ liệu thì trả `null`. |
+| `occupancy_underflow` | Luận lý | Không, mặc định `false` | Nhận `true` nếu số người ước tính trước khi áp dụng ngưỡng dưới 0 có giá trị âm. |
 
-`people_count` describes people visible to the camera. `estimated_occupancy` estimates people in the room and depends on a correct starting count and camera coverage of entrances/exits. `null` means unknown; `0` is a valid estimate. IN/OUT values are cumulative within a session and must not be summed across frames, sessions, or cameras.
+`people_count` cho biết số người trong vùng camera quan sát được. `estimated_occupancy` ước tính số người trong phòng, phụ thuộc vào số người ban đầu và khả năng camera bao quát các lối ra vào. `null` nghĩa là chưa biết. `0` là giá trị ước tính hợp lệ. Số lượt vào/ra đã được cộng dồn trong từng phiên, vì vậy không cộng tiếp qua các khung hình, phiên hoặc camera.
 
-### 3.2 CountResult example
+### 3.2 Ví dụ CountResult
 
 ```json
 {
@@ -78,22 +78,22 @@ The CV v1.0 producer currently writes local JSONL records. This document defines
 }
 ```
 
-### 3.3 CrossingEvent
+### 3.3 Sự kiện CrossingEvent
 
-CV v1.0 also defines `CrossingEvent` with `event_id`, `session_id`, `camera_id`, optional `room_id`, `frame_index`, `timestamp_ms`, `recorded_at`, `track_id`, `direction` (`IN`/`OUT`) and `confidence` (`0..1`). It is a discrete line-crossing event, not a room occupancy snapshot.
+CV v1.0 cũng định nghĩa `CrossingEvent` với các trường `event_id`, `session_id`, `camera_id`, `room_id` (không bắt buộc), `frame_index`, `timestamp_ms`, `recorded_at`, `track_id`, `direction` (`IN` hoặc `OUT`) và `confidence` (`0..1`). Mỗi bản ghi mô tả một lượt cắt đường ảo riêng lẻ.
 
-**Agreed v1 scope:** store CountResult records only. Do not send CrossingEvent to the v1 count endpoint. Add an event endpoint and persistence separately if the team later needs event history.
+**Phạm vi v1 đã thống nhất:** Chỉ gửi và lưu `CountResult` qua tuyến nhận bản ghi số đếm. Nếu nhóm cần lịch sử sự kiện, bổ sung tuyến và phần lưu trữ riêng cho `CrossingEvent`.
 
-## 4. CV -> Backend: store count records
+## 4. CV → Máy chủ: lưu bản ghi số đếm
 
-### 4.1 Endpoint
+### 4.1 Tuyến API
 
 ```http
 POST /api/v1/cv/count-records
 Content-Type: application/json
 ```
 
-The request contains a batch of 1-1000 CountResult records. Backend validates the whole batch and saves it in one database transaction; if any record is invalid or conflicting, the batch is rolled back.
+Mỗi yêu cầu chứa một lô từ 1 đến 1.000 bản ghi `CountResult`. Máy chủ kiểm tra toàn bộ lô và lưu trong một giao dịch cơ sở dữ liệu. Giao dịch được hoàn tác nếu có bản ghi không hợp lệ hoặc xung đột.
 
 ```json
 {
@@ -120,18 +120,18 @@ The request contains a batch of 1-1000 CountResult records. Backend validates th
 }
 ```
 
-### 4.2 Mapping and idempotency
+### 4.2 Ánh xạ và chống ghi trùng
 
-- Store one row per frame in `cv_count_records`, separate from `occupancy_records`. Do not map `people_count` to `occupied_count`.
-- Keep CV's `room_id` string in `room_code`. Resolve `room_id` to the numeric `rooms.id` only when `room_code` exactly matches `rooms.code`. Preserve unknown or null room codes with a null database room link; do not parse them as numeric IDs or create rooms.
-- The count-record idempotency key is `(session_id, frame_index)`. Same key and same content returns the existing record; same key with different CV content returns `409 cv_record_conflict`.
-- A retry must use the same session/frame key. Room mapping is metadata and a retry does not rewrite a previously stored record.
+- Mỗi khung hình được lưu thành một hàng trong `cv_count_records`, tách riêng với `occupancy_records`. Không ánh xạ `people_count` sang `occupied_count`.
+- Giữ chuỗi `room_id` do CV gửi trong `room_code`. Chỉ gán `room_id` dạng số theo `rooms.id` khi `room_code` trùng chính xác `rooms.code`. Với mã chưa biết hoặc `null`, giữ mã gốc và để liên kết phòng là `null`. Không ép mã sang số hoặc tự tạo phòng.
+- Khóa chống ghi trùng là `(session_id, frame_index)`. Cùng khóa và cùng nội dung thì trả về bản ghi đã lưu. Cùng khóa nhưng khác nội dung CV thì trả về `409 cv_record_conflict`.
+- Khi gửi lại, dùng nguyên khóa phiên và khung hình. Ánh xạ phòng là thông tin bổ sung. Việc gửi lại không ghi đè bản ghi đã lưu.
 
-### 4.3 Delivery and response
+### 4.3 Gửi dữ liệu và phản hồi
 
-- CV sends all records needed for history in batches, not one HTTP request per frame. Send when a batch reaches 100 records or after 1 second, whichever comes first; maximum batch size is 1000. Flush remaining records when a session ends.
-- Retry network timeouts and `503` up to three times with 1, 2, and 4 second delays, keeping the same keys. Do not retry `400`, `409`, or `422`. Retain unacknowledged records locally for later replay.
-- Backend returns `200 OK` when the batch is accepted, including idempotent duplicates. Response records retain request order.
+- CV gom các bản ghi cần lưu lịch sử thành lô. Gửi khi đủ 100 bản ghi hoặc sau 1 giây, tùy điều kiện nào đến trước. Mỗi lô tối đa 1.000 bản ghi. Gửi hết phần còn lại khi kết thúc phiên.
+- Khi kết nối hết thời gian chờ hoặc nhận `503`, gửi lại tối đa ba lần, chờ lần lượt 1, 2 và 4 giây và giữ nguyên khóa. Không gửi lại khi nhận `400`, `409` hoặc `422`. Giữ bản ghi chưa được xác nhận ở máy cục bộ để gửi lại sau.
+- Máy chủ trả `200 OK` khi chấp nhận lô, kể cả khi có bản ghi gửi trùng hợp lệ. Bản ghi trong phản hồi giữ nguyên thứ tự yêu cầu.
 
 ```json
 {
@@ -152,44 +152,44 @@ The request contains a batch of 1-1000 CountResult records. Backend validates th
 }
 ```
 
-A response record has `room_id: null` if the CV room code is missing or not yet mapped. An identical retry has `duplicate: true` and does not change `received_at`.
+Nếu mã phòng CV bị thiếu hoặc chưa ánh xạ, phản hồi có `room_id: null`. Lần gửi lại với nội dung giống hệt nhận `duplicate: true` và giữ nguyên `received_at`.
 
-### 4.4 Error response
+### 4.4 Phản hồi lỗi
 
-Backend uses this envelope for errors:
+Máy chủ dùng cấu trúc sau để trả lỗi.
 
 ```json
 {
   "error": {
     "code": "validation_error",
-    "message": "One or more CV records are invalid",
+    "message": "Một hoặc nhiều bản ghi CV không hợp lệ",
     "details": [
-      { "field": "records[0].tracked_count", "issue": "must not exceed people_count" }
+      { "field": "records[0].tracked_count", "issue": "không được vượt quá people_count" }
     ]
   }
 }
 ```
 
-| Status | Error code | Meaning and CV action |
+| Mã HTTP | Mã lỗi | Ý nghĩa và cách CV xử lý |
 |---|---|---|
-| `400` | `malformed_json` | Body is not valid JSON; correct it before sending again. |
-| `409` | `cv_record_conflict` | Same session/frame key has different content; stop retrying and investigate. |
-| `422` | `validation_error` | Invalid or missing field; correct the record before retrying. |
-| `503` | `database_unavailable` | Temporary Backend/DB failure; retry using the same keys. |
+| `400` | `malformed_json` | Nội dung yêu cầu không phải JSON hợp lệ. Sửa trước khi gửi lại. |
+| `409` | `cv_record_conflict` | Cùng khóa phiên và khung hình nhưng khác nội dung. Dừng gửi lại và kiểm tra. |
+| `422` | `validation_error` | Thiếu trường hoặc giá trị không hợp lệ. Sửa bản ghi trước khi gửi lại. |
+| `503` | `database_unavailable` | Máy chủ hoặc cơ sở dữ liệu tạm thời gặp lỗi. Gửi lại với khóa cũ. |
 
-An unknown room code is not an ingestion error: Backend stores the raw code and leaves the database room link null. The API is intended for the internal service network; the production authentication method still needs Backend/security review before external exposure.
+Máy chủ chấp nhận mã phòng chưa biết, lưu mã gốc và để liên kết phòng là `null`. API dùng trong mạng nội bộ giữa các dịch vụ. Nhóm máy chủ và bảo mật cần rà soát cách xác thực cho môi trường vận hành trước khi mở truy cập từ bên ngoài.
 
-## 5. Backend -> Frontend: latest room occupancy
+## 5. Máy chủ → Giao diện: số người mới nhất theo phòng
 
-### 5.1 Endpoint
+### 5.1 Tuyến API
 
 ```http
 GET /api/v1/occupancy/rooms/{room_id}/latest
 ```
 
-`room_id` in this URL is the numeric `rooms.id` returned by the Backend room API. The endpoint reads the newest mapped `webcam` record for that room. It does not combine counts from multiple cameras. `video` records are history/test data and do not update live occupancy.
+`room_id` trong URL là mã số `rooms.id` do API phòng của máy chủ trả về. Tuyến này chỉ đọc bản ghi `webcam` đã ánh xạ mới nhất của phòng, không cộng số đếm từ nhiều camera. Bản ghi `video` dùng cho lịch sử hoặc thử nghiệm, không cập nhật số người theo thời gian thực.
 
-### 5.2 Response when a record exists
+### 5.2 Phản hồi khi có bản ghi
 
 ```json
 {
@@ -207,137 +207,138 @@ GET /api/v1/occupancy/rooms/{room_id}/latest
 }
 ```
 
-`is_stale` is true when the record was received more than 30 seconds ago, based on `received_at`. If `estimated_occupancy` is null, Frontend displays `unknown`; if it is zero, Frontend displays `0`. `people_count` may be shown only with a label that makes clear it is the number visible to the camera.
+`is_stale` là `true` khi đã hơn 30 giây kể từ `received_at`. Nếu `estimated_occupancy` là `null`, giao diện hiển thị trạng thái chưa biết (`unknown`). Nếu giá trị bằng 0, giao diện hiển thị `0`. Chỉ hiển thị `people_count` với nhãn nêu rõ đây là số người trong vùng camera quan sát được.
 
-### 5.3 No-data and error response
+### 5.3 Phản hồi khi thiếu dữ liệu hoặc có lỗi
 
-If the room exists but has no webcam record, return `404 occupancy_not_found`. If the numeric room ID does not exist, return `404 room_not_found`. Frontend distinguishes both from a valid zero count and from request/service errors.
+Nếu phòng tồn tại nhưng chưa có bản ghi webcam, trả `404 occupancy_not_found`. Nếu mã phòng dạng số không tồn tại, trả `404 room_not_found`. Giao diện phân biệt hai trường hợp này với số 0 hợp lệ và với lỗi yêu cầu hoặc dịch vụ.
 
 ```json
 {
   "error": {
     "code": "occupancy_not_found",
-    "message": "No live occupancy record is available for this room"
+    "message": "Phòng này chưa có bản ghi số người theo thời gian thực"
   }
 }
 ```
 
-Frontend approved a polling interval of 5 seconds and a stale threshold of 30 seconds. Frontend treats null as unknown and zero as a valid count.
+Nhóm giao diện xác nhận chu kỳ truy vấn 5 giây và ngưỡng lỗi thời 30 giây. Giá trị `null` biểu thị chưa biết, còn số 0 là số đếm hợp lệ.
 
-## 6. Validation rules
+## 6. Quy tắc kiểm tra dữ liệu
 
-- `schema_version` must be supported (`1.0`).
-- `session_id` must be a UUID; identifiers must not be blank.
-- `frame_index` and counts must be non-negative and fit their documented integer ranges; `timestamp_ms` must be finite and non-negative.
-- `tracked_count` must not exceed `people_count`.
-- `recorded_at` must include timezone information; Backend stores UTC and returns UTC.
-- When `line_enabled` is true, `in_count` and `out_count` are required. When false, they and `initial_occupancy` must be null.
-- When `initial_occupancy` is known, `estimated_occupancy` and `occupancy_underflow` must agree with `max(0, initial_occupancy + in_count - out_count)`.
-- Unknown fields are rejected. An absent count must not be converted to zero.
+- `schema_version` phải thuộc phiên bản được hỗ trợ (`1.0`).
+- `session_id` phải là UUID. Các mã định danh không được để trắng.
+- `frame_index` và các số đếm phải không âm và nằm trong phạm vi số nguyên đã quy định. `timestamp_ms` phải hữu hạn và không âm.
+- `tracked_count` không được lớn hơn `people_count`.
+- `recorded_at` phải có thông tin múi giờ. Máy chủ lưu và trả thời gian theo UTC.
+- Khi `line_enabled` là `true`, bắt buộc có `in_count` và `out_count`. Khi là `false`, hai trường này và `initial_occupancy` phải là `null`.
+- Khi đã biết `initial_occupancy`, `estimated_occupancy` và `occupancy_underflow` phải nhất quán với phép tính `max(0, initial_occupancy + in_count - out_count)`.
+- Từ chối các trường chưa định nghĩa. Không chuyển số đếm bị thiếu thành 0.
 
-## 7. Data limitations and freshness
+## 7. Giới hạn và độ mới của dữ liệu
 
-- `people_count` is the number of people visible in one frame, not guaranteed whole-room occupancy.
-- `estimated_occupancy` depends on a correct initial occupancy and a camera covering the relevant entrances/exits.
-- CV counters reset for each session. V1 supports one active camera source per room for the live Frontend view; multi-camera aggregation is out of scope.
-- `recorded_at` is the CV processing time. `received_at` is assigned by Backend when the row is first stored and is used for freshness. `timestamp_ms` remains a relative source/session offset.
-- Logic tests do not prove real-world accuracy. Camera placement, occlusion, dropped tracks, and line configuration can affect results.
+- `people_count` chỉ phản ánh số người quan sát được trong một khung hình.
+- `estimated_occupancy` phụ thuộc vào số người ban đầu chính xác và camera bao quát các lối ra vào liên quan.
+- Bộ đếm CV được đặt lại mỗi phiên. Trong v1, giao diện trực tiếp chỉ dùng một nguồn camera đang hoạt động cho mỗi phòng. Tổng hợp nhiều camera nằm ngoài phạm vi.
+- `recorded_at` là thời điểm CV xử lý. Máy chủ gán `received_at` khi lưu bản ghi lần đầu và dùng giá trị này để kiểm tra độ mới. `timestamp_ms` vẫn là độ lệch tương đối trong nguồn hoặc phiên.
+- Kiểm thử quy tắc xử lý chưa đủ để xác nhận độ chính xác thực tế. Vị trí camera, tình trạng che khuất, việc mất dấu đối tượng và cấu hình đường ảo có thể ảnh hưởng kết quả.
 
-## 8. Integration examples to verify
+## 8. Các tình huống cần kiểm thử tích hợp
 
-| Case | Expected behavior |
+| Tình huống | Kết quả mong đợi |
 |---|---|
-| Valid one-record batch | Save one record and return its receipt. |
-| Valid multi-record batch | Save all records atomically and return receipts in request order. |
-| Identical session/frame retry | Return the existing record with `duplicate: true`; do not create a second row. |
-| Same key, different content | Return `409 cv_record_conflict`; roll back the whole batch. |
-| Unknown/null room code | Accept and preserve the code; return `room_id: null`. |
-| Zero visible/estimated count | Accept `0` as a valid value. |
-| Null estimated occupancy | Preserve null; Frontend shows unknown rather than zero. |
-| Missing field, invalid type, invalid counter formula | Return `422 validation_error` with the field path. |
-| Timezone-free `recorded_at` | Reject with `422 validation_error`. |
-| Backend timeout or `503` | CV retries with the same session/frame keys. |
-| GET for room with no webcam data | Return `404 occupancy_not_found`. |
-| GET for valid zero estimate | Return `200` with `estimated_occupancy: 0`. |
-| GET for record older than 30 seconds | Return the record with `is_stale: true`. |
+| Lô hợp lệ có một bản ghi | Lưu bản ghi và trả xác nhận tiếp nhận. |
+| Lô hợp lệ có nhiều bản ghi | Lưu toàn bộ lô trong một giao dịch và trả xác nhận theo thứ tự yêu cầu. |
+| Gửi lại cùng khóa phiên và khung hình với nội dung giống hệt | Trả bản ghi cũ với `duplicate: true` mà không tạo thêm hàng. |
+| Cùng khóa, khác nội dung | Trả `409 cv_record_conflict` và hoàn tác cả lô. |
+| Mã phòng chưa biết hoặc `null` | Chấp nhận, giữ mã gốc và trả `room_id: null`. |
+| Số người quan sát được hoặc ước tính bằng 0 | Chấp nhận `0` là giá trị hợp lệ. |
+| Số người ước tính là `null` | Giữ `null` và hiển thị trạng thái chưa biết trên giao diện. |
+| Thiếu trường, sai kiểu hoặc sai công thức tính | Trả `422 validation_error` kèm đường dẫn tới trường lỗi. |
+| `recorded_at` thiếu múi giờ | Từ chối với `422 validation_error`. |
+| Máy chủ hết thời gian chờ hoặc trả `503` | CV gửi lại bằng cùng khóa phiên và khung hình. |
+| GET cho phòng chưa có dữ liệu webcam | Trả `404 occupancy_not_found`. |
+| GET với số người ước tính hợp lệ bằng 0 | Trả `200` với `estimated_occupancy: 0`. |
+| GET với bản ghi cũ hơn 30 giây | Trả bản ghi với `is_stale: true`. |
 
-## 9. Implementation status
+## 9. Trạng thái triển khai
 
-| Item | Status |
+| Hạng mục | Trạng thái |
 |---|---|
-| CV v1.0 CountResult fields and semantics | Supplied by CV; documented here. |
-| Backend storage shape and room-code mapping | Agreed contract based on the SEAT-24 persistence design. |
-| CV batch HTTP endpoint and response | Implemented by the SEAT-19 Backend API. |
-| CV sender, retry queue, and Backend URL configuration | Not present in the committed SEAT-17 CV material; implementation remains follow-up work. Existing CV commits are unchanged. |
-| Frontend latest response and stale/no-data behavior | Confirmed by Frontend; implemented by the SEAT-19 Backend API. |
-| CrossingEvent HTTP ingestion | Excluded from the agreed v1 scope. |
-| Integration verification across CV, Backend, and Frontend | Pending endpoint implementation; request and response examples are included for that work. |
+| Trường và ý nghĩa của `CountResult` trong CV v1.0 | Nhóm CV cung cấp, đã ghi trong tài liệu này. |
+| Cấu trúc lưu trữ máy chủ và ánh xạ mã phòng | Đã thống nhất dựa trên thiết kế lưu trữ SEAT-24. |
+| Tuyến HTTP nhận lô dữ liệu CV và phản hồi | Đã triển khai trong API máy chủ của SEAT-19. |
+| Bộ gửi CV, hàng đợi gửi lại và cấu hình URL máy chủ | Chưa có trong phần CV đã đưa vào Git ở SEAT-17. Triển khai là công việc tiếp theo. Các phiên bản CV đã ghi vào Git được giữ nguyên. |
+| Phản hồi dữ liệu mới nhất và xử lý dữ liệu cũ hoặc thiếu | Nhóm giao diện đã xác nhận. API máy chủ của SEAT-19 đã triển khai. |
+| Tiếp nhận `CrossingEvent` qua HTTP | Ngoài phạm vi v1 đã thống nhất. |
+| Kiểm thử tích hợp giữa CV, máy chủ và giao diện | Chờ triển khai tuyến API. Tài liệu đã có ví dụ yêu cầu và phản hồi phục vụ việc kiểm thử. |
 
-## 10. Agreement record
+## 10. Nội dung đã thống nhất
 
-| Decision | Agreed contract | Status |
+| Quyết định | Hợp đồng đã thống nhất | Trạng thái |
 |---|---|---|
-| Count value shown as room occupancy | Use `estimated_occupancy`; preserve `people_count` separately. | CV and Frontend confirmed |
-| Room mapping | CV `room_id` is a room code; resolve exact `rooms.code`, preserve unmapped code with null FK. | CV agreed to follow Backend contract |
-| Camera/session aggregation | One active camera per room in v1; do not aggregate sessions/cameras. | Backend v1 scope; CV follows this contract |
-| Count endpoint delivery | Batch up to 1000; flush at 100 records or 1 second; retries reuse `(session_id, frame_index)`. | CV agreed to follow Backend contract; sender is not implemented |
-| CrossingEvent | Do not send/store through v1 count endpoint; add separate API in a later task if needed. | Excluded from v1 scope |
-| Frontend response | Numeric Backend room ID; `estimated_occupancy`, metadata, `received_at`, and `is_stale`. | Frontend confirmed |
-| No-data and freshness | `404 occupancy_not_found`; stale after 30 seconds; FE polling every 5 seconds. | Frontend confirmed |
-| Service authentication | Private service network for development; production auth method must be decided before external exposure. | Open deployment decision for Backend/security |
+| Số người hiển thị cho phòng | Dùng `estimated_occupancy` và giữ riêng `people_count`. | Nhóm CV và giao diện đã xác nhận |
+| Ánh xạ phòng | `room_id` do CV gửi là mã phòng. So khớp chính xác với `rooms.code`. Nếu chưa ánh xạ, giữ mã và để khóa ngoại là `null`. | Nhóm CV đồng ý theo hợp đồng của máy chủ |
+| Tổng hợp theo camera và phiên | V1 dùng một camera hoạt động cho mỗi phòng. Không cộng gộp giữa các phiên hoặc camera. | Thuộc phạm vi v1 của máy chủ, nhóm CV tuân theo hợp đồng này |
+| Gửi bản ghi số đếm | Mỗi lô tối đa 1.000 bản ghi. Gửi khi đủ 100 bản ghi hoặc sau 1 giây. Gửi lại với cùng `(session_id, frame_index)`. | Nhóm CV đồng ý theo hợp đồng, bộ gửi chưa được triển khai |
+| `CrossingEvent` | Không gửi hoặc lưu qua tuyến số đếm v1. Bổ sung API riêng trong nhiệm vụ sau nếu cần. | Ngoài phạm vi v1 |
+| Phản hồi cho giao diện | Mã phòng dạng số từ máy chủ, `estimated_occupancy`, thông tin bổ sung, `received_at` và `is_stale`. | Nhóm giao diện đã xác nhận |
+| Thiếu dữ liệu và độ mới | Trả `404 occupancy_not_found` khi thiếu dữ liệu. Ngưỡng lỗi thời là 30 giây, giao diện truy vấn mỗi 5 giây. | Nhóm giao diện đã xác nhận |
+| Xác thực dịch vụ | Môi trường phát triển dùng mạng dịch vụ riêng. Cần chốt cách xác thực cho môi trường vận hành trước khi mở truy cập từ bên ngoài. | Nhóm máy chủ và bảo mật chưa chốt phương án triển khai |
 
-The CV and Frontend confirmations were reported by the Backend owner on 2026-10-30. Update this contract if either team requests a change. Decide production authentication separately before external exposure.
+Người phụ trách máy chủ ghi nhận xác nhận từ nhóm CV và giao diện vào ngày 2026-10-30. Cập nhật hợp đồng nếu một trong hai nhóm yêu cầu thay đổi. Cách xác thực cho môi trường vận hành cần được chốt riêng trước khi mở truy cập từ bên ngoài.
 
-## 11. SEAT-18 acceptance checklist
+## 11. Danh sách kiểm tra nghiệm thu SEAT-18
 
-- [x] Draft lists the CV fields, types, meanings, and validation rules.
-- [x] Draft includes CV-to-Backend and Backend-to-Frontend request/response examples.
-- [x] Draft defines proposed missing-data, invalid-data, duplicate, timestamp, and connection-failure behavior.
-- [x] CV agrees to follow the Backend contract; already committed CV files remain untouched.
-- [x] Frontend confirms the GET response, null/zero/no-data/stale behavior, and polling interval.
-- [x] JSON examples are available for future integration testing.
+- [x] Bản thảo nêu các trường dữ liệu CV, kiểu, ý nghĩa và quy tắc kiểm tra.
+- [x] Bản thảo có ví dụ yêu cầu và phản hồi cho luồng CV → máy chủ và máy chủ → giao diện.
+- [x] Bản thảo đề xuất cách xử lý dữ liệu thiếu, sai hoặc trùng, dấu thời gian và lỗi kết nối.
+- [x] Nhóm CV đồng ý theo hợp đồng của máy chủ. Các tệp CV đã đưa vào Git được giữ nguyên.
+- [x] Nhóm giao diện xác nhận phản hồi GET, cách xử lý giá trị `null`, số 0, dữ liệu thiếu hoặc lỗi thời và chu kỳ truy vấn.
+- [x] Có ví dụ JSON phục vụ kiểm thử tích hợp sau này.
 
-The Backend routes and examples are documented for integration. End-to-end verification with the live CV sender and Frontend remains follow-up work; it is not required to approve this contract document.
+Tài liệu cung cấp các tuyến máy chủ và ví dụ để tích hợp. Kiểm thử toàn luồng với bộ gửi CV chạy thực tế và giao diện là công việc tiếp theo, nằm ngoài tiêu chí phê duyệt tài liệu này.
 
-## 12. SEAT-17 CV local testing APIs
+## 12. API thử nghiệm CV cục bộ của SEAT-17
 
-The following routes belong to CV's local testing service. They are separate from Backend business APIs and do not implement the Backend ingestion endpoint in section 4.
+Các tuyến dưới đây thuộc dịch vụ thử nghiệm CV cục bộ. Chúng tách riêng với API nghiệp vụ máy chủ và không triển khai tuyến tiếp nhận ở mục 4.
 
-### Local CV testing UI
+### Giao diện thử nghiệm CV cục bộ
 
-- `GET /`: local HTML testing interface; `/static/` contains its assets.
-- `GET /api/config`: model availability and selected device, with no local path.
-- `POST /api/jobs`: multipart `file` video and JSON string `options`; returns `202` with a job ID. Limit 200 MB; one job at a time (`409` when busy), `503` if the model is missing, `415` for an unsupported extension, and `422` for invalid options.
-- `GET /api/jobs/{id}`: status, latest record and matching JPEG base64, recent events, sanitized summary and error. Status progresses through uploading/loading/processing to completed/cancelled/failed.
-- `POST /api/jobs/{id}/stop`: cooperative cancellation after the current frame.
-- `GET /api/jobs/{id}/preview`: latest JPEG; `404` before the first frame.
-- `GET /api/jobs/{id}/files/{kind}`: csv/jsonl/debug/events/summary; available only after completed/cancelled (`409` otherwise). Unknown ID or kind returns `404`.
+- `GET /` trả giao diện thử nghiệm HTML cục bộ. `/static/` chứa tài nguyên của giao diện.
+- `GET /api/config` trả thông tin mô hình có sẵn hay không và thiết bị đã chọn, không kèm đường dẫn cục bộ.
+- `POST /api/jobs` nhận tệp video ở trường `file` và chuỗi JSON `options` qua yêu cầu `multipart`. Trả `202` kèm mã tác vụ. Giới hạn 200 MB và một tác vụ tại một thời điểm. Trả `409` khi đang bận, `503` nếu thiếu mô hình, `415` nếu phần mở rộng không được hỗ trợ, hoặc `422` nếu tùy chọn không hợp lệ.
+- `GET /api/jobs/{id}` trả trạng thái, bản ghi mới nhất, ảnh JPEG tương ứng ở dạng Base64, sự kiện gần đây, bản tóm tắt và lỗi đã lọc. Các trạng thái gồm đang tải lên (`uploading`), đang nạp (`loading`), đang xử lý (`processing`), đã hoàn tất (`completed`), đã hủy (`cancelled`) và thất bại (`failed`).
+- `POST /api/jobs/{id}/stop` yêu cầu tác vụ dừng sau khi xử lý xong khung hình hiện tại.
+- `GET /api/jobs/{id}/preview` trả ảnh JPEG mới nhất. Trả `404` nếu chưa có khung hình đầu tiên.
+- `GET /api/jobs/{id}/files/{kind}` hỗ trợ `csv`, `jsonl`, `debug`, `events` và `summary`. Chỉ tải được khi tác vụ đã hoàn tất hoặc đã hủy. Các trạng thái khác trả `409`. Mã tác vụ hoặc loại tệp không tồn tại trả `404`.
 
-These are CV testing routes, not Backend business endpoints. Job metadata is in memory and disappears on restart; outputs remain local until manually removed.
+Thông tin tác vụ nằm trong bộ nhớ và mất khi khởi động lại. Tệp kết quả được giữ cục bộ cho đến khi xóa thủ công.
 
-### Browser webcam testing
+### Thử webcam qua trình duyệt
 
-- `POST /api/webcam`: JSON options as for video; reserves the inference slot and starts a fresh tracking session, returning `202` with a job ID.
-- `POST /api/webcam/{id}/frame`: JPEG bytes, maximum 2 MB and maximum decoded edge 1920 px. Returns a count record with `source_type: webcam` and debug bounding boxes. One frame at a time; `409` if busy/stopped, `422` for an invalid frame.
-- Stop and exports use the same job endpoints. Webcam source timestamps use monotonic time since session start; `recorded_at` is UTC processing time.
-- The browser obtains camera access only after explicit Start Test and permission. No audio or webcam video recording. Stop before leaving the page; a crashed client may require restarting the local service to release an orphan session.
+- `POST /api/webcam` nhận tùy chọn JSON giống khi thử video, giữ một suất xử lý suy luận và bắt đầu phiên theo dõi mới. Trả `202` kèm mã tác vụ.
+- `POST /api/webcam/{id}/frame` nhận dữ liệu JPEG tối đa 2 MB, với cạnh dài nhất sau giải mã tối đa 1.920 px. Trả bản ghi số đếm có `source_type: webcam` và các khung bao phục vụ gỡ lỗi. Mỗi lần xử lý một khung hình. Trả `409` khi đang bận hoặc đã dừng, hoặc `422` nếu khung hình không hợp lệ.
+- Việc dừng và xuất kết quả dùng cùng các tuyến tác vụ. Dấu thời gian của nguồn webcam được tính theo đồng hồ đơn điệu kể từ lúc bắt đầu phiên. `recorded_at` ghi thời điểm xử lý theo UTC.
+- Trình duyệt chỉ truy cập camera sau khi người dùng bấm nút `Start Test` và cấp quyền. Giao diện không ghi âm hoặc ghi video webcam. Hãy dừng tác vụ trước khi rời trang. Nếu ứng dụng phía trình duyệt gặp sự cố, có thể cần khởi động lại dịch vụ cục bộ để giải phóng phiên còn treo.
 
 ---
 
-## 13. UC-01: Xem chỗ trống - Sequence Diagram và API Spec
+## 13. UC-01: Xem chỗ trống – Sơ đồ tuần tự và đặc tả API
 
-> **Task:** SEAT-39 - Sequence UC-01 và đặc tả API occupancy, rooms  
-> **Status:** Draft - sẽ được finalize trong SEAT-40  
-> **Last updated:** 2026-11-11
+**Nhiệm vụ:** SEAT-39 – Sơ đồ tuần tự UC-01 và đặc tả API số người và danh sách phòng
+**Trạng thái:** Bản thảo, sẽ hoàn thiện trong SEAT-40
+>
+> **Cập nhật lần cuối:** 2026-11-11
 
-### 13.1 Sequence Diagram
+### 13.1 Sơ đồ tuần tự
 
 Luồng UC-01: Sinh viên xem tình trạng khu tự học tự do
 
 ```mermaid
 sequenceDiagram
     participant User as Sinh viên
-    participant Frontend as Frontend
+    participant Frontend as Giao diện
     participant API as OccupancyRouter
     participant Service as OccupancyService
     participant Repo as OccupancyRepository
@@ -348,44 +349,44 @@ sequenceDiagram
     
     API->>Service: get_current_occupancy(campus)
     Service->>Repo: get_latest_per_room(campus)
-    Repo->>DB: SELECT latest occupancy_records<br/>WHERE room.campus = 'CS1'
+    Repo->>DB: Đọc bản ghi mới nhất trong occupancy_records<br/>với room.campus = 'CS1'
     DB-->>Repo: List[OccupancyRecord]
     
     alt Có dữ liệu
         Repo-->>Service: List[OccupancyRecord]
         Service->>Service: calculate_available_seats()<br/>check_stale_threshold()
         Service-->>API: CurrentOccupancyResponse
-        API-->>Frontend: 200 OK + JSON
+        API-->>Frontend: HTTP 200 kèm JSON
         Frontend->>Frontend: Hiển thị: số người, chỗ trống,<br/>mức độ đông, thời gian cập nhật
-        Frontend-->>User: Hiển thị dashboard
+        Frontend-->>User: Hiển thị bảng tổng quan
     else Không có dữ liệu
         Repo-->>Service: []
         Service-->>API: 404 occupancy_not_found
-        API-->>Frontend: 404 + error JSON
+        API-->>Frontend: 404 và thông tin lỗi dạng JSON
         Frontend-->>User: "Chưa có dữ liệu mật độ"
-    else Dữ liệu cũ (>30s)
+    else Dữ liệu cũ hơn 30 giây
         Repo-->>Service: OccupancyRecord (cũ)
         Service->>Service: is_stale = true
         Service-->>API: CurrentOccupancyResponse<br/>(is_stale: true)
-        API-->>Frontend: 200 OK + cảnh báo
-        Frontend-->>User: Hiển thị + cảnh báo "Dữ liệu lỗi thời"
+        API-->>Frontend: HTTP 200 kèm cảnh báo
+        Frontend-->>User: Hiển thị cảnh báo "Dữ liệu lỗi thời"
     end
     
-    Note over Frontend: Polling mỗi 5 giây
+    Note over Frontend: Truy vấn mỗi 5 giây
     Frontend->>API: GET /api/v1/occupancy/current?campus=CS1
 ```
 
-### 13.2 API Endpoint: GET /api/v1/occupancy/current
+### 13.2 Tuyến API GET /api/v1/occupancy/current
 
 Lấy mật độ hiện tại của tất cả phòng đang hoạt động.
 
-**Query Parameters:**
+**Tham số truy vấn**
 
 | Tham số | Kiểu | Bắt buộc | Mô tả |
 |---------|------|----------|-------|
-| `campus` | string | No | Lọc theo cơ sở: 'CS1', 'CS3'. Không truyền = tất cả cơ sở |
+| `campus` | Chuỗi | Không | Lọc theo cơ sở: 'CS1', 'CS3'. Không truyền = tất cả cơ sở |
 
-**Success Response (200 OK):**
+**Phản hồi thành công (HTTP 200)**
 
 ```json
 {
@@ -425,15 +426,15 @@ Lấy mật độ hiện tại của tất cả phòng đang hoạt động.
 }
 ```
 
-**Field Descriptions:**
+**Mô tả các trường**
 
-- `current_count`: Số người ước tính hiện tại (null nếu chưa có dữ liệu)
+- `current_count`: Số người ước tính hiện tại (`null` nếu chưa có dữ liệu)
 - `available_seats`: Số ghế trống = `max(0, capacity - current_count)` (null nếu chưa cấu hình)
 - `occupancy_level`: Mức độ đông: `low` (≤50%), `medium` (>50% và <80%), `high` (≥80%)
 - `is_stale`: `true` nếu dữ liệu cũ hơn 30 giây (dựa vào `updated_at`)
 - `device_status`: Trạng thái thiết bị: `online`, `offline`, `error`
 
-**No Data Response (404 Not Found):**
+**Phản hồi khi chưa có dữ liệu (HTTP 404)**
 
 ```json
 {
@@ -444,7 +445,7 @@ Lấy mật độ hiện tại của tất cả phòng đang hoạt động.
 }
 ```
 
-**Service Unavailable (503):**
+**Dịch vụ không khả dụng (HTTP 503)**
 
 ```json
 {
@@ -455,19 +456,19 @@ Lấy mật độ hiện tại của tất cả phòng đang hoạt động.
 }
 ```
 
-### 13.3 API Endpoint: GET /api/v1/rooms
+### 13.3 Tuyến API GET /api/v1/rooms
 
 Lấy danh sách phòng có thể lọc theo cơ sở và loại phòng.
 
-**Query Parameters:**
+**Tham số truy vấn**
 
 | Tham số | Kiểu | Bắt buộc | Mô tả |
 |---------|------|----------|-------|
-| `campus` | string | No | Lọc theo cơ sở: 'CS1', 'CS3' |
-| `room_type` | string | No | Lọc theo loại: 'free_area', 'topic_room' |
-| `status` | string | No | Lọc theo trạng thái: 'active', 'maintenance', 'closed' |
+| `campus` | Chuỗi | Không | Lọc theo cơ sở: 'CS1', 'CS3' |
+| `room_type` | Chuỗi | Không | Lọc theo loại: 'free_area', 'topic_room' |
+| `status` | Chuỗi | Không | Lọc theo trạng thái: 'active', 'maintenance', 'closed' |
 
-**Success Response (200 OK):**
+**Phản hồi thành công (HTTP 200)**
 
 ```json
 {
@@ -501,11 +502,11 @@ Lấy danh sách phòng có thể lọc theo cơ sở và loại phòng.
 }
 ```
 
-### 13.4 API Endpoint: GET /api/v1/rooms/{room_id}
+### 13.4 Tuyến API GET /api/v1/rooms/{room_id}
 
 Lấy chi tiết một phòng cụ thể.
 
-**Success Response (200 OK):**
+**Phản hồi thành công (HTTP 200)**
 
 ```json
 {
@@ -522,7 +523,7 @@ Lấy chi tiết một phòng cụ thể.
 }
 ```
 
-**Room Not Found (404):**
+**Không tìm thấy phòng (HTTP 404)**
 
 ```json
 {
@@ -533,19 +534,19 @@ Lấy chi tiết một phòng cụ thể.
 }
 ```
 
-### 13.5 API Endpoint: GET /api/v1/rooms/{room_id}/occupancy/history
+### 13.5 Tuyến API GET /api/v1/rooms/{room_id}/occupancy/history
 
 Lấy lịch sử mật độ của một phòng.
 
-**Query Parameters:**
+**Tham số truy vấn**
 
 | Tham số | Kiểu | Bắt buộc | Mô tả |
 |---------|------|----------|-------|
-| `start_time` | datetime | Yes | Thời gian bắt đầu (ISO 8601) |
-| `end_time` | datetime | Yes | Thời gian kết thúc (ISO 8601) |
-| `limit` | integer | No | Số bản ghi tối đa (mặc định: 100, max: 500) |
+| `start_time` | Ngày giờ | Có | Thời gian bắt đầu (ISO 8601) |
+| `end_time` | Ngày giờ | Có | Thời gian kết thúc (ISO 8601) |
+| `limit` | Số nguyên | Không | Số bản ghi tối đa (mặc định: 100, tối đa 500) |
 
-**Success Response (200 OK):**
+**Phản hồi thành công (HTTP 200)**
 
 ```json
 {
@@ -576,39 +577,39 @@ Lấy lịch sử mật độ của một phòng.
 }
 ```
 
-### 13.6 Edge Cases và Error Handling
+### 13.6 Các trường hợp ngoại lệ và cách xử lý lỗi
 
-**Dữ liệu lỗi thời (Stale Data):**
+**Dữ liệu lỗi thời**
 - Ngưỡng: Dữ liệu cũ hơn **30 giây** được đánh dấu `is_stale: true`
-- Frontend hiển thị cảnh báo: "⚠️ Dữ liệu lỗi thời - cập nhật lần cuối lúc {time}"
-- Response vẫn trả 200 OK nhưng có flag `is_stale`
+- giao diện hiển thị cảnh báo: "⚠️ Dữ liệu lỗi thời - cập nhật lần cuối lúc {time}"
+- Máy chủ vẫn trả HTTP 200 kèm trường `is_stale`
 
-**Mất kết nối (Connection Loss):**
+**Mất kết nối**
 - Khi `device_status: "offline"` hoặc không nhận được dữ liệu mới
-- Frontend hiển thị: "❌ Mất kết nối với camera"
-- Giữ dữ liệu cũ nhưng disable polling tạm thời
+- giao diện hiển thị: "❌ Mất kết nối với camera"
+- Giữ dữ liệu cũ nhưng tạm dừng truy vấn định kỳ
 
 **Không có dữ liệu ban đầu:**
 - `current_count: null`, `available_seats: null`
-- Frontend hiển thị: "Chưa có dữ liệu - Đang chờ cấu hình"
+- giao diện hiển thị: "Chưa có dữ liệu - Đang chờ cấu hình"
 
-**Error Codes Summary:**
+**Bảng mã lỗi**
 
-| HTTP Code | Error Code | Khi nào xảy ra | Frontend xử lý |
+| Mã HTTP | Mã lỗi | Khi nào xảy ra | Cách giao diện xử lý |
 |-----------|------------|----------------|----------------|
-| 200 | — | Thành công, có thể có `is_stale: true` | Hiển thị dữ liệu + cảnh báo nếu stale |
+| 200 | — | Thành công, có thể có `is_stale: true` | Hiển thị dữ liệu + cảnh báo nếu dữ liệu lỗi thời |
 | 404 | `occupancy_not_found` | Phòng tồn tại nhưng chưa có dữ liệu | "Chưa có dữ liệu mật độ" |
-| 404 | `room_not_found` | Room ID không tồn tại | "Không tìm thấy phòng" |
-| 503 | `service_unavailable` | Database/service down | "Hệ thống tạm thời không khả dụng" |
+| 404 | `room_not_found` | Mã phòng không tồn tại | "Không tìm thấy phòng" |
+| 503 | `service_unavailable` | Cơ sở dữ liệu hoặc dịch vụ không hoạt động | "Hệ thống tạm thời không khả dụng" |
 
-### 13.7 Frontend Integration Notes
+### 13.7 Lưu ý tích hợp giao diện
 
-**Polling Strategy:**
-- Interval: **5 giây** (đã thống nhất với Frontend)
-- Chỉ poll khi tab active (sử dụng Page Visibility API)
-- Exponential backoff khi gặp lỗi: 5s → 10s → 20s → 30s (max)
+**Cách truy vấn định kỳ**
+- Chu kỳ **5 giây**, đã thống nhất với nhóm giao diện
+- Chỉ truy vấn khi thẻ trình duyệt đang hiển thị, dùng Page Visibility API
+- Khi gặp lỗi, tăng thời gian chờ giữa các lần thử lên 5 → 10 → 20 → tối đa 30 giây
 
-**Display Logic:**
+**Quy tắc hiển thị**
 ```javascript
 if (data.is_stale) {
   showWarning("Dữ liệu lỗi thời");
@@ -619,12 +620,197 @@ if (data.device_status === "offline") {
 if (data.current_count === null) {
   showPlaceholder("Chưa có dữ liệu");
 } else if (data.current_count === 0) {
-  showCount(0); // Zero là giá trị hợp lệ
+  showCount(0); // Số 0 là giá trị hợp lệ
 }
 ```
 
-**Occupancy Level Colors:**
+**Màu biểu thị mức độ đông**
 - `low` (≤50%): Xanh lá 🟢
 - `medium` (>50%, <80%): Vàng 🟡
 - `high` (≥80%): Đỏ 🔴
 
+## 14. UC-06: Dữ liệu CV gửi máy chủ cho SEAT-34
+
+Bản đề xuất cho luồng sự kiện IN/OUT. Xem [sơ đồ tuần tự UC-06](system-architecture.md#sơ-đồ-tuần-tự-uc-06-đếm-qua-đường-ảo). Các tuyến, cấu trúc dữ liệu và hành vi trong mục này cần được nhóm CV và nhóm máy chủ xác nhận trước khi tích hợp.
+
+### 14.1 Hiện trạng và ranh giới tương thích
+
+| Nội dung | Hợp đồng hoặc mã hiện có | Cần cho thiết kế sự kiện |
+|---|---|---|
+| Tiếp nhận | POST `/api/v1/cv/count-records`, nhận lô bản ghi số đếm, khai báo 200 | Tuyến riêng; đề xuất POST `/api/v1/cv/events`, mỗi yêu cầu một sự kiện |
+| Chống trùng | Mục 4.2 đặc tả khóa phiên/khung hình. Trên bản dev đối chiếu, lớp truy cập dữ liệu cập nhật bản ghi khi trùng khóa và tuyến API tham chiếu đến một lớp lỗi chưa được định nghĩa tại đó | `event_id` duy nhất, xác nhận tiếp nhận gốc và cập nhật số người đúng một lần |
+| Phòng | Bản ghi số đếm nhận mã chuỗi như `A101`, ánh xạ `rooms.code` → `rooms.id` | Sự kiện dùng mã phòng dạng số đã xác minh cùng nguồn/phiên |
+| Lưu trữ | Bản ghi số đếm lưu vào `cv_count_records`; mô hình `CountEvent` dùng mã số nguyên | Cập nhật cấu trúc dữ liệu để nhận mã sự kiện từ CV và lưu sự kiện, số người, xác nhận tiếp nhận trong một giao dịch |
+| Giao diện đang dùng | `/occupancy/current`, làm mới 30 giây, đọc `occupancy_records` | Chốt tuyến GET theo phòng, theo cơ sở và chốt thông tin trạng thái từ nguồn sự kiện |
+| GET bản ghi số đếm | `/occupancy/rooms/{room_id}/latest` đọc `cv_count_records` | Không giả định đã đọc `OccupancyRecord` hoặc tổng hợp sự kiện |
+| Xác thực/trạng thái | Chưa có khóa tiếp nhận hoặc tuyến trạng thái thiết bị | Chốt khóa API, quyền nguồn và tín hiệu định kỳ báo nguồn còn hoạt động
+
+### 14.2 Nội dung sự kiện và ánh xạ từ CV
+
+| Trường | Kiểu / bắt buộc trong bản đề xuất | Quy tắc và ánh xạ |
+|---|---|---|
+| `schema_version` | chuỗi / có | `event-draft-1`; không dùng lẫn bản ghi số đếm `1.0` |
+| `event_id` | chuỗi UUID / có | Bộ gửi tạo một lần và lưu bền vững trước gửi; giữ khi gửi lại/khởi động lại; không nhúng mã theo dõi |
+| `session_id` | chuỗi UUID / có, bổ sung đề xuất | Phiên CV, gắn số người ban đầu N0; mỗi phiên mới cần bản ghi số ban đầu mới |
+| `sequence_no` | số nguyên ≥ 0 / có, bổ sung đề xuất | Thứ tự liên tiếp của sự kiện trong nguồn/phiên, bắt đầu 0; không dùng `frame_index` vì khung hình có thể không sinh sự kiện |
+| `room_id` | số nguyên > 0 / có | Ánh xạ mã phòng CV qua danh mục đã xác nhận; không ép chuỗi `A101` thành số hoặc tự tạo phòng |
+| `source` | chuỗi / có | `cv`; phân biệt nguồn xử lý với định danh thiết bị |
+| `device_id` | chuỗi / có | 1–100 ký tự không rỗng, ánh xạ từ `camera_id`, nguồn ổn định được phép ghi vào phòng |
+| `direction` | giá trị liệt kê / có | `IN` hoặc `OUT`; một sự kiện là một lượt, không phải bộ đếm cộng dồn |
+| `event_time` | ISO 8601 UTC / có | Thời điểm xác nhận cắt đường ảo, hậu tố `Z`, đồng hồ đã đồng bộ; không đổi độ lệch `timestamp_ms` thành thời gian Unix |
+| `device_status` | giá trị liệt kê / có | `online` tại thời điểm cắt đường ảo; trạng thái `offline`/`error` gửi bằng thông điệp riêng |
+```json
+{
+  "schema_version": "event-draft-1",
+  "event_id": "076ccfac-ea81-4213-9d9f-6b7bb4387010",
+  "session_id": "6f228318-ea31-46b3-a1a7-c562288ea97e",
+  "sequence_no": 0,
+  "room_id": 14,
+  "source": "cv",
+  "device_id": "cam-01",
+  "direction": "IN",
+  "event_time": "2026-11-11T07:00:00Z",
+  "device_status": "online"
+}
+```
+### 14.3 Giao dịch, xác nhận tiếp nhận và lỗi
+
+| Trường hợp | Hành vi mục tiêu |
+|---|---|
+| Sự kiện mới hợp lệ | HTTP 201 sau khi xác nhận lưu giao dịch (COMMIT); sự kiện, số người và xác nhận tiếp nhận lưu trong một giao dịch |
+| Cùng `event_id`, cùng nội dung chuẩn hóa | HTTP 200, xác nhận gốc với `duplicate=true`; không đổi số đếm hoặc `received_at` |
+| Cùng `event_id`, khác nội dung | HTTP 409 `event_conflict`; không cập nhật dữ liệu; cách ly để điều tra |
+| Thiếu/sai khóa | HTTP 401 `unauthorized`; không ghi dữ liệu |
+| Khóa/nguồn không có quyền ghi phòng/phiên | HTTP 403 `forbidden` |
+| Phòng không tồn tại | HTTP 404 `room_not_found`; không tự tạo phòng |
+| JSON hỏng / sai cấu trúc dữ liệu | HTTP 400 `malformed_json` / 422 `validation_error` |
+| Phiên chưa đăng ký / sai thứ tự / phiên đóng | Đề xuất 409 `session_not_ready` / `event_out_of_order` / `session_closed`; giữ để đối soát |
+| Cơ sở dữ liệu không khả dụng | HTTP 503 `database_unavailable`; hoàn tác phần chưa xác nhận lưu |
+
+```json
+{
+  "event_id": "076ccfac-ea81-4213-9d9f-6b7bb4387010",
+  "room_id": 14,
+  "received_at": "2026-11-11T07:00:01Z",
+  "duplicate": false
+}
+```
+
+
+### 14.4 Giao nhận và trạng thái nguồn
+
+- Bộ gửi lưu hàng đợi bền vững trước gửi; mỗi nguồn/phiên chỉ có một yêu cầu
+  chờ xác nhận. Chỉ bỏ sự kiện khi phản hồi 201/200 hợp lệ khớp `event_id`.
+- Đề xuất thời gian chờ kết nối 3 giây, toàn yêu cầu 10 giây. Khi mất kết nối,
+  hết thời gian chờ hoặc nhận 503, gửi lại ba lượt sau lần đầu, chờ tăng dần
+  1, 2, 4 giây, giữ nguyên mã sự kiện, nội dung và thứ tự. Hết lượt vẫn giữ hàng đợi và
+  báo vận hành để gửi lại sau.
+- Với lỗi 4xx, không tự gửi lại; giữ/cách ly, báo nguyên nhân và đối soát. Không bỏ
+  sự kiện lỗi rồi áp dụng sự kiện phụ thuộc nó. Giới hạn hàng đợi, cảnh báo
+  đầy, thời hạn lưu và phục hồi cần chốt; không tự xóa sự kiện chưa được xác
+  nhận. Các giá trị thời gian chờ/gửi lại là đề xuất, chưa được triển khai.
+- Camera mất nhưng CV còn mạng: đề xuất POST `/api/v1/cv/device-status` riêng.
+  Không gửi IN/OUT giả hoặc đặt số đếm về 0. CV mất mạng/dừng đột ngột không
+  thể gửi trạng thái mất kết nối ngay; máy chủ cần tín hiệu định kỳ để phát
+  hiện mất nguồn.
+- Đề xuất gửi tín hiệu nguồn còn hoạt động mỗi 10 giây, quá 30 giây thì đánh
+  dấu dữ liệu cũ, chờ xác nhận. Ngưỡng này khác cơ chế GET bản ghi số đếm hiện
+  tại dựa trên tuổi `received_at`.
+- Trạng thái có thứ tự riêng theo nguồn/phiên. Thông báo trạng thái cũ gửi lại
+  không ghi đè trạng thái mới; gửi lại xác nhận không làm dữ liệu cũ bị hiểu
+  thành mới. Sau gián đoạn, nguồn đang kết nối và số người đã đồng bộ là hai
+  điều kiện riêng.
+
+Ví dụ dữ liệu trạng thái đề xuất
+
+```json
+{
+  "schema_version": "status-draft-1",
+  "status_id": "d171547f-6385-4df0-a662-9b283187255e",
+  "session_id": "6f228318-ea31-46b3-a1a7-c562288ea97e",
+  "status_sequence_no": 1,
+  "room_id": 14,
+  "source": "cv",
+  "device_id": "cam-01",
+  "device_status": "offline",
+  "event_time": "2026-11-11T07:01:00Z"
+}
+```
+
+`device_status` là `online|offline|error`, không có hướng vào/ra hoặc số đếm.
+Đề xuất trạng thái mới trả 201, trùng cùng nội dung trả 200 với xác nhận gốc,
+khác nội dung trả 409; không cập nhật số người. Tên tuyến, cấu trúc dữ liệu và thông tin
+bổ trợ của GET chờ chốt. API đọc/giao diện cần phân biệt chưa biết, số 0 hợp
+lệ, số đếm cũ, mất kết nối và lỗi HTTP.
+Chưa có N0/sức chứa hợp lệ thì không công bố chỗ trống hoặc mức đông chính thức.
+
+### 14.5 Khóa API qua biến môi trường
+
+Đề xuất trường tiêu đề HTTP `X-API-Key`; bộ gửi đọc `CV_API_KEY`, máy chủ đọc
+`CV_INGEST_API_KEY` qua môi trường. Đây là tên thiết kế, chưa có xác thực tương
+ứng trong mã nguồn. Không đưa khóa vào URL, JSON, nhật ký hoặc giao diện; không
+đưa `.env` vào lịch sử Git. Máy chủ phải xác thực khóa và quyền nguồn/phòng,
+không chỉ kiểm tra có tiêu đề. Cách cấp/đổi khóa, ánh xạ quyền và so sánh khóa
+an toàn cần chốt với máy chủ. Dùng HTTPS khi truyền qua mạng; không mở API
+tiếp nhận công khai từ bản chạy thử.
+
+### 14.6 Ví dụ curl và kế hoạch xác thực
+
+Các lệnh dùng PowerShell và `curl.exe`, chỉ dành cho môi trường thử riêng có
+cơ sở dữ liệu đã nạp dữ liệu mẫu. Chưa chạy trong lần soạn tài liệu; không gọi
+vào dữ liệu chung/môi trường vận hành thực tế, không ghi tệp thử vào thư mục
+hỗ trợ được bảo vệ.
+
+Với **bản ghi số đếm SEAT-19**, lưu một lô theo mục 4.1 vào `count-batch.json` trong thư
+mục thử nghiệm. API khai báo 200. Xem mục 14.1 về sai khác đã ghi nhận trong mã
+nguồn trước khi thử.
+
+```powershell
+$seat34BaseUrl = 'http://127.0.0.1:8000'
+curl.exe --silent --show-error --max-time 10 --include `
+  -H 'Content-Type: application/json' `
+  --data-binary '@count-batch.json' "$seat34BaseUrl/api/v1/cv/count-records"
+curl.exe --silent --show-error --max-time 10 --include `
+  "$seat34BaseUrl/api/v1/occupancy/rooms/14/latest"
+```
+
+Với **sự kiện có khóa**, lưu JSON mục 14.2 vào `crossing-event.json` trong thư mục
+thử; nạp khóa thử nghiệm vào môi trường. Chỉ chạy sau khi máy chủ có tuyến và
+xác thực theo hợp đồng đã duyệt. Lệnh là ví dụ thiết kế, không chứng minh API
+có sẵn.
+
+```powershell
+$seat34BaseUrl = 'http://127.0.0.1:8000'
+if ([string]::IsNullOrWhiteSpace($env:CV_API_KEY)) {
+  throw 'Chưa nạp CV_API_KEY cho môi trường thử nghiệm'
+}
+curl.exe --silent --show-error --connect-timeout 3 --max-time 10 --include `
+  -H 'Content-Type: application/json' -H "X-API-Key: $env:CV_API_KEY" `
+  --data-binary '@crossing-event.json' "$seat34BaseUrl/api/v1/cv/events"
+```
+
+Gửi lại cùng tệp để thử chống trùng, không tạo UUID mới. Để thử trạng thái,
+lưu JSON mục 14.4 vào `device-status.json`, dùng cùng tiêu đề/khóa ở tuyến
+trạng thái đề xuất. Không dùng `--verbose` hoặc ghi lệnh đã chứa giá trị khóa
+vào nhật ký làm bằng chứng chia sẻ.
+
+| Kiểm tra | Mong đợi | Trạng thái ngày 11/11/2026 |
+|---|---|---|
+| Lô số đếm hợp lệ / gửi lại / xung đột | 200 mới; 200 trùng; 409 khác nội dung theo v1 | Chưa chạy; mã nguồn đang lệch mục 14.1 |
+| Sự kiện mới / gửi lại / xung đột | 201; xác nhận cũ 200; 409; số đếm đổi đúng một lần | Chưa chạy; chưa có API sự kiện |
+| Thiếu/sai khóa / sai quyền | 401 / 403, không ghi dữ liệu | Chưa chạy; chưa có xác thực nguồn |
+| Mất xác nhận, yêu cầu đồng thời, cơ sở dữ liệu lỗi | Một sự kiện và một tác động; hoàn tác hoặc trả xác nhận đã lưu | Chưa chạy; cần PostgreSQL thử riêng |
+| Khởi động lại CV, hàng đợi đầy, sai thứ tự | Giữ mã sự kiện và thứ tự, cảnh báo/đối soát; không mất sự kiện mà không báo | Chưa chạy; chưa có bộ gửi/hàng đợi |
+| Chưa biết N0, lượt ra làm số đếm âm, vượt sức chứa, hiệu chỉnh | Chưa biết, đánh dấu dưới 0, kẹp chỗ trống, lịch sử truy vết | Chưa chạy tích hợp |
+| Mất nguồn/mạng, tín hiệu hoạt động phục hồi | Cảnh báo nguồn, không đặt về 0, gửi lại không làm dữ liệu cũ thành mới | Chưa chạy; chưa có API trạng thái |
+| Sự kiện → GET → giao diện | Đúng phòng/cơ sở và nguồn tính; đo từ cắt đường ảo đến hiển thị | Chưa chạy; giao diện hiện làm mới 30 giây |
+
+### 14.7 Nội dung cần Khiêm và Thắng xác nhận
+
+- [ ] Tuyến/phiên bản/cấu trúc sự kiện và trạng thái, phiên/số thứ tự đề xuất.
+- [ ] Ánh xạ phòng khu tự học/cơ sở, nguồn/quyền khóa và dữ liệu video thử.
+- [ ] UUID gửi mạng, cập nhật mã số nguyên, giao dịch và xác nhận khi mất phản hồi.
+- [ ] Số ban đầu mỗi phiên, thứ tự/gửi lại, số đếm dưới 0 và hiệu chỉnh truy vết.
+- [ ] Nguồn GET cho giao diện, chuyển bản ghi số đếm/sự kiện, chưa biết/mất kết nối, chu kỳ cập nhật.
+- [ ] Tiêu đề HTTP/biến môi trường chứa khóa, thời gian chờ/chờ tăng dần, tín hiệu hoạt động và giới hạn hàng đợi.
+- [ ] NFR-PRI-01/02 và ví dụ curl được thử với API thực tế sau khi gỡ trở ngại.
