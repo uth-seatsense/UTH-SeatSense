@@ -24,7 +24,7 @@ erDiagram
     Room ||--o{ CVCountRecord : monitors
     Room ||--o{ CountEvent : records
     Booking ||--o| CheckIn : "checked-in"
-    
+
     User {
         int user_id PK
         string display_name
@@ -35,7 +35,7 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
-    
+
     Room {
         int id PK
         string code UK
@@ -48,7 +48,7 @@ erDiagram
         bool is_active
         timestamp created_at
     }
-    
+
     Booking {
         int booking_id PK
         int user_id FK
@@ -60,7 +60,7 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
-    
+
     CheckIn {
         int checkin_id PK
         int booking_id FK "UNIQUE"
@@ -69,7 +69,7 @@ erDiagram
         string status
         timestamp created_at
     }
-    
+
     OccupancyRecord {
         int id PK
         uuid observation_id UK
@@ -80,7 +80,7 @@ erDiagram
         string source
         string device_status
     }
-    
+
     CVCountRecord {
         bigint id PK
         string schema_version
@@ -102,7 +102,7 @@ erDiagram
         bigint estimated_occupancy
         bool occupancy_underflow
     }
-    
+
     CountEvent {
         int event_id PK
         int room_id FK
@@ -112,7 +112,7 @@ erDiagram
         string source
         timestamp created_at
     }
-    
+
     AuditLog {
         int log_id PK
         int actor_id FK
@@ -214,7 +214,8 @@ Phòng học/đọc khả dụng để đặt chỗ.
 
 **State diagram và điều kiện chuyển:** xem [booking-lifecycle.md](booking-lifecycle.md).
 
-> `database/init/008_booking_status_lifecycle.sql` migrates legacy booking values to this canonical status set and adds `checkin_at` without dropping booking rows. Trạng thái lưu trong ERD là `booked`, `checked_in`, `completed`, `cancelled`, `no_show`; `checkin_at` nằm trên Booking để thể hiện check-in thành công. `pending` không được lưu: tạo booking thành công và chiếm lịch trong một transaction sẽ tạo thẳng trạng thái `booked`.
+> Đây là schema mục tiêu. Trước khi áp dụng vào cơ sở dữ liệu hiện có cần tạo migration để chuyển trạng thái cũ sang bộ trạng thái chuẩn, thêm checkin_at và giữ nguyên các lượt đặt. Trạng thái trong ERD là booked, checked_in, completed, cancelled, no_show; không lưu trạng thái trung gian pending.
+o_show; không lưu trạng thái trung gian pending.
 
 ---
 
@@ -322,7 +323,7 @@ EXCLUDE USING gist (
 
 **Hành vi:**
 - Ngăn chặn nguyên tử (atomic) các booking chồng lấn đồng thời
-- Chỉ áp dụng cho status đang chiếm lịch (booked, checked_in)
+- Chỉ áp dụng cho trạng thái đang chiếm lịch (`booked`, `checked_in`)
 - Booking đã cancelled hoặc completed không chặn lịch tương lai
 - Sử dụng PostgreSQL range types và GiST index
 
