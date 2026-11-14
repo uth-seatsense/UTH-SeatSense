@@ -809,3 +809,7 @@ sequenceDiagram
 | Gửi lại, sự kiện trùng và mất kết nối camera | Sơ đồ tuần tự đề xuất, quy tắc vận hành và API mục 14.3–14.4 | Đã mô tả mục tiêu |
 | Khóa API và lệnh curl đối chiếu SEAT-19 | API mục 14.5–14.6 | Có ví dụ, chưa kiểm thử khi chạy |
 | Khiêm và Thắng xác nhận | API mục 14.7 | Chưa có xác nhận mới |
+
+## Quy trình đặt phòng
+
+Vòng đời booking, điều kiện chuyển trạng thái và sơ đồ tuần tự UC-02/03/04 được mô tả tại [Vòng đời booking](booking-lifecycle.md).

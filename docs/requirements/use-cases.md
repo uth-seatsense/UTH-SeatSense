@@ -189,7 +189,7 @@ graph TB
 - **A2:** Không quyền (QR người khác) → "Không quyền check-in"
 - **A3:** Booking không tìm → "Không tìm thấy"
 - **A4:** Status ≠ 'booked' → "Trạng thái không hợp lệ"
-- **A5:** now > end+15m → "Hết thời gian check-in"
+- **A5:** now >= start_time + {{NO_SHOW_WAIT_MINUTES}} → "Hết thời gian check-in"
 - **A6:** Đã check-in → "Đã check-in rồi"
 
 ### BR, FR, TC
@@ -205,19 +205,19 @@ graph TB
 
 ### Tiền điều kiện
 - Booking: status = 'booked'
-- now >= end_time + 15 phút
+- now >= start_time + {{NO_SHOW_WAIT_MINUTES}}
 - Scheduler chạy mỗi 5 phút
 
 ### Hậu điều kiện
-- Lượt đặt: status = 'no-show'
-- Slot phòng giải phóng (available_slots += 1)
+- Lượt đặt: status = 'no_show'
+- Slot phòng giải phóng (nhả phần thời gian còn lại qua trạng thái booking)
 - Event ghi log
 
 ### Luồng chính
 1. Scheduler trigger
-2. Query: SELECT booking WHERE status='booked' AND end+15m < now()
+2. Query: SELECT booking WHERE status='booked' AND start_time + {{NO_SHOW_WAIT_MINUTES}} <= now()
 3. Duyệt từng booking:
-   - Update: status = 'no-show'
+   - Update: status = 'no_show'
    - Giải phóng slot
    - Ghi log event
 4. Hoàn tất
@@ -410,7 +410,7 @@ graph TB
 6. Backend: kiểm tra số người ∈ [2, 6]
 7. Backend: kiểm tra tối đa 1/ngày (SELECT COUNT)
 8. Backend: kiểm tra trùng lịch (SELECT OVERLAPS)
-9. CSDL: INSERT booking, UPDATE available_slots
+9. CSDL: INSERT booking, ngăn lịch trùng bằng exclusion constraint
 
 **Nhánh lỗi:**
 - Format sai → Frontend reject
@@ -473,7 +473,7 @@ graph TD
         db_check_daily["SELECT COUNT(*) FROM bookings<br/>WHERE user_id AND<br/>DATE(created_at) = today()"]
         db_check_dup["SELECT * FROM bookings<br/>WHERE room_id AND<br/>((start_time, end_time)<br/>OVERLAPS (req_start, req_end))"]
         db_insert["INSERT INTO bookings<br/>(user_id, room_id,<br/>start_time, end_time,<br/>participant_count,<br/>status='booked')"]
-        db_update_room["UPDATE rooms<br/>available_slots -= 1"]
+        db_update_room["UPDATE rooms<br/>booking chiếm lịch"]
         db_return["RETURN booking_id,<br/>status, start_time,<br/>end_time"]
     end
     
@@ -560,7 +560,7 @@ graph TD
 4. Backend: kiểm tra quyền (user_id = booking.user_id)
 5. Backend: kiểm tra booking tồn tại
 6. Backend: kiểm tra status = 'booked'
-7. Backend: kiểm tra thời gian ∈ [start, end+15m]
+7. Backend: kiểm tra thời gian ∈ [start_time, start_time + {{NO_SHOW_WAIT_MINUTES}})
 8. Backend: kiểm tra không check-in lặp (SELECT check_in_logs)
 9. CSDL: UPDATE booking status, INSERT check_in_logs
 
@@ -601,7 +601,7 @@ graph TD
         be_check_status[" Kiểm tra trạng thái booking"]
         be_check4{Trạng thái<br/>= booked?}
         be_invalid_status[" Từ chối: Booking không hợp lệ<br/>(đã hủy/đã check-in)"]
-        be_check_time[" Kiểm tra thời gian check-in<br/>(now >= booking_start<br/>AND now <= booking_end + 15m?)"]
+        be_check_time[" Kiểm tra thời gian check-in<br/>(now >= booking_start<br/>AND now < booking_start + {{NO_SHOW_WAIT_MINUTES}})"]
         be_check5{Trong khoảng<br/>thời gian?}
         be_time_out[" Từ chối: Hết giờ check-in"]
         be_check_prev[" Kiểm tra check-in trùng<br/>(đã check-in trong hôm nay?)"]
@@ -691,11 +691,11 @@ graph TD
 
 **Luồng chính:**
 1. Scheduler: trigger (mỗi 5 phút)
-2. Backend: query booking WHERE status='booked' AND end+15m < now()
+2. Backend: query booking WHERE status='booked' AND start_time + {{NO_SHOW_WAIT_MINUTES}} <= now()
 3. Nếu không có → kết thúc
 4. Nếu có → duyệt từng booking:
-   - Update: status = 'no-show'
-   - Giải phóng slot: available_slots += 1
+   - Update: status = 'no_show'
+   - Giải phóng slot: nhả phần thời gian còn lại qua trạng thái booking
    - Ghi log event
 5. CSDL: SELECT, UPDATE bookings, UPDATE rooms, INSERT event_logs
 
@@ -708,24 +708,24 @@ graph TD
 graph TD
     subgraph SC[" Scheduler / Bộ xử lý tự động"]
         start([" Bắt đầu<br/>(chạy mỗi 5 phút)"])
-        trigger[" Kiểm tra booking<br/>end_time + 15min < now()"]
+        trigger[" Kiểm tra booking<br/>start_time + {{NO_SHOW_WAIT_MINUTES}} <= now()"]
     end
     
     subgraph BE[" Backend"]
-        be_query[" Truy vấn booking<br/>status='booked'<br/>end_time + 15min < now()"]
+        be_query[" Truy vấn booking<br/>status='booked'<br/>start_time + {{NO_SHOW_WAIT_MINUTES}} <= now()"]
         be_check1{Có booking<br/>quá hạn?}
         be_no_booking[" Không có → kết thúc"]
         be_loop[" Duyệt từng booking"]
-        be_update_status[" Cập nhật status<br/>→ 'no-show'"]
+        be_update_status[" Cập nhật status<br/>→ 'no_show'"]
         be_free_slot[" Giải phóng slot phòng"]
         be_insert_log[" Ghi log sự kiện<br/>event_type='no_show'"]
         be_done[" Hoàn tất"]
     end
     
     subgraph DB[" CSDL - PostgreSQL"]
-        db_select["SELECT * FROM bookings<br/>WHERE status='booked'<br/>AND end_time + INTERVAL '15 min' < now()"]
-        db_update_status["UPDATE bookings<br/>status = 'no-show'"]
-        db_free_room["UPDATE rooms<br/>available_slots += 1"]
+        db_select["SELECT * FROM bookings<br/>WHERE status='booked'<br/>AND start_time + INTERVAL '{{NO_SHOW_WAIT_MINUTES}} minutes' <= now()"]
+        db_update_status["UPDATE bookings<br/>status = 'no_show'"]
+        db_free_room["UPDATE rooms<br/>nhả phần thời gian còn lại qua trạng thái booking"]
         db_insert_event["INSERT INTO event_logs<br/>(booking_id, room_id, user_id,<br/>event_type, timestamp)"]
     end
     
@@ -765,27 +765,6 @@ graph TD
 
 # D. State Diagram (Đối chiếu SEAT-41)
 
-**Trạng thái Booking:**
-- Pending (tạo lượt đặt)
-- Booked (xác nhận đặt)
-- CheckedIn (check-in QR)
-- NoShow (quá hạn không check-in)
-- Cancelled (hủy)
+## Vòng đời booking
 
-**Liên kết UC:**
-- UC-02 (Room Booking) → Pending → Booked
-- UC-03 (QR Check-in) → Booked → CheckedIn
-- UC-04 (No-show Auto) → Booked → NoShow
-- UC-02 extend (Cancel) → Booked → Cancelled
-
-**Guard conditions & Transitions:**
-- Pending → Booked: xác nhận thành công
-- Booked → CheckedIn: check-in trong [start, end+15m]
-- Booked → NoShow: now >= end+15m, chưa check-in
-- Booked → Cancelled: hủy trước start-30m
-- CheckedIn → (end) ✓
-- NoShow → (end) ✓
-- Cancelled → (end) ✓
-
-
-**Chờ SEAT-41:** Xem để đối chiếu chi tiết state transitions
+Điều kiện chuyển trạng thái và sơ đồ tuần tự UC-02/03/04 được mô tả tại [Vòng đời booking](../architecture/booking-lifecycle.md).
