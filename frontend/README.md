@@ -1,77 +1,155 @@
-# Frontend — Giao diện web
+# Frontend — UTH-SeatSense
 
-## Mục đích và trách nhiệm
+Frontend React/Vite cung cấp giao diện để xem tình trạng chỗ ngồi, đặt phòng
+học nhóm và check-in; dashboard thủ thư là một luồng nghiệp vụ trong SRS.
+Bảng ánh xạ màn hình, API, quyền và trạng thái xem
+[tại đây](../docs/ui/screen-api-mapping.md).
 
-Frontend cung cấp giao diện cho sinh viên xem chỗ trống, đặt phòng học nhóm
-và check-in bằng QR. Thủ thư sử dụng giao diện để theo dõi tình trạng phòng
-và xem thống kê. Web cần dễ sử dụng trên cả máy tính và điện thoại.
-
-Dữ liệu được lấy qua API của Backend. Frontend phụ trách hiển thị thông tin,
-nhận thao tác của người dùng và thông báo kết quả.
-
-## Cấu trúc thư mục dự kiến
+## Cấu trúc hiện tại
 
 ```text
-frontend/
-├── public/          # Tài nguyên công khai
-├── src/
-│   ├── main.jsx     # Khởi động giao diện
-│   ├── App.jsx      # Thành phần giao diện chính
-│   ├── pages/       # Các trang chức năng
-│   ├── components/  # Các phần giao diện dùng lại
-│   ├── routes/      # Điều hướng giữa các trang
-│   ├── hooks/       # Xử lý giao diện dùng chung
-│   ├── services/    # Gọi API Backend
-│   ├── assets/      # Ảnh và biểu tượng
-│   ├── styles/      # Định dạng giao diện
-│   └── tests/       # Kiểm thử Frontend
-└── package.json     # Thư viện và lệnh chạy
+frontend/src/
+├── App.jsx
+├── main.jsx
+├── assets/
+│   └── .gitkeep
+├── components/
+│   ├── checkin/   
+│   ├── common/
+│   │   └── .gitkeep
+│   ├── dashboard/
+│   │   └── .gitkeep
+│   ├── occupancy/
+│   │   └── .gitkeep
+│   ├── reservations/
+│   │   └── .gitkeep
+│   └── rooms/
+│       └── .gitkeep
+├── hooks/
+│   └── .gitkeep
+├── mocks/          
+├── pages/
+│   ├── CheckinPage.jsx
+│   ├── DashboardPage.jsx
+│   ├── HomePage.jsx
+│   ├── HealthPage.jsx
+│   ├── LoginPage.jsx
+│   ├── MyBookingsPage.jsx
+│   ├── ReservationPage.jsx
+│   └── RoomsPage.jsx
+├── routes/
+│   └── .gitkeep
+├── services/
+│   └── api.js
+├── styles/
+│   └── main.css
+└── tests/
+    ├── App.test.jsx
+    ├── DashboardStatus.test.jsx
+    ├── Health.test.js
+    └── Routes.test.jsx
 ```
 
-## Chuẩn bị và chạy
+`main.jsx` khởi tạo `BrowserRouter`; `App.jsx` định nghĩa các route:
+`/`, `/login`, `/rooms`, `/reservation`, `/my-bookings`, `/checkin`,
+`/dashboard`, `/health` và trang 404.
+Home dùng trực tiếp Dashboard, không thêm header trùng phía sau sidebar.
+`RoomsPage`, `ReservationPage`, `CheckinPage`, `LoginPage` và `MyBookingsPage`
+là placeholder; chưa triển khai nghiệp vụ.
 
-Cần Node.js và npm. Vite chạy tại <http://localhost:3000> khi dùng Docker
-Compose; chạy riêng thường dùng cổng `5173`. Mở terminal tại `frontend/` và
-chạy:
+Quy ước khi bổ sung: component React viết PascalCase (ví dụ `RoomCard.jsx`);
+custom hook bắt đầu bằng `use` (ví dụ `useOccupancy.js`). Component dùng chung
+được yêu cầu cho các màn gồm `RoomCard`, `OccupancyBadge`, `StaleWarning`,
+`BookingForm`, `TimeSlotPicker`, `QRCodeView` và `DashboardChart`; các component
+này chưa được triển khai.
+
+## Cài đặt và chạy
+
+Cần Node.js 22.12+ hoặc 24 LTS và npm. Tại thư mục `frontend/`:
 
 ```sh
 npm ci
 npm run dev -- --port 3000
 ```
 
-Vite proxy các yêu cầu `/api` tới `http://localhost:8000`; đổi địa chỉ backend
-bằng biến `VITE_BACKEND_PROXY_TARGET` nếu cần.
+Vite proxy `/api` tới `http://localhost:8000`; đổi địa chỉ bằng
+`VITE_BACKEND_PROXY_TARGET`. API base mặc định là `/api/v1` và có thể đổi bằng
+`VITE_API_BASE_URL`.
 
-## API số người hiện tại
+Trên PowerShell nếu `npm.ps1` bị chặn, dùng `npm.cmd` thay cho `npm`.
+Đặt `VITE_API_BASE_URL` trong `frontend/.env.local` rồi restart dev server.
+Với `VITE_BACKEND_PROXY_TARGET`, truyền qua environment của terminal vì cấu hình
+Vite đọc trực tiếp `process.env`.
 
-Frontend gọi `GET /api/v1/occupancy/current` và tự làm mới mỗi 30 giây. Có thể
-ghi đè URL bằng `VITE_OCCUPANCY_API_URL` trong file `.env.local` của frontend.
-URL mặc định cũng có thể thay đổi bằng `VITE_API_BASE_URL` (mặc định
-`/api/v1`).
+## Docker — chỉ build frontend (SEAT-50)
 
-Phản hồi thành công cần có số người nguyên không âm trong một trong các trường
-`current_count`, `people_count`, `occupancy_count` hoặc `count`. Các trường
-`updated_at` và `location` là tùy chọn. Giá trị đếm bằng `0` là hợp lệ; phản hồi
-rỗng sẽ hiện thông báo chưa có dữ liệu. Lỗi HTTP, lỗi mạng hoặc JSON không hợp
-lệ sẽ hiện thông báo lỗi. Không có dữ liệu mẫu được dùng thay cho phản hồi API.
+Service frontend và các biến môi trường đã có trong Compose.
+Từ thư mục gốc, sau khi cấu hình `.env` theo `.env.example`:
 
-Endpoint tổng hợp bản ghi mới nhất của mỗi phòng đang hoạt động từ bảng
-`occupancy_records`. Hiện tại API trả tổng số toàn hệ thống; schema phòng chưa
-có mã cơ sở để lọc riêng CS1/CS3. Dữ liệu chỉ xuất hiện khi CV hoặc nguồn ghi
-nhận khác lưu bản ghi occupancy vào database.
+```sh
+docker compose build frontend
+docker compose up --no-build --no-deps -d frontend
+```
 
-## Quản lý model, video và dữ liệu nhạy cảm
+Hai lệnh này không build hoặc khởi động CV/backend. Mở
+`http://localhost:3000` (hoặc cổng `FRONTEND_PORT` đã cấu hình).
+Image dùng `npm ci` và chạy Vite dev server cho skeleton, không phải cấu hình
+production.
 
-- Không đưa model hoặc video camera vào giao diện; sử dụng số liệu do Backend trả về.
-- Dùng dữ liệu giả và ảnh minh họa được phép sử dụng khi thiết kế, kiểm thử.
-- Không đặt mật khẩu hay token bí mật trong mã giao diện, `public/` hoặc biến
-  `VITE_*`, vì người dùng có thể xem được chúng trên trình duyệt.
-- Không chia sẻ ảnh chụp chứa mã sinh viên, thông tin đặt phòng hoặc QR thật.
-- Không đưa thư viện đã cài (`node_modules/`) và bản build (`dist/`) lên Git.
+`VITE_API_BASE_URL` là biến API base của frontend (tương ứng `API_BASE_URL`
+trong mô tả task), mặc định `/api/v1`. Compose cấu hình proxy nội bộ bằng
+`VITE_BACKEND_PROXY_TARGET=http://backend:8000`. Không đặt hostname Docker
+`backend` vào URL gọi trực tiếp từ trình duyệt.
+
+Trang `/health` hiển thị đang kiểm tra, kết nối thành công kèm JSON, hoặc lỗi
+thật từ backend; timeout sau 10 giây. Khi chạy riêng frontend và backend chưa
+sẵn sàng, trạng thái lỗi là bình thường, không được thay bằng dữ liệu giả.
+Để nghiệm thu kết nối thành công, cần backend hoạt động và kiểm tra lại
+`/api/v1/health` qua frontend.
+
+## API và trạng thái hiện có
+
+`src/services/api.js` hiện có `getApiHealth()` và `getCurrentOccupancy()`.
+Dashboard gọi `GET /api/v1/occupancy/current`, làm mới mỗi 30 giây, chấp nhận
+số nguyên không âm trong `current_count`, `people_count`, `occupancy_count`
+hoặc `count`. Số 0 hợp lệ; trường count null/thiếu được hiển thị như chưa có
+dữ liệu. Lỗi HTTP, mạng hoặc JSON sai được hiển thị thành lỗi.
+
+Backend hiện trả tổng số người trong các phòng hoạt động, không nhận lọc cơ sở.
+Endpoint `GET /api/v1/occupancy/rooms/{room_id}/latest` có `is_stale`, nhưng
+Dashboard hiện chưa gọi endpoint này. Xem [API Contract](../docs/architecture/api-contracts.md)
+và [bảng ánh xạ màn hình](../docs/ui/screen-api-mapping.md) để biết các route
+đã có, route mới chỉ được mô tả và route nghiệp vụ còn cần thống nhất.
+
+## Mock và service layer — trạng thái
+
+Thư mục `src/mocks/` hiện còn rỗng. Chưa có mock API client, fixture, xử lý token chung hoặc điều
+hướng về đăng nhập khi gặp HTTP 401. Frontend vì vậy chưa thể chạy các luồng
+phòng/đặt chỗ/check-in khi Backend chưa sẵn sàng; các màn này vẫn là placeholder.
+Không có biến `VITE_USE_MOCK_API` được hỗ trợ hiện tại.
+
+Khi triển khai lớp services, dùng một API client chung cho base URL, JSON,
+token và lỗi HTTP; xử lý 401 bằng xóa token phiên và điều hướng tới đăng nhập.
+Mock nên bật/tắt bằng biến môi trường (ví dụ `VITE_USE_MOCK_API`) và trả đúng
+shape API Contract; chỉ bật mock khi có fixture/route tương ứng, không thay lỗi
+thật bằng response thành công giả.
+
+Không đặt mật khẩu/token bí mật trong mã nguồn hoặc biến `VITE_*`; các biến này
+được đóng gói công khai phía trình duyệt. Không đưa dữ liệu cá nhân hoặc QR
+thật vào fixture.
 
 ## Kiểm tra
 
 ```sh
 npm test
+npm run lint
+npm run format:check
 npm run build
 ```
+
+`npm run format` định dạng JS/JSX; Dashboard kế thừa được loại tạm khỏi
+Prettier để giữ nguyên code ngoài phạm vi task. ESLint vẫn kiểm tra Dashboard;
+các cảnh báo props hiện có không chặn build.
+Test route dùng `StaticRouter` trong môi trường Node, còn trình duyệt dùng
+`BrowserRouter`. Khi nghiệm thu, kiểm tra mở trực tiếp/reload từng route,
+navigation ở desktop/mobile và trang Home không bị sidebar che chữ.

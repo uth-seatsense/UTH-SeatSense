@@ -63,6 +63,57 @@ button:disabled {
   -webkit-font-smoothing: antialiased;
 }
 
+.app-navigation {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px 24px;
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--outline);
+  background: var(--surface-card);
+}
+
+.app-navigation-links {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+  gap: 8px 24px;
+}
+
+.app-navigation-login {
+  flex-shrink: 0;
+}
+
+.app-navigation a {
+  padding: 6px 0;
+  color: var(--secondary);
+  font-size: 14px;
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+
+.app-navigation a[aria-current="page"] {
+  color: var(--primary);
+  text-decoration-thickness: 2px;
+}
+
+/* Match the fixed Dashboard sidebar without offsetting the Dashboard twice. */
+.app-navigation--dashboard {
+  margin-left: 240px;
+}
+
+.skeleton-page {
+  max-width: 960px;
+  padding: 24px;
+  margin: 0 auto;
+  overflow-wrap: anywhere;
+}
+
+.skeleton-page pre {
+  overflow-x: auto;
+}
+
 .app-shell {
   min-height: 100vh;
 }
@@ -927,6 +978,10 @@ button:disabled {
 }
 
 @media (max-width: 820px) {
+  .app-navigation--dashboard {
+    margin-left: 0;
+  }
+
   .sidebar {
     display: none;
   }

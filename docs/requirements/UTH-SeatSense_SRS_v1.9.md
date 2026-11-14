@@ -9,14 +9,14 @@ Hệ thống theo dõi mật độ sử dụng phòng đọc<br>và đặt phòn
 | Thông tin | Nội dung |
 | --- | --- |
 | Mã đề tài | D6 – Đặt chỗ và theo dõi mật độ sử dụng phòng đọc |
-| Phiên bản | 1.8 – Duyệt nội bộ; chờ xác nhận thư viện trước triển khai |
+| Phiên bản | 1.9 – Bổ sung đánh giá SEAT-48; Uyên duyệt nội bộ |
 | Ngày cập nhật | 10/11/2026 |
 | Đơn vị hưởng lợi | Trung tâm Thông tin Thư viện UTH |
 | Quản lý dự án | Vũ Nguyễn Nhã Uyên |
 | Giáo viên hướng dẫn | TS. Đặng Nhân Cánh |
 | Nhóm phát triển | Nhóm dự án UTH-SeatSense |
 | Thời gian dự án | 26/10/2026 – 26/12/2026 |
-| Trạng thái | Uyên duyệt nội bộ ngày 10/11/2026; 5 email thư viện hoãn đến trước triển khai tại thư viện |
+| Trạng thái | Uyên duyệt nội bộ SRS 1.9 ngày 10/11/2026; native Kotlin chưa có PoC build/runtime; xác nhận thư viện vẫn cần trước triển khai |
 
 Tài liệu làm cơ sở thống nhất yêu cầu, thiết kế, phát triển, kiểm thử và đánh giá sản phẩm.
 
@@ -33,6 +33,7 @@ Tài liệu làm cơ sở thống nhất yêu cầu, thiết kế, phát triển
 | 1.6 | 07/11/2026 | Chốt dùng webcam của máy tính cho cả kiểm thử và triển khai; bỏ chi phí mua camera; cập nhật mô tả camera, giả định, rủi ro | Chờ rà soát |
 | 1.7 | 10/11/2026 | Chuẩn hóa quyết định, cập nhật FR/BR/KPI và ghi nhận Uyên duyệt nội bộ; email thư viện hoãn đến trước triển khai tại thư viện | Duyệt nội bộ |
 | 1.8 | 10/11/2026 | Đối chiếu lại với Charter; chốt ByteTrack, quy trình ghi nhận số người ban đầu, hiệu chỉnh có truy vết và truy cập thử nghiệm qua Wi-Fi; đổi tên bản SRS cho khớp phiên bản | Duyệt nội bộ |
+| 1.9 | 10/11/2026 | Bổ sung so sánh framework và bằng chứng thử nhanh cho Q-16/Q-17 theo SEAT-48; Uyên duyệt hướng React + Vite và Android Kotlin; PoC native chưa thực hiện do thiếu toolchain | Duyệt nội bộ; native PoC còn chờ |
 
 ## Mục lục nội dung
 
@@ -132,8 +133,8 @@ Chuẩn hóa môi trường bằng Docker Compose; lập báo cáo thực nghi�
 
 | Vai trò | Nhu cầu và quyền chính |
 | --- | --- |
-| Sinh viên/người dùng | Dùng app Android hoặc web: xem tình trạng khu tự học tự do, đăng nhập bằng OTP qua email sinh viên, đặt phòng chuyên đề, xem lịch đặt và check-in QR cho lượt đặt hợp lệ của mình. |
-| Thủ thư/quản lý | Xem dashboard; quản lý thông tin phòng, sức chứa và quy tắc vận hành theo quyền được cấp. |
+| Sinh viên/người dùng | Dùng app Android hoặc web: xem tình trạng khu tự học tự do, đăng nhập bằng mã OTP qua email, đặt phòng chuyên đề, xem lịch đặt và check-in QR cho lượt đặt hợp lệ của mình. |
+| Thủ thư/quản lý | Dùng web: đăng nhập bằng mã OTP qua email, xem dashboard, quản lý thông tin phòng, sức chứa và quy tắc vận hành theo quyền được cấp. |
 | Nhóm phát triển/vận hành | Cấu hình camera AI/đường ảo; theo dõi lỗi; kiểm thử, đo FPS và sai số. |
 
 ### 2.4. Kiến trúc khái quát
@@ -172,15 +173,15 @@ Phòng chuyên đề (topic_room): xem lịch khung giờ, đặt cho nhóm, che
 
 API đặt phòng từ chối yêu cầu đặt cho khu tự học tự do; dữ liệu đếm chỉ gắn với khu tự học tự do.
 
-### 2.7. Ứng dụng cho sinh viên và đăng nhập
+### 2.7. Ứng dụng cho sinh viên, thủ thư và đăng nhập
 
-Ứng dụng cho sinh viên là ứng dụng Android native viết bằng Kotlin, phát hành thử nghiệm bằng APK trực tiếp và dùng chung API với web; web responsive vẫn dùng cho thủ thư và sinh viên dùng trình duyệt; không làm ứng dụng iOS. Đăng nhập và đăng ký là một luồng:
+Ứng dụng cho sinh viên là ứng dụng Android native viết bằng Kotlin, phát hành thử nghiệm bằng APK trực tiếp và dùng chung API với web; web responsive dùng cho thủ thư và sinh viên qua trình duyệt; không làm ứng dụng iOS. Đăng nhập và đăng ký là một luồng cho cả sinh viên và thủ thư:
 
-Sinh viên nhập email trong danh sách cho phép, nhận OTP 6 số (tạm hết hạn sau 5 phút; tối đa 5 lần nhập sai; gửi lại sau 60 giây), nhập mã để vào; lần đầu hệ thống tự tạo hồ sơ, không có mật khẩu. Các ngưỡng tạm chờ nhóm rà soát bảo mật.
+Người dùng nhập email trong danh sách cho phép (sinh viên hoặc thủ thư), nhận OTP 6 số (tạm hết hạn sau 5 phút; tối đa 5 lần nhập sai; gửi lại sau 60 giây), nhập mã để vào; lần đầu hệ thống tự tạo hồ sơ, không có mật khẩu. Các ngưỡng tạm chờ nhóm rà soát bảo mật. Hệ thống tự động phân biệt sinh viên và thủ thư dựa trên danh sách email được phân loại; thủ thư nhận quyền truy cập dashboard và quản lý phòng.
 
-Giai đoạn thử nghiệm dùng danh sách email được phép và tài khoản demo do nhóm tạo; thủ thư do nhóm gán vai trò.
+Giai đoạn thử nghiệm dùng danh sách email được phép (tách riêng sinh viên và thủ thư) và tài khoản demo do nhóm tạo; thủ thư do nhóm gán vai trò.
 
-Chỉ khi trường cấp văn bản đồng ý và cách kết nối chính thức mới thêm đăng nhập qua portal, qua một lớp đăng nhập thay thế được. Nhóm không nhận hoặc lưu mật khẩu portal của sinh viên.
+Chỉ khi trường cấp văn bản đồng ý và cách kết nối chính thức mới thêm đăng nhập qua portal, qua một lớp đăng nhập thay thế được. Nhóm không nhận hoặc lưu mật khẩu portal của sinh viên hoặc thủ thư.
 
 ### 2.8. Hai cơ sở thư viện (CS1 và CS3)
 
@@ -198,7 +199,7 @@ Số đếm, sức chứa và đường ảo được cấu hình riêng cho t�
 
 | Mã | Giao diện | Yêu cầu |
 | --- | --- | --- |
-| UI-01 | Đăng nhập bằng mã OTP | Nhập email sinh viên rồi nhập mã 6 số; thông báo lỗi chung, không tiết lộ email đã có tài khoản hay chưa. |
+| UI-01 | Đăng nhập bằng mã OTP | Nhập email (sinh viên hoặc thủ thư) rồi nhập mã 6 số; thông báo lỗi chung, không tiết lộ email đã có tài khoản hay chưa. Hệ thống tự động xác định vai trò dựa trên email. |
 | UI-02 | Trang tình trạng khu tự học tự do | Tên phòng, sức chứa, số người ước tính, chỗ trống, mức độ đông và thời điểm cập nhật. |
 | UI-03 | Đặt phòng chuyên đề | Chọn ngày/giờ/phòng chuyên đề; xem khả dụng; xác nhận kết quả và báo trùng lịch. |
 | UI-04 | Lịch đặt/QR | Hiển thị lượt đặt của người dùng và QR/mã check-in hợp lệ. |
@@ -234,7 +235,7 @@ Mỗi yêu cầu được đánh mã để truy vết sang thiết kế và ki�
 | Mã | Tên | Mô tả | Ưu tiên |
 | --- | --- | --- | --- |
 | FR-AUTH-01 | Tự tạo hồ sơ lần đầu | Tự tạo hồ sơ ở lần đầu xác minh OTP thành công với email thuộc danh sách được phép; không có màn hình đăng ký riêng và không dùng mật khẩu. | Must |
-| FR-AUTH-02 | Đăng nhập OTP/đăng xuất | Gửi mã OTP 6 số qua email sinh viên trong danh sách cho phép; mã dùng một lần, hết hạn sau 5 phút; cấp phiên đăng nhập và cho phép kết thúc phiên. | Must |
+| FR-AUTH-02 | Đăng nhập OTP/đăng xuất | Gửi mã OTP 6 số qua email (sinh viên hoặc thủ thư) trong danh sách cho phép; mã dùng một lần, hết hạn sau 5 phút; cấp phiên đăng nhập và cho phép kết thúc phiên. Hệ thống tự phân biệt sinh viên và thủ thư dựa trên danh sách email. | Must |
 | FR-AUTH-03 | Phân quyền | Phân biệt người dùng và thủ thư/quản lý; chặn thao tác trái quyền. | Must |
 | FR-AUTH-04 | Bảo vệ mã OTP | Mã OTP chỉ lưu dạng băm, dùng một lần, hết hạn sau 5 phút; hủy mã sau 5 lần nhập sai; giới hạn gửi lại một lần mỗi 60 giây; thông báo lỗi chung. Các ngưỡng là tạm thời đến khi nhóm rà soát bảo mật. | Must |
 | FR-AUTH-05 | Đăng nhập qua portal (tùy chọn) | Mặc định dùng OTP email. Chỉ bổ sung SSO/API portal sau khi có văn bản đồng ý, đầu mối kỹ thuật và phương thức tích hợp chính thức; không nhận hoặc lưu mật khẩu portal. | Could |
@@ -327,7 +328,7 @@ Mỗi yêu cầu được đánh mã để truy vết sang thiết kế và ki�
 | BR-12 | Khi dữ liệu lỗi thời/mất kết nối, giao diện phải hiển thị cảnh báo. |
 | BR-13 | Mỗi bản ghi đếm có phòng, thời điểm và nguồn; sự kiện trùng phải được khử theo event_id hoặc (session_id, frame_index). Không cộng counter tích lũy qua các frame. |
 | BR-14 | Chỉ phòng chuyên đề được đặt chỗ; khu tự học tự do không nhận đặt chỗ. |
-| BR-15 | Mã OTP 6 số tạm có hiệu lực 5 phút, chỉ dùng một lần, chỉ lưu dạng băm; mã bị hủy sau 5 lần nhập sai và chỉ cho gửi lại sau 60 giây. |
+| BR-15 | Mã OTP 6 số tạm có hiệu lực 5 phút, chỉ dùng một lần, chỉ lưu dạng băm; mã bị hủy sau 5 lần nhập sai và chỉ cho gửi lại sau 60 giây. Áp dụng cho cả sinh viên và thủ thư. |
 | BR-16 | Mặc định dùng OTP email; không nhận/lưu mật khẩu portal. Chỉ tích hợp SSO/API chính thức sau khi có văn bản đồng ý và đầu mối kỹ thuật của trường. |
 | BR-17 | Mỗi phòng thuộc đúng một cơ sở; số đếm và đặt chỗ được tính riêng theo từng phòng và cơ sở. |
 | BR-18 | Tạm giới hạn nhóm 2–6 người và một lượt đặt/người/ngày; thư viện phải xác nhận sức chứa nhóm và giới hạn vận hành trước khi dùng thật. |
@@ -508,12 +509,12 @@ Phân nhóm đầu mối cần trả lời/xác nhận (một số mục cần p
 | Q-13. Mục tiêu chạy liên tục? | Tạm đo một phiên 4 giờ liên tục, ghi thời gian gián đoạn và lỗi; đây là mục tiêu kiểm thử, không phải cam kết SLA. Hệ quả: đo được trong phạm vi đồ án mà không hàm ý vận hành 24/7. | UYÊN BÁO ĐÃ XÁC NHẬN — người duyệt mục tiêu chạy liên tục gốc chưa được cung cấp. | Vũ Nguyễn Nhã Uyên (báo đã xác nhận); TS. Đặng Nhân Cánh là đầu mối xác nhận học thuật. | 10/11/2026 (Uyên xác nhận) | NFR-REL-01; AT-05; FR-OPS-01 |
 | Q-14. Môi trường, tải và công thức KPI? | Tạm dùng công thức sai số tổng hợp tại AT-01; 5–10 phiên ở nhiều mức đông; phiên tổng đếm tay bằng 0 báo sai số tuyệt đối; p95 độ trễ ≤5 giây; trung vị ≥5 FPS ở 416 px trong ít nhất 60 giây; SUS ≥70 với 15–30 người. Hệ quả: kết quả có thể so sánh, nhưng mẫu nhỏ phải nêu giới hạn. | UYÊN BÁO ĐÃ XÁC NHẬN — người duyệt KPI gốc/công thức chi tiết chưa được cung cấp; giữ các giới hạn đo trong báo cáo. | Vũ Nguyễn Nhã Uyên (báo đã xác nhận); TS. Đặng Nhân Cánh là đầu mối KPI; Lê Văn Trí đo CV. | 10/11/2026 (Uyên xác nhận) | FR-EXP-01–02; NFR-PER-01–02; NFR-ACC-01; NFR-USA-03; AT-01–04 |
 | Q-15. Xử lý bỏ sót hoặc lệch số đếm? | Tạo bản ghi điều chỉnh riêng có lý do, người thực hiện và thời gian; cho phép cập nhật số hiện tại bởi vai trò được cấp quyền, nhưng không sửa/xóa sự kiện CV thô hoặc lịch sử đã lưu. Hệ quả: có truy vết và phân biệt đo tự động với hiệu chỉnh thủ công. | UYÊN BÁO ĐÃ XÁC NHẬN — người trả lời kỹ thuật gốc chưa được cung cấp; cơ chế còn cần tích hợp và kiểm thử. | Vũ Nguyễn Nhã Uyên (báo đã xác nhận); nhóm Backend/CV thực hiện. | 10/11/2026 (Uyên xác nhận) | FR-OCC-01–02, FR-ADMIN-01; BR-13, BR-21 |
-| Q-16. Framework frontend và payload CV/backend? | Frontend React + Vite (JavaScript), theo Charter; dùng hợp đồng dữ liệu CV schema 1.0 hiện có. Endpoint mạng, xác thực, retry và mã phòng ánh xạ phải được chốt cùng trước tích hợp. Hệ quả: giữ tương thích hợp đồng hiện tại, tránh coi JSONL cục bộ là API đã triển khai. | UYÊN BÁO ĐÃ XÁC NHẬN — framework/schema đối chiếu được trong tài liệu; endpoint mạng và retry vẫn chưa có trong hợp đồng. | Vũ Nguyễn Nhã Uyên (báo đã xác nhận); nhóm Frontend/Backend/CV hoàn thiện endpoint. | 10/11/2026 (Uyên xác nhận; repo đối chiếu) | FR-CV-01–04; FR-OCC-01; NFR-DAT-01; hợp đồng dữ liệu CV v1.0 |
-| Q-17 (P0). Nền tảng ứng dụng: Android hay iOS; công nghệ và phát hành? | Theo Charter: Android native cho sinh viên, iOS ngoài phạm vi; tạm chọn Kotlin, phát hành APK trực tiếp và kiểm thử trên thiết bị Android nhóm mượn. Hệ quả: giữ được camera quét QR, không phát sinh chi phí cửa hàng; nếu thiếu thời gian, ưu tiên web/API vì ứng dụng là Should. | UYÊN BÁO ĐÃ XÁC NHẬN — quy định nền tảng/phát hành của trường và người duyệt công nghệ Android gốc chưa được cung cấp. | Vũ Nguyễn Nhã Uyên (báo đã xác nhận); đầu mối CNTT nhà trường chưa được chỉ định; nhóm Android chưa phân công. | 10/11/2026 (Uyên xác nhận) | FR-APP-01; FR-PWA-01; FR-CHK-01–03; NFR-USA-02; TC-11, TC-17 |
+| Q-16. Framework frontend và payload CV/backend? | Giữ React + Vite (JavaScript), phù hợp frontend hiện có; dùng hợp đồng dữ liệu CV schema 1.0. PoC React build thành công, 9/9 test đạt và gọi API thật HTTP 200; PoC Vue trống cũng build/call API thành công nhưng không có lợi ích đủ để thay thế code React hiện hữu. Endpoint mạng, xác thực, retry, ánh xạ mã phòng và thư viện QR/biểu đồ vẫn cần chốt. Hệ quả: giảm chi phí chuyển đổi; không xem PoC UI/API là hoàn tất tích hợp payload CV. | Uyên duyệt giữ React + Vite ngày 10/11/2026 sau khi xem kết quả so sánh SEAT-48; Vue cũng chạy được PoC tối thiểu. | Vũ Nguyễn Nhã Uyên (người duyệt); nhóm Frontend/Backend/CV hoàn thiện endpoint và chọn thư viện sau khi kiểm thử. | 10/11/2026 (PoC web và Uyên duyệt) | FR-CV-01–04; FR-OCC-01; NFR-DAT-01; hợp đồng dữ liệu CV v1.0 |
+| Q-17 (P0). Nền tảng ứng dụng: Android hay iOS; công nghệ và phát hành? | Giữ Android native bằng Kotlin theo Charter; iOS ngoài phạm vi; dự kiến phát hành APK trực tiếp. Kotlin phù hợp mục tiêu Android-only và truy cập camera/QR nền tảng; Flutter/React Native cần toolchain mobile và UI riêng, còn Swift hướng iOS. Chưa chạy PoC native: môi trường thiếu Android SDK, adb, Gradle và Flutter; không ghi nhận build hoặc gọi API thành công. Hệ quả: hướng công nghệ đã được Uyên duyệt nhưng cần spike 30 phút (app trống + gọi API) trên máy có Android toolchain trước khi xác nhận khả năng build/tích hợp. | Uyên duyệt hướng Android/Kotlin ngày 10/11/2026; SEAT-48 chưa kiểm chứng native bằng build/runtime. Uyên sẽ chỉ định người chạy spike trên máy Android phù hợp. | Vũ Nguyễn Nhã Uyên (người duyệt và phân công người chạy spike); đầu mối CNTT nhà trường chưa được chỉ định. | 10/11/2026 (Uyên duyệt; PoC native chờ thực hiện) | FR-APP-01; FR-PWA-01; FR-CHK-01–03; NFR-USA-02; TC-11, TC-17 |
 
 ### Trạng thái xác nhận
 
-- Uyên đã duyệt nội bộ SRS 1.8 ngày 10/11/2026; 17/17 mục có trạng thái.
+- Uyên đã duyệt nội bộ SRS 1.9 ngày 10/11/2026; 17/17 mục có trạng thái. PoC native và tích hợp thư viện QR/biểu đồ chưa được thực hiện/kiểm chứng; đây là việc xác minh kỹ thuật tiếp theo, không thay đổi quyết định công nghệ.
 - Uyên báo 12 mục ngoài Q-03/04/05/06/08 đã được xác nhận; tên người trả lời gốc và ngày trả lời cụ thể chưa được cung cấp, nên hồ sơ không gán các câu trả lời trực tiếp cho nhà trường/thầy hướng dẫn/nhóm.
 - Theo chỉ đạo của Uyên, email thư viện cho Q-03/04/05/06/08 được hoãn ở giai đoạn nội bộ. Chưa có email trong repo; phải lấy văn bản đồng ý và xác nhận quy tắc liên quan trước khi đặt webcam, thu thập dữ liệu hoặc vận hành tại thư viện.
 - Các giá trị được Uyên duyệt chỉ dùng cho phát triển/kiểm thử nội bộ; không thay thế phê duyệt nghiệp vụ/quyền riêng tư của thư viện hoặc nhà trường.
@@ -522,11 +523,11 @@ Phân nhóm đầu mối cần trả lời/xác nhận (một số mục cần p
 
 | Vai trò | Người phê duyệt | Ngày | Chữ ký |
 | --- | --- | --- | --- |
-| Đại diện nhóm dự án | Vũ Nguyễn Nhã Uyên | 10/11/2026 | Đã duyệt nội bộ SRS 1.8 theo xác nhận trong phiên làm việc |
+| Đại diện nhóm dự án | Vũ Nguyễn Nhã Uyên | 10/11/2026 | Đã duyệt nội bộ SRS 1.9 theo xác nhận trong phiên làm việc |
 | Giáo viên hướng dẫn | TS. Đặng Nhân Cánh | Chưa ghi nhận chữ ký; Uyên báo các xác nhận ngoài nhóm email đã có | Chưa có chữ ký trong repo |
 | Đại diện Thư viện UTH | Chưa được chỉ định | Hoãn xác nhận email cho giai đoạn nội bộ | Cần văn bản trước khi triển khai tại thư viện |
 
-Kết luận: SRS 1.8 đã được Uyên duyệt cho giai đoạn phát triển/kiểm thử nội bộ theo Project Charter UTH-SeatSense phiên bản 1.7. Đây chưa phải phê duyệt triển khai tại thư viện; xác nhận/email thư viện cho Q-03/04/05/06/08 được hoãn theo chỉ đạo của Uyên và vẫn là điều kiện trước khi đặt webcam, thu thập dữ liệu hoặc áp dụng chính sách thật.
+Kết luận: SRS 1.9 đã được Uyên duyệt cho giai đoạn phát triển/kiểm thử nội bộ theo Project Charter UTH-SeatSense phiên bản 1.7. Quyết định công nghệ được chốt nội bộ; PoC native chưa được thực hiện nên khả năng build/tích hợp chưa được xác minh. Đây chưa phải phê duyệt triển khai tại thư viện; xác nhận/email thư viện cho Q-03/04/05/06/08 được hoãn theo chỉ đạo của Uyên và vẫn là điều kiện trước khi đặt webcam, thu thập dữ liệu hoặc áp dụng chính sách thật.
 
 ## Phụ lục A. Nguồn dự án
 
