@@ -133,8 +133,8 @@ Chuẩn hóa môi trường bằng Docker Compose; lập báo cáo thực nghi�
 
 | Vai trò | Nhu cầu và quyền chính |
 | --- | --- |
-| Sinh viên/người dùng | Dùng app Android hoặc web: xem tình trạng khu tự học tự do, đăng nhập bằng OTP qua email sinh viên, đặt phòng chuyên đề, xem lịch đặt và check-in QR cho lượt đặt hợp lệ của mình. |
-| Thủ thư/quản lý | Xem dashboard; quản lý thông tin phòng, sức chứa và quy tắc vận hành theo quyền được cấp. |
+| Sinh viên/người dùng | Dùng app Android hoặc web: xem tình trạng khu tự học tự do, đăng nhập bằng mã OTP qua email, đặt phòng chuyên đề, xem lịch đặt và check-in QR cho lượt đặt hợp lệ của mình. |
+| Thủ thư/quản lý | Dùng web: đăng nhập bằng mã OTP qua email, xem dashboard, quản lý thông tin phòng, sức chứa và quy tắc vận hành theo quyền được cấp. |
 | Nhóm phát triển/vận hành | Cấu hình camera AI/đường ảo; theo dõi lỗi; kiểm thử, đo FPS và sai số. |
 
 ### 2.4. Kiến trúc khái quát
@@ -173,15 +173,15 @@ Phòng chuyên đề (topic_room): xem lịch khung giờ, đặt cho nhóm, che
 
 API đặt phòng từ chối yêu cầu đặt cho khu tự học tự do; dữ liệu đếm chỉ gắn với khu tự học tự do.
 
-### 2.7. Ứng dụng cho sinh viên và đăng nhập
+### 2.7. Ứng dụng cho sinh viên, thủ thư và đăng nhập
 
-Ứng dụng cho sinh viên là ứng dụng Android native viết bằng Kotlin, phát hành thử nghiệm bằng APK trực tiếp và dùng chung API với web; web responsive vẫn dùng cho thủ thư và sinh viên dùng trình duyệt; không làm ứng dụng iOS. Đăng nhập và đăng ký là một luồng:
+Ứng dụng cho sinh viên là ứng dụng Android native viết bằng Kotlin, phát hành thử nghiệm bằng APK trực tiếp và dùng chung API với web; web responsive dùng cho thủ thư và sinh viên qua trình duyệt; không làm ứng dụng iOS. Đăng nhập và đăng ký là một luồng cho cả sinh viên và thủ thư:
 
-Sinh viên nhập email trong danh sách cho phép, nhận OTP 6 số (tạm hết hạn sau 5 phút; tối đa 5 lần nhập sai; gửi lại sau 60 giây), nhập mã để vào; lần đầu hệ thống tự tạo hồ sơ, không có mật khẩu. Các ngưỡng tạm chờ nhóm rà soát bảo mật.
+Người dùng nhập email trong danh sách cho phép (sinh viên hoặc thủ thư), nhận OTP 6 số (tạm hết hạn sau 5 phút; tối đa 5 lần nhập sai; gửi lại sau 60 giây), nhập mã để vào; lần đầu hệ thống tự tạo hồ sơ, không có mật khẩu. Các ngưỡng tạm chờ nhóm rà soát bảo mật. Hệ thống tự động phân biệt sinh viên và thủ thư dựa trên danh sách email được phân loại; thủ thư nhận quyền truy cập dashboard và quản lý phòng.
 
-Giai đoạn thử nghiệm dùng danh sách email được phép và tài khoản demo do nhóm tạo; thủ thư do nhóm gán vai trò.
+Giai đoạn thử nghiệm dùng danh sách email được phép (tách riêng sinh viên và thủ thư) và tài khoản demo do nhóm tạo; thủ thư do nhóm gán vai trò.
 
-Chỉ khi trường cấp văn bản đồng ý và cách kết nối chính thức mới thêm đăng nhập qua portal, qua một lớp đăng nhập thay thế được. Nhóm không nhận hoặc lưu mật khẩu portal của sinh viên.
+Chỉ khi trường cấp văn bản đồng ý và cách kết nối chính thức mới thêm đăng nhập qua portal, qua một lớp đăng nhập thay thế được. Nhóm không nhận hoặc lưu mật khẩu portal của sinh viên hoặc thủ thư.
 
 ### 2.8. Hai cơ sở thư viện (CS1 và CS3)
 
@@ -199,7 +199,7 @@ Số đếm, sức chứa và đường ảo được cấu hình riêng cho t�
 
 | Mã | Giao diện | Yêu cầu |
 | --- | --- | --- |
-| UI-01 | Đăng nhập bằng mã OTP | Nhập email sinh viên rồi nhập mã 6 số; thông báo lỗi chung, không tiết lộ email đã có tài khoản hay chưa. |
+| UI-01 | Đăng nhập bằng mã OTP | Nhập email (sinh viên hoặc thủ thư) rồi nhập mã 6 số; thông báo lỗi chung, không tiết lộ email đã có tài khoản hay chưa. Hệ thống tự động xác định vai trò dựa trên email. |
 | UI-02 | Trang tình trạng khu tự học tự do | Tên phòng, sức chứa, số người ước tính, chỗ trống, mức độ đông và thời điểm cập nhật. |
 | UI-03 | Đặt phòng chuyên đề | Chọn ngày/giờ/phòng chuyên đề; xem khả dụng; xác nhận kết quả và báo trùng lịch. |
 | UI-04 | Lịch đặt/QR | Hiển thị lượt đặt của người dùng và QR/mã check-in hợp lệ. |
@@ -235,7 +235,7 @@ Mỗi yêu cầu được đánh mã để truy vết sang thiết kế và ki�
 | Mã | Tên | Mô tả | Ưu tiên |
 | --- | --- | --- | --- |
 | FR-AUTH-01 | Tự tạo hồ sơ lần đầu | Tự tạo hồ sơ ở lần đầu xác minh OTP thành công với email thuộc danh sách được phép; không có màn hình đăng ký riêng và không dùng mật khẩu. | Must |
-| FR-AUTH-02 | Đăng nhập OTP/đăng xuất | Gửi mã OTP 6 số qua email sinh viên trong danh sách cho phép; mã dùng một lần, hết hạn sau 5 phút; cấp phiên đăng nhập và cho phép kết thúc phiên. | Must |
+| FR-AUTH-02 | Đăng nhập OTP/đăng xuất | Gửi mã OTP 6 số qua email (sinh viên hoặc thủ thư) trong danh sách cho phép; mã dùng một lần, hết hạn sau 5 phút; cấp phiên đăng nhập và cho phép kết thúc phiên. Hệ thống tự phân biệt sinh viên và thủ thư dựa trên danh sách email. | Must |
 | FR-AUTH-03 | Phân quyền | Phân biệt người dùng và thủ thư/quản lý; chặn thao tác trái quyền. | Must |
 | FR-AUTH-04 | Bảo vệ mã OTP | Mã OTP chỉ lưu dạng băm, dùng một lần, hết hạn sau 5 phút; hủy mã sau 5 lần nhập sai; giới hạn gửi lại một lần mỗi 60 giây; thông báo lỗi chung. Các ngưỡng là tạm thời đến khi nhóm rà soát bảo mật. | Must |
 | FR-AUTH-05 | Đăng nhập qua portal (tùy chọn) | Mặc định dùng OTP email. Chỉ bổ sung SSO/API portal sau khi có văn bản đồng ý, đầu mối kỹ thuật và phương thức tích hợp chính thức; không nhận hoặc lưu mật khẩu portal. | Could |
@@ -328,7 +328,7 @@ Mỗi yêu cầu được đánh mã để truy vết sang thiết kế và ki�
 | BR-12 | Khi dữ liệu lỗi thời/mất kết nối, giao diện phải hiển thị cảnh báo. |
 | BR-13 | Mỗi bản ghi đếm có phòng, thời điểm và nguồn; sự kiện trùng phải được khử theo event_id hoặc (session_id, frame_index). Không cộng counter tích lũy qua các frame. |
 | BR-14 | Chỉ phòng chuyên đề được đặt chỗ; khu tự học tự do không nhận đặt chỗ. |
-| BR-15 | Mã OTP 6 số tạm có hiệu lực 5 phút, chỉ dùng một lần, chỉ lưu dạng băm; mã bị hủy sau 5 lần nhập sai và chỉ cho gửi lại sau 60 giây. |
+| BR-15 | Mã OTP 6 số tạm có hiệu lực 5 phút, chỉ dùng một lần, chỉ lưu dạng băm; mã bị hủy sau 5 lần nhập sai và chỉ cho gửi lại sau 60 giây. Áp dụng cho cả sinh viên và thủ thư. |
 | BR-16 | Mặc định dùng OTP email; không nhận/lưu mật khẩu portal. Chỉ tích hợp SSO/API chính thức sau khi có văn bản đồng ý và đầu mối kỹ thuật của trường. |
 | BR-17 | Mỗi phòng thuộc đúng một cơ sở; số đếm và đặt chỗ được tính riêng theo từng phòng và cơ sở. |
 | BR-18 | Tạm giới hạn nhóm 2–6 người và một lượt đặt/người/ngày; thư viện phải xác nhận sức chứa nhóm và giới hạn vận hành trước khi dùng thật. |
