@@ -56,6 +56,7 @@ erDiagram
         timestamp start_time
         timestamp end_time
         string status
+        timestamp checkin_at
         timestamp created_at
         timestamp updated_at
     }
@@ -197,24 +198,24 @@ Phòng học/đọc khả dụng để đặt chỗ.
 | room_id | INTEGER | NOT NULL | FOREIGN KEY → rooms.id | — | ON DELETE RESTRICT |
 | start_time | TIMESTAMPTZ | NOT NULL | — | — | Thời gian bắt đầu |
 | end_time | TIMESTAMPTZ | NOT NULL | — | — | Thời gian kết thúc |
-| status | VARCHAR(20) | NOT NULL | — | 'pending' | CHECK: 'pending', 'confirmed', 'completed', 'cancelled' |
+| status | VARCHAR(20) | NOT NULL | — | 'booked' | CHECK: 'booked', 'checked_in', 'completed', 'cancelled', 'no_show' |
+| checkin_at | TIMESTAMPTZ | NULL | — | — | Thời điểm check-in thành công; có giá trị khi status là 'checked_in' hoặc 'completed' |
 | created_at | TIMESTAMPTZ | NOT NULL | — | NOW() | Thời điểm tạo |
 | updated_at | TIMESTAMPTZ | NOT NULL | — | NOW() | Thời điểm cập nhật |
 
 **Chỉ mục:**
 - `idx_bookings_room_start` trên (room_id, start_time)
 - `idx_bookings_user` trên (user_id)
-- `idx_bookings_status` trên (status) WHERE status IN ('pending', 'confirmed')
+- `idx_bookings_status` trên (status) WHERE status IN ('booked', 'checked_in')
 
 **Ràng buộc:**
 - `ck_bookings_time_order`: end_time > start_time
-- **`no_overlapping_bookings` (TC-07):** EXCLUDE USING gist (room_id WITH =, tstzrange(start_time, end_time) WITH &&) WHERE (status IN ('pending', 'confirmed'))
+- **`no_overlapping_bookings` (TC-07):** EXCLUDE USING gist (room_id WITH =, tstzrange(start_time, end_time) WITH &&) WHERE (status IN ('booked', 'checked_in'))
 
-**State diagram trạng thái:**
-- pending → confirmed
-- pending → cancelled
-- confirmed → completed
-- confirmed → cancelled
+**State diagram và điều kiện chuyển:** xem [booking-lifecycle.md](booking-lifecycle.md).
+
+> Đây là schema mục tiêu. Trước khi áp dụng vào cơ sở dữ liệu hiện có cần tạo migration để chuyển trạng thái cũ sang bộ trạng thái chuẩn, thêm checkin_at và giữ nguyên các lượt đặt. Trạng thái trong ERD là booked, checked_in, completed, cancelled, no_show; không lưu trạng thái trung gian pending.
+o_show; không lưu trạng thái trung gian pending.
 
 ---
 
@@ -317,12 +318,12 @@ ADD CONSTRAINT no_overlapping_bookings
 EXCLUDE USING gist (
     room_id WITH =,
     tstzrange(start_time, end_time) WITH &&
-) WHERE (status IN ('pending', 'confirmed'));
+) WHERE (status IN ('booked', 'checked_in'));
 ```
 
 **Hành vi:**
 - Ngăn chặn nguyên tử (atomic) các booking chồng lấn đồng thời
-- Chỉ áp dụng cho status đang hoạt động (pending, confirmed)
+- Chỉ áp dụng cho trạng thái đang chiếm lịch (`booked`, `checked_in`)
 - Booking đã cancelled hoặc completed không chặn lịch tương lai
 - Sử dụng PostgreSQL range types và GiST index
 
