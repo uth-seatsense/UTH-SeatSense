@@ -10,6 +10,10 @@ from app.models.room import Room
 from app.schemas.cv_count import CVCountInput
 
 
+class CVRecordConflict(Exception):
+    """An idempotency key was reused with a different CV payload."""
+
+
 class CVCountRepository:
     def __init__(self, session: Session):
         self.session = session
@@ -39,15 +43,8 @@ class CVCountRepository:
         statement = (
             insert(CVCountRecord)
             .values(**values)
-            .on_conflict_do_update(
+            .on_conflict_do_nothing(
                 index_elements=[CVCountRecord.session_id, CVCountRecord.frame_index],
-                set_={
-                    "people_count": insert.excluded.people_count,
-                    "tracked_count": insert.excluded.tracked_count,
-                    "in_count": insert.excluded.in_count,
-                    "out_count": insert.excluded.out_count,
-                    "recorded_at": insert.excluded.recorded_at,
-                },
             )
             .returning(CVCountRecord.id)
         )
@@ -67,7 +64,14 @@ class CVCountRepository:
         )
         if record is None:
             raise RuntimeError('Inserted CV record could not be reloaded')
-        return record, False
+        # room_id is a database enrichment of the source room_code. A retry
+        # after a room mapping is added must remain an identical source event.
+        if any(
+            key != "room_id" and getattr(record, key) != value
+            for key, value in values.items()
+        ):
+            raise CVRecordConflict
+        return record, True
 
     def get_latest_webcam_for_room(self, room_id: int) -> CVCountRecord | None:
         statement = (
