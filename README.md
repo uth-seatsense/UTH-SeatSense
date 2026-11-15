@@ -583,30 +583,107 @@ docker compose exec backend python -c "import psycopg2; print('OK')"
 
 ## Quy ước làm việc nhóm
 
-### Quy tắc ngắn gọn
+### 1. Quy tắc nhánh (Branching Strategy)
 
-1. **Nhánh:**
-   - `main` - Bản ổn định (cấm push trực tiếp)
-   - `dev` - Nhánh phát triển (cấm push trực tiếp)
-   - `feature/SEAT-X-ten-ngan` - Làm tính năng mới
-   - `fix/SEAT-X-ten-ngan` - Sửa lỗi
+- **`main`** - Bản ổn định, production-ready (cấm push trực tiếp)
+- **`dev`** - Nhánh phát triển chính, tích hợp code (cấm push trực tiếp)
+- **`docs/SEAT-X-ten-ngan`** - Nhánh cho tài liệu
+- **`feat/SEAT-X-ten-ngan`** - Nhánh cho tính năng mới
+- **`fix/SEAT-X-ten-ngan`** - Nhánh cho sửa lỗi
 
-2. **Commit message:**
-   ```bash
-   SEAT-12 feat: them endpoint nhan su kien
-   SEAT-12 fix: sua loi dem trung
-   ```
+**Ví dụ tên nhánh:**
+```bash
+docs/SEAT-40-API-contract
+feat/SEAT-35-booking-endpoint
+fix/SEAT-42-count-accuracy
+```
 
-3. **Pull Request:**
-   - Tạo PR vào `dev`
-   - Cần ít nhất 1 người review
-   - Merge bằng "Squash and merge"
+### 2. Quy tắc Commit
 
-4. **KHÔNG commit:**
-   - File `.env` (password)
-   - Video/ảnh người dùng thật
-   - Model files (`*.pt`)
-   - API keys, tokens
+**Format:** `SEAT-X loại: nội dung ngắn gọn`
+
+**Các loại commit:**
+- `docs:` - Thay đổi tài liệu
+- `feat:` - Tính năng mới
+- `fix:` - Sửa lỗi
+- `refactor:` - Cải tiến code không thay đổi chức năng
+- `test:` - Thêm hoặc sửa tests
+- `chore:` - Cập nhật build, dependencies
+
+**Ví dụ:**
+```bash
+SEAT-40 docs: thêm endpoint bookings vào API contract
+SEAT-35 feat: implement POST /api/bookings
+SEAT-42 fix: sửa lỗi đếm trùng trong tracking
+```
+
+### 3. Quy tắc Pull Request
+
+**Yêu cầu bắt buộc:**
+-  Mô tả rõ ràng những gì đã thay đổi
+-  Hướng dẫn cách chạy thử/kiểm tra
+-  Ít nhất 1 reviewer phê duyệt
+-  Tài liệu cần Uyên review và duyệt
+-  Tất cả CI checks pass
+-  Merge bằng "Squash and merge"
+
+**PR template tự động:** Hệ thống sẽ load template từ `.github/pull_request_template.md`
+
+**Target branch:**
+- Tất cả PR merge vào `dev` trước
+- Từ `dev` → `main` chỉ sau khi Sprint Review
+
+### 4. Quy trình Jira
+
+**Workflow:** `To Do → In Progress → In Review → Done`
+
+**Cấu trúc công việc:**
+- **Epic** - Nhóm các task liên quan (VD: "Booking System", "CV Integration")
+- **Task** - Đơn vị công việc cụ thể với mã SEAT-X
+
+**Nhãn (Labels):**
+- `docs` - Tài liệu
+- `backend` - Backend API
+- `frontend` - Frontend web
+- `cv` - Computer Vision
+- `native` - Mobile native (nếu có)
+
+**Chuyển trạng thái:**
+1. **To Do** → **In Progress**: Khi bắt đầu làm, tạo nhánh
+2. **In Progress** → **In Review**: Khi tạo Pull Request
+3. **In Review** → **Done**: Khi PR được merge vào `dev`
+
+**Definition of Done (theo Charter):**
+- Code hoàn thành và đúng yêu cầu
+- Tests pass (unit + integration nếu có)
+- Code được review và approve
+- Tài liệu được cập nhật (API docs, README)
+- PR được merge vào `dev`
+
+### 5. Tài liệu và Biên bản
+
+**Các mẫu chuẩn:**
+-  Mẫu biên bản họp nhóm
+-  Mẫu biên bản Sprint Planning (tham khảo biên bản ngày 6/11)
+
+Xem chi tiết trong [docs/](docs/)
+
+### 6. Tiêu chí hoàn thành Sprint
+
+**Sprint được coi là hoàn thành khi:**
+-  Tất cả thành viên nhóm đồng ý
+-  Pull Request đầu tiên của sprint tuân thủ đúng quy ước
+-  Definition of Done đạt cho tất cả tasks trong Sprint Goal
+-  Sprint Review được tổ chức và ghi nhận
+
+### 7. KHÔNG commit các file sau
+
+-  File `.env` (chứa password và secrets)
+-  Video/ảnh có người dùng thật
+-  Model files (`*.pt`, `*.pth`)
+-  API keys, tokens, credentials
+-  `__pycache__/`, `node_modules/`, `.venv/`
+-  IDE configs (`.vscode/`, `.idea/`) - trừ shared settings
 
 **Quy ước đầy đủ (Git, Jira, Sprint):** Xem [docs/README-full.md](docs/README-full.md)
 
