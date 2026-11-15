@@ -4,8 +4,10 @@
 - `requirements/`: scope, requirements, and use cases. The active SRS is [`requirements/srs.md`](requirements/srs.md) (version 1.9, approved by the project lead for internal work; native Kotlin build/runtime and library confirmation remain required before their respective validation/deployment); the project scope is in [`requirements/Project Charter.md`](requirements/Project%20Charter.md).
 - `architecture/`: system design, data model, and API contracts
 - `decisions.md`: records of important technical decisions
-- [Test plan](test-plan.md): responsive testing strategy and run checklist;
-  [UI test cases](ui-test-plan.md) are separate, as are the
+- [Test plan](test-plan.md): system test scope, TC-01–TC-17 plus Portal TC-25,
+  test-data guidance,
+  entry/exit criteria, and results template;
+  [UI test cases](ui-test-plan.md) and responsive details are separate, as are the
   [SEAT-30 acceptance criteria](acceptance-criteria-sprint-4.md) and
   [test report](test-report.md).
 - `meeting-notes/` and `reports/`: project records
