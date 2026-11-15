@@ -8,6 +8,40 @@ Số liệu phục vụ cập nhật tình trạng chỗ trống qua Backend và
 Theo Charter 1.2, cảm biến/IoT đã ngoài phạm vi. CV hiện xuất kết quả cục bộ;
 Backend SEAT-19 đã có API tiếp nhận, nhưng bộ gửi HTTP từ CV còn chờ tích hợp.
 
+## Chạy nhanh trên Windows
+
+CV chạy bằng Python trên máy Windows. Từ thư mục gốc của repo, mở PowerShell:
+
+```powershell
+cd cv
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Tải [trọng số mô hình](https://drive.google.com/drive/folders/1q9-reDJxYw5hAdOfVUG4kNONaYuXL7j0?usp=sharing) và lưu thành `models/best.pt` trong thư mục `cv`.
+
+**Video mẫu.** Đặt video được phép sử dụng vào `cv/videos/sample.mp4`, rồi chạy từ `cv`:
+
+```powershell
+.\.venv\Scripts\python.exe run_video.py --video videos/sample.mp4 --image-size 416
+```
+
+`416` là kích thước đầu vào YOLO dùng cho thử nghiệm. Kết quả nằm trong `cv/outputs/<mã-phiên>/`. Xem `counts.csv` để đọc số đếm và `summary.json` để kiểm tra trạng thái phiên.
+
+**Webcam laptop hoặc USB.** Từ thư mục `cv`, chạy:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8001
+```
+
+Mở <http://127.0.0.1:8001>, chọn **USB Webcam → Start Test** rồi cấp quyền camera. Nếu có nhiều camera, chọn thiết bị trong cài đặt camera của trình duyệt. Bấm **Stop Test** để dừng và tải kết quả.
+
+**Cấu hình đang chờ tích hợp.** Mẫu `.env.example` ghi các biến dự kiến để chọn camera theo chỉ số hoặc RTSP, và gửi số đếm từ CV trên Windows tới Backend trong Docker bằng `BACKEND_URL` và API key. Ở bản hiện tại, CV lưu số đếm cục bộ. Xem [hướng dẫn chạy Backend trong Docker](../backend/README.md).
+
+**Lỗi thường gặp.** Kiểm tra `models/best.pt` và thư mục chạy nếu thiếu mô hình. Nếu camera không mở được, kiểm tra quyền trong trình duyệt và đóng ứng dụng đang dùng camera. Nếu cổng `8001` đang bận, đổi thành `8002` trong lệnh và mở <http://127.0.0.1:8002>. Nếu xử lý video chậm, thử `--image-size 416`.
+
+**Quyền riêng tư.** Chỉ dùng video được phép. Giữ video thử, tệp gỡ lỗi và thông tin truy cập camera trên máy. Xóa dữ liệu thử khi dùng xong.
+
 ## Thuật toán đếm người — SEAT-33
 
 Phần này mô tả hành vi hiện có trong mã CV và phân biệt với cấu hình mục tiêu.

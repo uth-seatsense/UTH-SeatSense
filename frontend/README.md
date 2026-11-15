@@ -32,6 +32,9 @@ frontend/src/
 │   ├── CheckinPage.jsx
 │   ├── DashboardPage.jsx
 │   ├── HomePage.jsx
+│   ├── HealthPage.jsx
+│   ├── LoginPage.jsx
+│   ├── MyBookingsPage.jsx
 │   ├── ReservationPage.jsx
 │   └── RoomsPage.jsx
 ├── routes/
@@ -42,11 +45,17 @@ frontend/src/
 │   └── main.css
 └── tests/
     ├── App.test.jsx
-    └── DashboardStatus.test.jsx
+    ├── DashboardStatus.test.jsx
+    ├── Health.test.js
+    └── Routes.test.jsx
 ```
 
-`App.jsx` hiện render `HomePage`; `RoomsPage`, `ReservationPage` và
-`CheckinPage` là placeholder.
+`main.jsx` khởi tạo `BrowserRouter`; `App.jsx` định nghĩa các route:
+`/`, `/login`, `/rooms`, `/reservation`, `/my-bookings`, `/checkin`,
+`/dashboard`, `/health` và trang 404.
+Home dùng trực tiếp Dashboard, không thêm header trùng phía sau sidebar.
+`RoomsPage`, `ReservationPage`, `CheckinPage`, `LoginPage` và `MyBookingsPage`
+là placeholder; chưa triển khai nghiệp vụ.
 
 Quy ước khi bổ sung: component React viết PascalCase (ví dụ `RoomCard.jsx`);
 custom hook bắt đầu bằng `use` (ví dụ `useOccupancy.js`). Component dùng chung
@@ -56,7 +65,7 @@ này chưa được triển khai.
 
 ## Cài đặt và chạy
 
-Cần Node.js và npm. Tại thư mục `frontend/`:
+Cần Node.js 22.12+ hoặc 24 LTS và npm. Tại thư mục `frontend/`:
 
 ```sh
 npm ci
@@ -66,6 +75,37 @@ npm run dev -- --port 3000
 Vite proxy `/api` tới `http://localhost:8000`; đổi địa chỉ bằng
 `VITE_BACKEND_PROXY_TARGET`. API base mặc định là `/api/v1` và có thể đổi bằng
 `VITE_API_BASE_URL`.
+
+Trên PowerShell nếu `npm.ps1` bị chặn, dùng `npm.cmd` thay cho `npm`.
+Đặt `VITE_API_BASE_URL` trong `frontend/.env.local` rồi restart dev server.
+Với `VITE_BACKEND_PROXY_TARGET`, truyền qua environment của terminal vì cấu hình
+Vite đọc trực tiếp `process.env`.
+
+## Docker — chỉ build frontend (SEAT-50)
+
+Service frontend và các biến môi trường đã có trong Compose.
+Từ thư mục gốc, sau khi cấu hình `.env` theo `.env.example`:
+
+```sh
+docker compose build frontend
+docker compose up --no-build --no-deps -d frontend
+```
+
+Hai lệnh này không build hoặc khởi động CV/backend. Mở
+`http://localhost:3000` (hoặc cổng `FRONTEND_PORT` đã cấu hình).
+Image dùng `npm ci` và chạy Vite dev server cho skeleton, không phải cấu hình
+production.
+
+`VITE_API_BASE_URL` là biến API base của frontend (tương ứng `API_BASE_URL`
+trong mô tả task), mặc định `/api/v1`. Compose cấu hình proxy nội bộ bằng
+`VITE_BACKEND_PROXY_TARGET=http://backend:8000`. Không đặt hostname Docker
+`backend` vào URL gọi trực tiếp từ trình duyệt.
+
+Trang `/health` hiển thị đang kiểm tra, kết nối thành công kèm JSON, hoặc lỗi
+thật từ backend; timeout sau 10 giây. Khi chạy riêng frontend và backend chưa
+sẵn sàng, trạng thái lỗi là bình thường, không được thay bằng dữ liệu giả.
+Để nghiệm thu kết nối thành công, cần backend hoạt động và kiểm tra lại
+`/api/v1/health` qua frontend.
 
 ## API và trạng thái hiện có
 
@@ -102,5 +142,14 @@ thật vào fixture.
 
 ```sh
 npm test
+npm run lint
+npm run format:check
 npm run build
 ```
+
+`npm run format` định dạng JS/JSX; Dashboard kế thừa được loại tạm khỏi
+Prettier để giữ nguyên code ngoài phạm vi task. ESLint vẫn kiểm tra Dashboard;
+các cảnh báo props hiện có không chặn build.
+Test route dùng `StaticRouter` trong môi trường Node, còn trình duyệt dùng
+`BrowserRouter`. Khi nghiệm thu, kiểm tra mở trực tiếp/reload từng route,
+navigation ở desktop/mobile và trang Home không bị sidebar che chữ.

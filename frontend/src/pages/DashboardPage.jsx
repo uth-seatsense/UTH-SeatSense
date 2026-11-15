@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { getCurrentOccupancy } from "../services/api.js";
 
 const REFRESH_INTERVAL = 30_000;
+const CAMPUS_LABELS = {
+  cs1: "Cơ sở 1 (Võ Oanh - B.301A)",
+  cs3: "Cơ sở 3 (Tòa K - Lầu 2)",
+};
 
 const areas = [
   {
@@ -68,10 +73,10 @@ function Sidebar() {
             <Icon>dashboard</Icon>
             Tổng quan
           </a>
-          <a className="side-link" href="#rooms">
+          <Link className="side-link" to="/reservation">
             <Icon>meeting_room</Icon>
             Đặt phòng học
-          </a>
+          </Link>
         </nav>
       </div>
       <nav className="side-nav sidebar-footer" aria-label="Thông tin">
@@ -203,8 +208,7 @@ export default function DashboardPage() {
     : "—";
   const countValue = displayCount;
   const location = occupancy?.location || "Thư viện UTH";
-  const campusLabel =
-    campus === "cs1" ? "Cơ sở 1 (Võ Oanh - B.301A)" : "Cơ sở 3 (Tòa K - Lầu 1)";
+  const campusLabel = CAMPUS_LABELS[campus];
 
   return (
     <div className="app-shell" id="dashboard">
@@ -274,7 +278,7 @@ export default function DashboardPage() {
               onClick={() => setCampus("cs1")}
             >
               <Icon>domain</Icon>
-              Cơ sở 1 (Võ Oanh - B.301A)
+              {CAMPUS_LABELS.cs1}
             </button>
             <button
               type="button"
@@ -283,7 +287,7 @@ export default function DashboardPage() {
               onClick={() => setCampus("cs3")}
             >
               <Icon>location_city</Icon>
-              Cơ sở 3 (Tòa K - Lầu 2)
+              {CAMPUS_LABELS.cs3}
             </button>
           </div>
         </div>

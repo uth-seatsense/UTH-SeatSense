@@ -1,4 +1,159 @@
-# Hợp đồng API – UTH-SeatSense
+# API contract — tổng quan
+
+> Trạng thái: bản rà soát / đề xuất, chưa phải toàn bộ contract đã được triển khai.
+> Ngày đối chiếu: 14-11-2026. Đối chiếu source và OpenAPI runtime; contract CV chi tiết nằm ở phụ lục cuối tài liệu.
+
+## Quy ước chung
+
+- Prefix `/api/v1`; JSON UTF-8, tên trường `snake_case`.
+- Date-time dùng ISO 8601 có múi giờ; server trả UTC dạng `Z`. Thời điểm không có timezone bị từ chối.
+- Danh sách dùng `limit` (mặc định 50, tối đa 100) và `offset` (mặc định 0); response đề xuất `{ "items": [], "limit": 50, "offset": 0, "total": 0 }`. Chưa có quy ước phân trang được triển khai/đồng thuận trong mã.
+- Lỗi có dạng `{ "error": { "code": "...", "message": "...", "details": [{ "field": "...", "issue": "..." }] } }`; bỏ `details` nếu không có. `400` JSON sai, `401` thiếu/sai token, `403` không đủ quyền, `404` không tồn tại, `409` xung đột trạng thái/khóa idempotency, `422` dữ liệu hợp lệ về cú pháp nhưng sai quy tắc, `429` vượt rate limit. Mã 401/403 là mục tiêu, chưa có auth middleware hiện tại.
+- Mọi API nghiệp vụ người dùng yêu cầu `Authorization: Bearer <access_token>`. Web và Android native dùng chung issuer/audience và token; refresh/revoke, thời hạn, lưu trữ token và CSRF cho web chưa chốt.
+- Các endpoint auth đăng ký/đăng nhập/đăng xuất/thông tin tài khoản dùng chung cho web, ứng dụng native và Portal; client không có bộ endpoint hay định dạng token riêng. Portal/SSO là phương thức xác thực chờ trường phê duyệt/cung cấp thông số.
+- Portal/SSO: dành integration seam (`provider=portal`, `external_subject`), trạng thái chờ trường cung cấp issuer, protocol, claim mapping và quy trình duyệt. Không thu hoặc lưu mật khẩu Portal. MVP hiện có thể dùng OTP email theo DEC-08.
+- CV dùng API key riêng, không dùng token người dùng: `X-API-Key`. Cách cấp/luân chuyển/lưu key và production secret store chưa chốt.
+- CV event: `event_id` UUID là idempotency key; cùng ID cùng payload trả lại receipt đã tạo, cùng ID payload khác trả `409 event_id_conflict`. Đây là đề xuất endpoint sự kiện riêng. Contract CountResult batch của SEAT-34 dùng khóa `(session_id, frame_index)`; route batch đã có handler, còn API key cần tích hợp.
+
+## Endpoint inventory và vai trò
+
+`IMPLEMENTED` chỉ áp dụng khi có handler trong source hiện tại; `PROPOSED` là contract cần triển khai. Đã tái sử dụng nội dung SEAT-18, payload CV từ SEAT-34 và đặc tả occupancy/rooms từ SEAT-39. Source hiện có hai route occupancy và một route nhận CV; các route auth, rooms, bookings, check-in và dashboard chưa có handler.
+
+| Nhóm | Phương thức / URL | Vai trò gọi | Trạng thái và ý nghĩa |
+|---|---|---|---|
+| Auth | `POST /api/v1/auth/register` | Public | PROPOSED — yêu cầu OTP; lần xác minh đầu tiên tự tạo hồ sơ, không có luồng tạo mật khẩu riêng |
+| Auth | `POST /api/v1/auth/login` | Public | PROPOSED — xác minh OTP, phát token chung web/native |
+| Auth | `POST /api/v1/auth/logout` | `authenticated` | PROPOSED — thu hồi refresh session; semantics chờ chốt |
+| Auth | `GET /api/v1/auth/me` | `authenticated` | PROPOSED — hồ sơ và role hiện tại |
+| Occupancy | `GET /api/v1/occupancy/current` | Public hoặc user đã đăng nhập; role/scope chờ chốt | IMPLEMENTED — hiện chỉ trả tổng `current_count`, `updated_at`, `location`; chưa có danh sách từng phòng, campus filter hoặc phân trang của contract mục tiêu |
+| Occupancy | `GET /api/v1/occupancy/rooms/{room_id}/latest` | User được xem occupancy; auth chưa có | IMPLEMENTED — trả bản ghi webcam mới nhất; phân biệt không có record và phòng không tồn tại |
+| Occupancy | `GET /api/v1/rooms/{room_id}/occupancy/history` | `librarian`, `admin`; quyền student chờ chốt | PROPOSED — lịch sử mật độ theo khoảng thời gian (SEAT-39) |
+| Rooms | `GET /api/v1/rooms` | `authenticated` | PROPOSED — chưa có handler; danh sách/phân trang đề xuất |
+| Rooms | `GET /api/v1/rooms/{room_id}` | `authenticated` | PROPOSED — chưa có handler; chi tiết phòng đề xuất |
+| Bookings | `GET /api/v1/bookings` | Chủ booking; librarian/admin xem phạm vi được cấp | PROPOSED — đổi tên từ reservations để thống nhất thuật ngữ; hiện schema/router placeholder reservations |
+| Bookings | `POST /api/v1/bookings` | `student` | PROPOSED — tạo booking |
+| Bookings | `GET /api/v1/bookings/{booking_id}` | Chủ booking, librarian/admin | PROPOSED — chi tiết |
+| Bookings | `DELETE /api/v1/bookings/{booking_id}` | Chủ booking, librarian/admin | PROPOSED — hủy; semantics hủy chờ chốt |
+| Check-in | `POST /api/v1/bookings/{booking_id}/check-in-token` | Chủ booking | PROPOSED — phát QR token dùng một lần; QR chứa token opaque |
+| Check-in | `POST /api/v1/check-in` | `student` | PROPOSED — xác minh token và ghi nhận check-in |
+| Dashboard | `GET /api/v1/dashboard/summary` | `librarian`, `admin` | PROPOSED — FR-DASH-01/02 mức Should; chỉ số vận hành và filters cần chốt |
+| Health | `GET /health`, `GET /api/v1/health`, `GET /health/db` | Public/monitoring | IMPLEMENTED — health service và database health |
+| CV | `POST /api/v1/cv/count-records` | CV service; API key cần bổ sung | IMPLEMENTED — payload CountResult theo SEAT-34; handler hiện chưa kiểm tra `X-API-Key` |
+| CV events | `POST /api/v1/cv/events` | CV service với API key | PROPOSED — event_id idempotent, chưa triển khai |
+
+## Payload mẫu cho các route đang đề xuất
+
+Quy ước đọc bảng dưới: body/response là JSON mẫu; `—` nghĩa không có body/params. Danh sách lỗi nêu các mã áp dụng cho operation đó; mọi lỗi vẫn dùng envelope ở trên. Với route PROPOSED, đây là contract mục tiêu để review, chưa phải cam kết từ OpenAPI/runtime.
+
+## Đặc tả operation đầy đủ
+
+| Method / URL | Gọi bởi | Path/query/header | Request body | Response thành công | Lỗi dự kiến |
+|---|---|---|---|---|---|
+| `POST /api/v1/auth/register` PROPOSED | Public | — | `{"email":"sv@example.edu.vn"}` | `202 {"status":"otp_sent"}` | 400 malformed JSON; 401/403 không áp dụng; 409 email/session conflict; 422 email sai/không thuộc miền được phép; 429 gửi OTP quá giới hạn |
+| `POST /api/v1/auth/login` PROPOSED | Public | — | `{"email":"sv@example.edu.vn","otp":"123456"}` | `200 {"access_token":"<jwt>","token_type":"bearer","expires_in":900,"user":{"id":"usr_123","email":"sv@example.edu.vn","display_name":"Nguyễn An","role":"student"}}` | 400 malformed JSON; 401 OTP sai/hết hạn; 403 tài khoản bị khóa; 404 account không tồn tại (nên gộp với 401 để tránh dò email); 422 thiếu/sai field; 429 gửi/nhập OTP quá giới hạn |
+| `POST /api/v1/auth/logout` PROPOSED | `authenticated` | Bearer token | `—` | `204` không body | 401 thiếu/hết hạn token; 403 session không thuộc user; 404 session không tồn tại; 422 token/session format sai |
+| `GET /api/v1/auth/me` PROPOSED | `authenticated` | Bearer token | `—` | `200 {"id":"usr_123","email":"sv@example.edu.vn","display_name":"Nguyễn An","role":"student","provider":"email_otp"}` | 401 token thiếu/sai/hết hạn; 403 tài khoản chưa được phép; 404 user đã bị xóa |
+| `GET /api/v1/occupancy/current` IMPLEMENTED (response hiện tại khác contract mục tiêu) | Public hoặc user đã đăng nhập; role/scope chờ chốt | Hiện chưa nhận query | `—` | `200 {"current_count":23,"updated_at":"2026-11-11T10:25:30Z","location":"Thư viện UTH"}`; contract mục tiêu per-room/campus vẫn PROPOSED | OpenAPI hiện khai báo `200`; query campus và pagination chưa implement |
+| `GET /api/v1/occupancy/rooms/{room_id}/latest` PROPOSED | User xem occupancy; role/scope chờ chốt | `room_id`: integer >0 (ID DB) | `—` | `200 {"room_id":14,"room_code":"A101","camera_id":"cam-01","source_type":"webcam","people_count":3,"tracked_count":2,"estimated_occupancy":3,"occupancy_underflow":false,"recorded_at":"2026-11-11T08:00:00Z","received_at":"2026-11-11T08:00:01Z","is_stale":false}` | 400 không áp dụng; 401/403 theo auth/scope; 404 `room_not_found` hoặc `occupancy_not_found`; 409 không áp dụng; 422 room_id sai; 503 DB/service lỗi |
+| `GET /api/v1/rooms/{room_id}/occupancy/history` PROPOSED (SEAT-39) | `librarian`, `admin`; student access chờ chốt | `start_time`, `end_time` ISO 8601 UTC; `limit` 1..500 (default 100); `offset` ≥0 | `—` | `200 {"room_id":14,"room_code":"A101","start_time":"2026-11-11T09:00:00Z","end_time":"2026-11-11T10:00:00Z","records":[{"id":1001,"current_count":20,"available_seats":30,"recorded_at":"2026-11-11T09:00:00Z","source":"cv","device_status":"online"}],"limit":100,"offset":0,"total":1}` | 400 query sai; 401; 403 role/scope; 404 `room_not_found`; 409 không áp dụng; 422 datetime/range/limit/offset sai; 503 DB/service lỗi |
+| `GET /api/v1/rooms` PROPOSED (chưa có handler) | `authenticated` | `limit` 1..100 (default 50), `offset` ≥0 (default 0), tùy chọn `campus_id`, `building`, `room_type`, `status` | `—` | `200 {"items":[{"id":14,"code":"A101","name":"Phòng A101","capacity":40,"campus_id":1,"campus_code":"CS1","building":"Cơ sở 1","is_active":true}],"limit":50,"offset":0,"total":1}` | 400 malformed query; 401 thiếu token; 403 không có quyền; 404 không áp dụng; 409 không áp dụng; 422 limit/offset/filter sai |
+| `GET /api/v1/rooms/{room_id}` PROPOSED (chưa có handler) | `authenticated` | `room_id` integer dương | `—` | `200 {"id":14,"code":"A101","name":"Phòng A101","capacity":40,"campus_id":1,"campus_code":"CS1","building":"Cơ sở 1","is_active":true}` | 400 không áp dụng; 401; 403; 404 `room_not_found`; 409 không áp dụng; 422 id sai |
+| `GET /api/v1/bookings` PROPOSED | User; mặc định chỉ booking của mình; librarian/admin theo scope | `from`, `to` ISO8601 tùy chọn; `status` (`booked`, `checked_in`, `completed`, `cancelled`, `no_show`); `limit`, `offset` | `—` | `200 {"items":[{"id":"bkg_456","room_id":14,"participant_count":3,"status":"booked","starts_at":"2026-11-12T02:00:00Z","ends_at":"2026-11-12T03:00:00Z","no_show_at":null,"room":{"id":14,"code":"A101","name":"A101","capacity":40,"campus_id":1,"campus_code":"CS1","building":"Cơ sở 1"}}],"limit":50,"offset":0,"total":1}` | 400 malformed query; 401; 403 truy cập ngoài scope; 404 không áp dụng; 409 range/filter conflict; 422 date/status/pagination sai |
+| `POST /api/v1/bookings` PROPOSED | `student` | Bearer token | `{"room_id":14,"starts_at":"2026-11-12T02:00:00Z","ends_at":"2026-11-12T03:00:00Z","participant_count":3}` | `201 {"id":"bkg_456","room_id":14,"user_id":"usr_123","participant_count":3,"status":"booked","starts_at":"2026-11-12T02:00:00Z","ends_at":"2026-11-12T03:00:00Z","room":{"id":14,"code":"A101","name":"A101","capacity":40,"campus_id":1,"campus_code":"CS1","building":"Cơ sở 1"},"created_at":"2026-11-11T08:00:00Z"}` | 400 malformed JSON; 401; 403 role/booking quota; 404 room không tồn tại; 409 lịch phòng bị trùng; 422 thời lượng 30–120 phút, ngày đặt trước tối đa 7 ngày, sĩ số 2–6, quota/ngày hoặc khoảng đệm sai |
+| `GET /api/v1/bookings/{booking_id}` PROPOSED | Chủ booking, librarian/admin cùng scope | `booking_id` string | `—` | `200` booking object như response POST | 400 không áp dụng; 401; 403 ngoài owner/scope; 404 `booking_not_found`; 409 không áp dụng; 422 id sai |
+| `DELETE /api/v1/bookings/{booking_id}` PROPOSED | Chủ booking, librarian/admin cùng scope | `booking_id` string | `—` | `204` không body | 400 không áp dụng; 401; 403 ngoài owner/scope; 404 không tồn tại; 409 đã check-in/không thể hủy; 422 id sai |
+| `POST /api/v1/bookings/{booking_id}/check-in-token` PROPOSED (FR-CHK-01, Should) | Chủ booking | Bearer token; `booking_id` integer dương | `—` | `201 {"booking_id":"bkg_456","qr_token":"urn:seatsense:check-in:v1:<base64url-256-bit-token>","valid_from":"2026-11-12T02:00:00Z","expires_at":"2026-11-12T02:15:00Z"}` | 400 không áp dụng; 401; 403 không phải chủ booking; 404 booking không tồn tại; 409 booking đã hủy/hoàn tất; 422 id sai |
+| `POST /api/v1/check-in` PROPOSED (FR-CHK-02/03, Should) | `student` là chủ booking | Bearer token | `{"booking_id":"bkg_456","qr_token":"<opaque-single-use-token>"}` | `200 {"booking_id":"bkg_456","status":"checked_in","checked_in_at":"2026-11-12T02:04:00Z"}` | 400 malformed JSON; 401; 403 không phải chủ booking; 404 booking/token không tồn tại; 409 đã check-in/ngoài cửa sổ/no-show; 422 token hoặc body sai |
+| `GET /api/v1/dashboard/summary` PROPOSED | `librarian`, `admin` | `from`, `to` ISO8601; scope campus/building chờ chốt | `—` | `200 {"occupancy":{"current":12,"capacity":40},"bookings":{"total":8,"checked_in":5,"no_show":1},"generated_at":"2026-11-11T08:00:00Z"}` | 400 malformed query; 401; 403 role/scope; 404 scope không tồn tại (nếu lọc theo scope); 409 range conflict; 422 date/filter sai |
+| `POST /api/v1/cv/count-records` IMPLEMENTED (SEAT-34; thiếu auth) | CV service | Hiện chỉ có `Content-Type: application/json`; `X-API-Key` là yêu cầu cần tích hợp; body `records` gồm 1..1000 CountResult | `{"records":[{"schema_version":"1.0","session_id":"6f228318-ea31-46b3-a1a7-c562288ea97e","camera_id":"cam-01","room_id":"A101","source_type":"webcam","frame_index":100,"timestamp_ms":10000,"recorded_at":"2026-11-11T08:00:00Z","people_count":3,"tracked_count":2,"line_enabled":true,"in_count":4,"out_count":1,"initial_occupancy":0,"estimated_occupancy":3,"occupancy_underflow":false}]}` | `200 {"status":"accepted","created_count":1,"duplicate_count":0,"records":[{"record_id":8123,"session_id":"6f228318-ea31-46b3-a1a7-c562288ea97e","frame_index":100,"room_code":"A101","room_id":14,"received_at":"2026-11-11T08:00:01Z","duplicate":false}]}` | Hiện có: 400 JSON sai; 409 cùng `(session_id, frame_index)` khác payload; 422 batch/schema sai; 503 DB unavailable. Khi thêm key cần bổ sung 401/403 |
+| `POST /api/v1/cv/events` PROPOSED | CV service với API key | `X-API-Key` | `{"event_id":"6f228318-ea31-46b3-a1a7-c562288ea97e","session_id":"...","camera_id":"cam-01","room_id":"A101","frame_index":100,"timestamp_ms":10000,"recorded_at":"2026-11-11T08:00:00Z","track_id":12,"direction":"IN","confidence":0.98}` | `200 {"event_id":"6f228318-ea31-46b3-a1a7-c562288ea97e","accepted":true,"duplicate":false}`; retry giống payload trả `duplicate:true` | 400 JSON sai; 401 API key sai; 403 scope sai; 404 không áp dụng; 409 `event_id_conflict`; 422 schema sai |
+| `GET /api/v1/notifications/subscriptions` PROPOSED / OPTIONAL (FR-OPT-01) | `authenticated` | Bearer token; `limit`, `offset` | `—` | `200 {"items":[{"id":"ntf_123","room_id":14,"condition":"seats_available","threshold":5,"enabled":true,"channel":"email"}],"limit":50,"offset":0,"total":1}` | 400 query sai; 401; 403; 404 không áp dụng; 409 không áp dụng; 422 pagination sai |
+| `POST /api/v1/notifications/subscriptions` PROPOSED / OPTIONAL (FR-OPT-01) | `student` | Bearer token | `{"room_id":14,"condition":"seats_available","threshold":5,"channel":"email"}` | `201 {"id":"ntf_123","room_id":14,"condition":"seats_available","threshold":5,"enabled":true,"channel":"email","created_at":"2026-11-11T08:00:00Z"}` | 400 malformed JSON; 401; 403 role/scope; 404 room không tồn tại; 409 subscription trùng; 422 room không hỗ trợ occupancy hoặc field/channel không hợp lệ |
+| `DELETE /api/v1/notifications/subscriptions/{subscription_id}` PROPOSED / OPTIONAL (FR-OPT-01) | Chủ subscription; admin | Bearer token; `subscription_id` string | `—` | `204` không body | 400 không áp dụng; 401; 403 không phải owner; 404 subscription không tồn tại; 409 đã bị xử lý/xóa; 422 id sai |
+| `GET /health`, `GET /api/v1/health`, `GET /health/db` IMPLEMENTED | Public/monitor | — | `—` | `200 {"status":"ok","service":"backend"}` với hai route service health; `/health/db` trả trạng thái kết nối DB | 400/401/403/404/409/422 không áp dụng |
+
+Role labels là bản đề xuất cho contract; nguồn hiện hành chưa có enum role hoặc access-control implementation. Thời hạn token, rule ownership, room fields, booking status transitions, cửa sổ check-in và metric definitions cần được chốt trước khi xem các response/error này là ổn định.
+
+## Option thông báo bổ sung theo SRS
+
+SRS 1.9, FR-OPT-01 xếp dự báo mật độ 1–2 giờ hoặc thông báo chỗ trống vào mức Could, không bắt buộc trong bản đầu. Vì vậy ba operation notification ở bảng trên là option mở rộng: mặc định không tạo subscription nếu user chưa chủ động bật; không gửi thông báo trong MVP. Payload mẫu tạo subscription là `{"room_id":14,"condition":"seats_available","threshold":5,"channel":"email"}`. Contract trên chưa khẳng định hệ thống gửi email/push ngay: kênh, ngưỡng chỗ trống, tần suất/cooldown, giờ yên lặng, quyền riêng tư email và xử lý khi occupancy `null` cần được xác nhận trước khi triển khai. Dự báo 1–2 giờ là một option khác, cần nguồn dữ liệu/mô hình và chỉ nên công bố sau khi được xác nhận; endpoint dự báo chưa được đề xuất ở đây.
+
+## Đối chiếu yêu cầu SRS và mục cần bổ sung
+
+| SRS | Đã phản ánh trong contract | Thiếu / cần thông báo bổ sung |
+|---|---|---|
+| FR-AUTH-01/02/04, BR-15 | OTP, tự tạo hồ sơ lần đầu, login/logout đã có khung operation | Tài khoản chỉ tự tạo sau lần xác minh OTP đầu tiên; OTP 6 số, chỉ lưu hash, hết hạn sau 5 phút, tối đa 5 lần nhập sai, gửi lại sau 60 giây, giới hạn email được phép và thông báo lỗi chung. Trả `429` khi vượt giới hạn; không tiết lộ email có tồn tại hay không. Các ngưỡng theo SRS 1.9, tạm thời chờ rà soát bảo mật. |
+| FR-AUTH-05, BR-16 | Portal/SSO seam được đánh dấu chờ trường | Chỉ bật sau văn bản đồng ý, đầu mối kỹ thuật và giao thức/claim chính thức. |
+| FR-SITE-01 | Đã thêm entity `campuses` và `rooms.campus_id` vào schema/migration; contract room mang cả `campus_id` và `campus_code` | Phòng dữ liệu cũ được để `campus_id = null` cho tới khi xác minh CS1/CS3. Phải ánh xạ dữ liệu phòng trước khi bật filter/tổng hợp theo campus; không tự suy ra campus từ `building`. |
+| FR-OCC-01–06, BR-01/02 | Current/latest occupancy và giới hạn CV được ghi | Thiếu API availability (`available_seats`/mức đông), occupancy adjustment có audit, trạng thái dữ liệu tin cậy và quản trị số đầu phiên. SRS nói không công bố chỗ trống chính thức nếu không có baseline đáng tin cậy. |
+| FR-BOOK-02–06, BR-03/04/18/19 | Booking create/list/get/cancel có khung; request có `participant_count`, response có object `room` để tránh gọi bổ sung từng phòng | Quy tắc 30–120 phút, đặt trước tối đa 7 ngày, buffer 15 phút, 2–6 người, quota một lượt/người/ngày và cutoff hủy 30 phút đã ghi theo SRS 1.9; giá trị tạm nội bộ, cần thư viện xác nhận trước vận hành. |
+| FR-CHK-01–03, BR-05–08 (Should) | Đã đề xuất endpoint phát token QR; token opaque, dùng một lần; đã mô tả cửa sổ check-in và xử lý no-show định kỳ | QR/no-show là Should, không phải điều kiện FR Must. Thời gian chờ mặc định 15 phút dùng `{{NO_SHOW_WAIT_MINUTES}}`, có thể cấu hình; quy tắc tạm chờ xác nhận thư viện. |
+| FR-DASH-01/02, BR-10 (Should) | Dashboard summary sơ bộ | Mức độ chi tiết theo phòng/campus/khoảng thời gian, utilization, no-show, mẫu số và quyền tổng hợp cần chốt trước khi triển khai. |
+| FR-ADMIN-01, BR-09/20 | Chưa có endpoint quản trị | Cần operation quản lý phòng/sức chứa/active state, gán vai trò, cấu hình chính sách và audit log; giới hạn cho tài khoản admin được cấp quyền. |
+| FR-OPT-01 | Đã thêm option subscription thông báo | Could, ngoài MVP; channel/threshold/cooldown cần xác nhận. |
+
+Đây là danh sách gap để chủ tài liệu SRS/nhóm nghiệp vụ nhận thông báo và quyết định có bổ sung API hay không. Không sửa nội dung SRS hoặc coi các giá trị tạm là chính sách thư viện đã duyệt.
+
+### Auth
+
+`POST /auth/register` chỉ yêu cầu gửi OTP, không tạo mật khẩu hoặc hồ sơ riêng → `202 {"status":"otp_sent"}`. Email phải thuộc danh sách cho phép; OTP 6 số được lưu dạng hash, dùng một lần, hết hạn sau 5 phút, tối đa 5 lần nhập sai và chỉ gửi lại sau 60 giây. Lần xác minh thành công đầu tiên tự tạo hồ sơ. `POST /auth/login` body `{"email":"sv@example.edu.vn","otp":"123456"}` → `200 {"access_token":"<jwt>","token_type":"bearer","expires_in":900,"user":{"id":"usr_123","email":"sv@example.edu.vn","display_name":"Nguyễn An","role":"student"}}`. `POST /auth/logout` → `204`; `GET /auth/me` trả cùng hồ sơ gồm `display_name`. Trả lỗi chung để không tiết lộ email tồn tại; trả `429` khi vượt giới hạn. Claim, thời hạn access token, refresh flow và revoke/logout behavior vẫn chờ chốt.
+
+### Rooms
+
+`GET /rooms?campus_id=1&limit=50&offset=0` → `200` `{"items":[{"id":14,"code":"A101","name":"Phòng A101","capacity":40,"campus_id":1,"campus_code":"CS1","building":"Cơ sở 1","is_active":true}],"limit":50,"offset":0,"total":1}`. `GET /rooms/14` trả cùng một room object. Phòng chưa được xác minh campus giữ `campus_id: null` và không xuất hiện trong kết quả filter cơ sở.
+
+### Bookings
+
+`POST /bookings` body `{"room_id":14,"starts_at":"2026-11-12T02:00:00Z","ends_at":"2026-11-12T03:00:00Z","participant_count":3}` → `201` booking gồm `participant_count` và object `room`. `GET /bookings?from=...&to=...&limit=50&offset=0` → trang booking có nested `room` để giao diện không cần gọi từng phòng. Kiểm tra phòng chuyên đề, thời lượng 30–120 phút, đặt trước tối đa 7 ngày, 2–6 người, tối đa một lượt/người/ngày và cách lượt liền kề 15 phút; xung đột trả `409 booking_conflict`. Các giới hạn nhóm/ngày và buffer là giá trị tạm, phải được thư viện xác nhận. SRS chưa quy định giờ hoạt động; contract không tự áp một khung giờ và đánh dấu chính sách giờ mở cửa là cần xác nhận. Trạng thái lưu: `booked`, `checked_in`, `completed`, `cancelled`, `no_show`.
+
+### Check-in
+
+`POST /bookings/{booking_id}/check-in-token` chỉ cấp cho chủ booking đang `booked`. Sinh 32 byte ngẫu nhiên bằng CSPRNG, mã hóa Base64URL và thêm tiền tố phiên bản `urn:seatsense:check-in:v1:`. QR chứa đúng chuỗi `qr_token`, không nhúng email/tên/số sinh viên. Backend chỉ lưu SHA-256 của token, gắn token với booking và thời hạn; phát token mới vô hiệu token chưa dùng trước đó. Đây là định dạng đề xuất cho FR-CHK (Should). Token chỉ hợp lệ từ `start_time` tới trước `start_time + {{NO_SHOW_WAIT_MINUTES}}`; dùng thành công một lần. `POST /check-in` body `{"booking_id":"bkg_456","qr_token":"urn:seatsense:check-in:v1:<base64url-256-bit-token>"}` → `200 {"booking_id":"bkg_456","status":"checked_in","checked_in_at":"2026-11-12T02:04:00Z"}`. Mã sai/hết hạn, booking hủy/no-show hoặc check-in lặp bị từ chối (`401`/`404`/`409` theo trường hợp).
+
+Tác vụ nền chạy định kỳ chọn booking còn `booked`, chưa check-in/chưa hủy và đã qua `start_time + {{NO_SHOW_WAIT_MINUTES}}`; cập nhật `no_show` một lần, ghi `no_show_at` và loại booking khỏi tập giữ chỗ để giải phóng phần giờ còn lại. Booking đã check-in không chuyển no-show. Mặc định tạm là 15 phút theo BR-05–08; cấu hình và lịch chạy phải được xác nhận với thư viện trước vận hành thật.
+
+### Dashboard
+
+`GET /dashboard/summary?from=...&to=...` → `200` `{"occupancy":{"current":12,"capacity":40},"bookings":{"total":8,"checked_in":5,"no_show":1},"generated_at":"2026-11-11T08:00:00Z"}`. Định nghĩa metrics, quyền theo campus và phạm vi thời gian chưa chốt.
+
+### CV event đề xuất
+
+`POST /cv/events` với `X-API-Key: <service-key>` body `{"event_id":"6f228318-ea31-46b3-a1a7-c562288ea97e","session_id":"...","camera_id":"cam-01","room_id":"A101","frame_index":100,"timestamp_ms":10000,"recorded_at":"2026-11-11T08:00:00Z","track_id":12,"direction":"IN","confidence":0.98}` → `200` `{"event_id":"...","accepted":true,"duplicate":false}`. Cùng event gửi lại trả `duplicate:true`; khác nội dung cùng ID trả `409`. Lưu event và quan hệ event/frame chưa có trong persistence hiện tại.
+
+## Quy tắc occupancy/rooms tái sử dụng từ SEAT-39
+
+- `available_seats = max(0, capacity - current_count)` khi cả capacity và current_count đã biết; nếu thiếu baseline hoặc occupancy thì trả `null`, không đổi `null` thành `0`.
+- `occupancy_level`: `low` khi tỷ lệ sử dụng ≤50%, `medium` khi >50% và <80%, `high` khi ≥80%. Ngưỡng này cần được xác nhận với nghiệp vụ trước triển khai.
+- Dữ liệu cũ hơn 30 giây (`updated_at`/`received_at`) trả `is_stale: true`; vẫn trả dữ liệu kèm cảnh báo. Client polling 5 giây khi trang đang hoạt động, có thể backoff khi lỗi.
+- Contract mục tiêu `GET /occupancy/current` lọc theo campus code `CS1`/`CS3`; model `rooms.campus_id` và danh mục campus đã được bổ sung, nhưng phòng hiện có chưa được map. Handler hiện hành chưa nhận filter và chỉ trả số tổng; không bật filter chính thức cho tới khi hoàn tất mapping.
+- Lịch sử occupancy lấy theo phòng và khoảng `start_time`–`end_time`, giới hạn/phân trang theo quy ước chung. Quyền student xem lịch sử chưa chốt.
+
+## Đối chiếu FastAPI OpenAPI sinh từ mã
+
+FastAPI sinh schema tại `/openapi.json` và giao diện `/docs`. Đã nạp `backend/main.py` bằng môi trường `.venv` của repo và gọi `app.openapi()` thành công; OpenAPI 3.1.0 hiện có 6 operation: `GET /health`, `GET /health/db`, `GET /api/v1/health`, `GET /api/v1/occupancy/current`, `GET /api/v1/occupancy/rooms/{room_id}/latest`, `POST /api/v1/cv/count-records`. Router rooms, reservations, check-in và dashboard hiện rỗng; auth chưa được đăng ký.
+
+Đối chiếu schema runtime: occupancy current chỉ trả `current_count`, `updated_at`, `location` và không có query; contract mục tiêu per-room/campus chưa implement. Occupancy latest có `room_id` path và phản hồi `200/404/422/503`. CV count-records có body `CVCountBatch`, response `200/400/409/422/503`; handler chưa kiểm tra `X-API-Key`, nên phần API-key trong contract chưa được thực thi. Các endpoint booking/auth/QR/dashboard là contract đề xuất và chưa xuất hiện trong OpenAPI.
+
+CV service có health riêng ở service CV. Route `/api/v1/cv/count-records` đang chạy theo payload SEAT-34. Sau khi bổ sung handler, cần so sánh lại method/path, query/path params, schema JSON, status code và error response của từng route đề xuất với `/openapi.json`; lưu snapshot hoặc đưa kiểm tra lệch contract vào CI.
+
+Lưu ý về scope CV: SEAT-34 chốt nhận CountResult batch với idempotency key `(session_id, frame_index)`; cùng key/cùng payload là duplicate, cùng key/khác payload trả `409 cv_record_conflict`. `CrossingEvent` và `event_id` là đề xuất endpoint riêng được yêu cầu bổ sung trong contract này, chưa thuộc payload batch SEAT-34 và chưa có persistence. Với endpoint riêng, cùng `event_id`/cùng payload trả receipt duplicate, payload khác trả `409 event_id_conflict`. API key `X-API-Key` cũng là yêu cầu bảo vệ contract, chưa được triển khai.
+
+## Việc cần chốt / sửa
+
+1. Hoàn thiện occupancy per-room/campus; triển khai auth, rooms/history, bookings, check-in, dashboard và CV event; đối chiếu từng route với OpenAPI sinh ra.
+2. Chốt role matrix và scope xem dashboard/booking; thêm auth middleware và API key CV.
+3. Chốt token/OTP và Portal SSO dựa trên thông tin trường; không chặn MVP OTP.
+4. Chốt route `bookings` hay `reservations`, `check-in` hay prefix hiện có `/checkin`, pagination, timezone và chính sách xung đột.
+5. Xác nhận QR/no-show mặc định 15 phút với thư viện; FR-CHK và dashboard thuộc Should. Giờ hoạt động chưa được SRS quy định, cần quyết định nghiệp vụ trước khi thêm validation.
+6. Đã sinh OpenAPI runtime 3.1.0 từ source; lưu snapshot hoặc thêm đối chiếu CI sau khi các route còn thiếu được triển khai.
+
+---\n\n## Phụ lục: Contract CV và occupancy chi tiết\n\n> Phần này giữ đặc tả CV đã thống nhất ở SEAT-18; payload lấy từ SEAT-34. Occupancy/rooms được hợp nhất với UC-01 của SEAT-39 ở phần contract chung phía trên.\n\n## 1. Mục đích và trạng thái
+
+Tài liệu này ghi lại hợp đồng trao đổi dữ liệu đã thống nhất cho bản ghi đếm của CV và dữ liệu occupancy mới nhất mà Frontend hiển thị. Nhóm CV đồng ý dùng hợp đồng Backend; các thay đổi CV đã commit được giữ nguyên. Frontend đã duyệt response GET và cách hiển thị, gồm phân biệt null với 0, xử lý không có dữ liệu, ngưỡng dữ liệu cũ 30 giây và chu kỳ polling 5 giây.
+
+Bộ tạo dữ liệu CV schema 1.0 hiện ghi bản ghi JSONL cục bộ. Backend đã có route nhận CountResult batch theo SEAT-18/34; bộ gửi/thử lại từ CV vẫn đang chờ tích hợp. Route chưa xác thực API key, cần hoàn tất trước khi mở kết nối ngoài môi trường tin cậy. Các route kiểm thử video và webcam cục bộ của CV được mô tả ở mục 12, không phải endpoint nghiệp vụ của Backend. CountResult batch vẫn tách biệt với API occupancy trả dữ liệu cho Frontend.
+
+## Phụ lục: Hợp đồng CV và occupancy
 
 > **Nhiệm vụ:** SEAT-18 – Hợp đồng API với mô-đun CV
 > **Trạng thái:** Nhóm máy chủ, CV và giao diện đã thống nhất hợp đồng. Các tuyến API phía máy chủ của SEAT-19 đã được triển khai. Phần gửi dữ liệu từ CV lên máy chủ còn chờ tích hợp.
@@ -346,12 +501,12 @@ sequenceDiagram
 
     User->>Frontend: Mở trang chủ / chọn cơ sở
     Frontend->>API: GET /api/v1/occupancy/current?campus=CS1
-    
+
     API->>Service: get_current_occupancy(campus)
     Service->>Repo: get_latest_per_room(campus)
     Repo->>DB: Đọc bản ghi mới nhất trong occupancy_records<br/>với room.campus = 'CS1'
     DB-->>Repo: List[OccupancyRecord]
-    
+
     alt Có dữ liệu
         Repo-->>Service: List[OccupancyRecord]
         Service->>Service: calculate_available_seats()<br/>check_stale_threshold()
@@ -371,7 +526,7 @@ sequenceDiagram
         API-->>Frontend: HTTP 200 kèm cảnh báo
         Frontend-->>User: Hiển thị cảnh báo "Dữ liệu lỗi thời"
     end
-    
+
     Note over Frontend: Truy vấn mỗi 5 giây
     Frontend->>API: GET /api/v1/occupancy/current?campus=CS1
 ```

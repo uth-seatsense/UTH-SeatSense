@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../App.jsx";
+import { StaticRouter } from "react-router-dom";
 import { getCurrentOccupancy, normalizeOccupancy } from "../services/api.js";
 
 afterEach(() => {
@@ -10,7 +11,9 @@ afterEach(() => {
 
 describe("Dashboard", () => {
   it("renders the loading state without presenting sample occupancy data", () => {
-    const markup = renderToStaticMarkup(createElement(App));
+    const markup = renderToStaticMarkup(
+      createElement(StaticRouter, { location: "/" }, createElement(App)),
+    );
 
     expect(markup).toContain("Đang có mặt");
     expect(markup).toContain("Đang tải dữ liệu");

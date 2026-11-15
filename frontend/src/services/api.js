@@ -3,11 +3,10 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "/api/v1").replace(
   "",
 );
 const OCCUPANCY_ENDPOINT =
-  import.meta.env.VITE_OCCUPANCY_API_URL ??
-  `${API_BASE_URL}/occupancy/current`;
+  import.meta.env.VITE_OCCUPANCY_API_URL ?? `${API_BASE_URL}/occupancy/current`;
 
-export async function getApiHealth() {
-  const response = await fetch(`${API_BASE_URL}/health`);
+export async function getApiHealth({ signal } = {}) {
+  const response = await fetch(`${API_BASE_URL}/health`, { signal });
   if (!response.ok) {
     throw new Error(`Backend health request failed (${response.status})`);
   }
