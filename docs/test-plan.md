@@ -1,6 +1,6 @@
 # Kế hoạch kiểm thử hệ thống
 
-Kế hoạch này triển khai bộ kiểm thử cho SEAT-43, dựa trên tiêu chí nghiệm thu
+Kế hoạch này triển khai bộ kiểm thử cho SEAT-53, dựa trên tiêu chí nghiệm thu
 Sprint 4 của SEAT-30 tại [acceptance-criteria-sprint-4.md](acceptance-criteria-sprint-4.md)
 và yêu cầu, mã TC của SRS 1.9 tại [requirements/srs.md](requirements/srs.md).
 Các tiêu chí responsive chi tiết tiếp tục được ghi tại
