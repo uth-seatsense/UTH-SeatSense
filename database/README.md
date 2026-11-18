@@ -34,6 +34,21 @@ Các file trong `init/` dùng để tạo cơ sở dữ liệu ban đầu. Dữ 
 `seeds/` được nạp riêng khi cần thử nghiệm. Khi đổi cấu trúc bảng, nhóm cần
 thống nhất cách cập nhật và sao lưu dữ liệu cần giữ.
 
+### Áp dụng migration OTP cho PostgreSQL volume đã tồn tại
+
+PostgreSQL chỉ chạy các file `init/` khi khởi tạo volume rỗng. Trước khi bật
+đăng nhập OTP trên môi trường dùng dữ liệu hiện có, hãy sao lưu database rồi
+áp migration mới bằng PowerShell từ thư mục gốc repository:
+
+```powershell
+Get-Content -Raw database\init\009_add_email_otp_auth.sql |
+  docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+```
+
+Kiểm tra phiên bản migration và hai bảng `email_otp_challenges`,
+`auth_sessions` trước khi sử dụng API auth. Không dùng `docker compose down -v`
+trên database cần giữ dữ liệu.
+
 ## Quản lý model, video và dữ liệu nhạy cảm
 
 - Chỉ lưu số liệu tổng hợp và thông tin đặt phòng cần thiết; không lưu model,

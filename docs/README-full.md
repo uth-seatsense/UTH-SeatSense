@@ -33,7 +33,7 @@ Mục tiêu của dự án:
 - Hiển thị số chỗ trống và mức độ đông của phòng đọc gần thời gian thực trên web.
 - Cho phép sinh viên đặt phòng học nhóm theo khung giờ, check-in bằng QR, tự động nhả phòng khi quá hạn.
 - Cung cấp dashboard thống kê cho thủ thư (mật độ theo giờ/ngày, tỷ lệ sử dụng phòng, tỷ lệ no-show).
-- Chạy các thành phần bằng Docker để chuẩn hóa môi trường phát triển và triển khai.
+- Dùng Docker Compose cho các service hỗ trợ phát triển; việc dùng webcam cần tiến trình CV có quyền truy cập camera.
 
 ## 2. Kiến trúc tổng quan
 
@@ -41,11 +41,11 @@ Mục tiêu của dự án:
 |---|---|---|
 | CV/AI (`cv/`) | Phát hiện và theo dõi người, đếm vào/ra qua đường ảo | Camera + YOLOv8n + ByteTrack |
 | Backend (`backend/`) | Tiếp nhận dữ liệu đếm, xử lý nghiệp vụ (đặt phòng, check-in, nhả phòng), cung cấp API | FastAPI |
-| PostgreSQL | Lưu trữ dữ liệu hệ thống | PostgreSQL (phiên bản: **`[CHƯA CÓ DỮ KIỆN]`**) |
-| Frontend (`frontend/`) | Hiển thị chỗ trống, đặt phòng, check-in QR, dashboard thủ thư | Web responsive (framework: **`[CHƯA CÓ DỮ KIỆN]`**) |
+| PostgreSQL | Lưu trữ dữ liệu hệ thống | Docker image `postgres:16.6-alpine` |
+| Frontend (`frontend/`) | Hiển thị chỗ trống, đặt phòng, check-in QR, dashboard thủ thư | React + Vite (JavaScript), theo SRS 1.9 |
 | Docker | Đóng gói và chạy các dịch vụ | Docker Compose |
 
-**Phương án đã chốt:** nhóm chọn **Phương án B** (phương án hai trong Project Charter): đếm người bằng camera + YOLOv8n + ByteTrack, đếm khi người cắt đường ảo. Toàn bộ hệ thống chạy kèm Docker. Phương án A (cảm biến) không nằm trong phạm vi của repository này.
+**Phương án đã chốt:** nhóm chọn **Phương án B** (phương án hai trong Project Charter): đếm người bằng camera + YOLOv8n + ByteTrack, đếm khi người cắt đường ảo. Docker Compose hỗ trợ chạy các service scaffold; CV cần chạy trên máy có webcam khi kiểm thử camera. Phương án A (cảm biến) không nằm trong phạm vi của repository này.
 
 Luồng xử lý:
 
@@ -59,7 +59,11 @@ Luồng xử lý:
 [Camera + YOLOv8n + ByteTrack] -> (số lượng vào/ra) -> Backend (FastAPI) -> PostgreSQL -> Frontend (web)
 ```
 
-Cách CV/AI gửi dữ liệu đến Backend (giao thức, endpoint, định dạng dữ liệu): **`[CHƯA CÓ DỮ KIỆN]`**
+CV/AI gửi dữ liệu bằng HTTP JSON. Route đang có là
+`POST /api/v1/cv/count-records` với CountResult batch; route sự kiện
+`POST /api/v1/cv/events`, API key và hàng đợi bền vững là mục tiêu Sprint 4,
+chưa được xem là đã tích hợp. Xem [API contract](architecture/api-contracts.md)
+và [sequence CV](architecture/system-architecture.md).
 
 **Nguyên tắc giảm tải cho CV/AI** (theo Project Charter):
 
@@ -72,7 +76,9 @@ Cách CV/AI gửi dữ liệu đến Backend (giao thức, endpoint, định d�
 - Camera đặt trên cao nhìn xuống, xử lý ngay trên máy, **không lưu video**, không nhận diện khuôn mặt hay danh tính.
 - Chỉ lưu số liệu tổng hợp ẩn danh. Dữ liệu đặt phòng gắn với mã sinh viên được thu thập tối thiểu.
 
-Cách CV/AI truy cập camera hoặc video bên trong Docker (thiết bị, đường dẫn, cấu hình): **`[CHƯA CÓ DỮ KIỆN]`**
+Theo SRS 1.9, CV dùng webcam/video trên máy chạy CV ngoài Docker; Compose có
+service CV scaffold để kiểm tra API nhưng không chứng minh camera đã được tích
+hợp trong container. Cấu hình đầu vào hiện trạng xem tại [cv/README.md](../cv/README.md).
 
 > Các thành phần được triển khai và tích hợp theo tiến độ phát triển thực tế.
 
@@ -86,7 +92,7 @@ UTH-SeatSense/
   docs/       tài liệu, quyết định kiến trúc, báo cáo
 ```
 
-Vị trí file Docker Compose (thư mục gốc hay thư mục khác): **`[CHƯA CÓ DỮ KIỆN]`**
+Compose chính ở `docker-compose.yml` tại thư mục gốc repository.
 
 Quy tắc:
 
@@ -245,8 +251,10 @@ Các service giao tiếp nội bộ qua network bridge `seatsense_network`. Back
 nối PostgreSQL bằng hostname `db`; Frontend proxy đường dẫn `/api` tới hostname
 `backend`.
 
-Không cần cài Node.js, Python hoặc PostgreSQL trên máy host khi chạy toàn bộ
-dự án bằng Docker Desktop.
+Không cần cài Node.js, Python hoặc PostgreSQL trên máy host để khởi động các
+service scaffold bằng Docker Compose. Chạy frontend test/lint trực tiếp cần
+Node.js; chạy CV với webcam ngoài Docker cần Python và các dependency theo
+hướng dẫn tại `cv/README.md`.
 
 ### 9.1. Kiểm tra cấu hình
 
@@ -359,35 +367,38 @@ Adminer là công cụ quản lý database qua web, cho phép xem, tìm kiếm, 
 
 ## 11. Trạng thái chức năng
 
-Chỉ đánh dấu "Hoàn thành" khi đã được kiểm thử hoặc xác nhận trong môi trường phát triển.
+Đây là hướng dẫn chạy, không phải nguồn trạng thái Jira. Bảng dưới chỉ ghi
+trạng thái bằng chứng tìm thấy trong repository khi cập nhật tài liệu; xem Jira
+để biết task hiện hành. Không suy ra chức năng hoàn tất từ một bản kế hoạch.
 
 | Nhóm | Nội dung cần làm | Trạng thái |
 |---|---|---|
-| CV/AI | Kiểm thử và hoàn thiện phát hiện, theo dõi, đếm người | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Backend | Hoàn thiện API tiếp nhận và truy xuất dữ liệu | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Backend | Đặt phòng theo khung giờ, kiểm tra trùng lịch | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Backend | Check-in QR và tự động nhả phòng khi quá 10–15 phút | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Database | Hoàn thiện cấu trúc bảng và cơ chế lưu trữ | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Frontend | Hiển thị chỗ trống gần thời gian thực, đặt phòng | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Frontend | Dashboard thống kê cho thủ thư | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Tích hợp | Kiểm thử luồng dữ liệu CV/AI, Backend, PostgreSQL, Frontend | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Docker | Chạy đủ các dịch vụ bằng `docker compose up -d --build` | Đã kiểm tra: PostgreSQL, CV và Backend healthy; Frontend truy cập Backend qua proxy `/api`. |
-| Thực nghiệm | Đối chiếu với đếm tay, thử nghiệm người dùng (SUS) | **`[CHƯA CÓ DỮ KIỆN]`** |
+| CV/AI | Phát hiện, theo dõi, đếm người và gửi sự kiện | CV có các luồng thử; SEAT-51/52 là backlog Sprint 4, chưa có bằng chứng nghiệm thu mới trong test report |
+| Backend | API occupancy/CV | Một số handler scaffold/CountResult có; event API Sprint 4 và per-room contract cần đối chiếu OpenAPI |
+| Backend | Đặt phòng, check-in QR, no-show | Chưa có bằng chứng project-level trong [test report](test-report.md) |
+| Database | Schema, seed và persistence | Có migrations/seed hiện hành; target CountEvent, N0 và occupancy cần đồng bộ theo thiết kế Sprint 4 |
+| Frontend | Danh sách/tình trạng phòng và đặt phòng | Dashboard occupancy hiện có; các trang nghiệp vụ còn được ghi là scaffold/placeholder |
+| Frontend | Dashboard thống kê cho thủ thư | Chưa có kết quả kiểm thử project-level được ghi nhận |
+| Tích hợp | CV → Backend → PostgreSQL → Frontend | Chưa có kết quả end-to-end Go/No-go được ghi nhận trong test report |
+| Docker | Chạy các service scaffold bằng `docker compose up -d --build` | Compose khai báo healthcheck; lần kiểm tra này chưa chạy Docker integration test. |
+| Thực nghiệm | Đối chiếu với đếm tay, thử nghiệm người dùng (SUS) | Có ghi nhận thử sơ bộ trong kế hoạch thực nghiệm; chưa kết luận AT-01/02/03 hoặc SUS đạt |
 
 ### Chỉ tiêu mục tiêu (theo Project Charter)
 
 | Chỉ số | Mục tiêu | Kết quả đo được |
 |---|---|---|
-| Sai số đếm | ≤ 10% so với đếm tay (5–10 phiên × 30–60 phút) | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Độ trễ cập nhật | ≤ 5 giây, từ lúc có người vào đến lúc web hiển thị | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Tốc độ xử lý CV/AI | ≥ 5 FPS ở 416 px (hoặc chạy offline nếu thấp hơn) | **`[CHƯA CÓ DỮ KIỆN]`** |
-| Trải nghiệm người dùng | Điểm SUS ≥ 70 (15–30 sinh viên dùng thử) | **`[CHƯA CÓ DỮ KIỆN]`** |
+| Sai số đếm | Mục tiêu tạm ≤ 10%; cách đo AT-01 | Chưa có kết quả chính thức; xem [kế hoạch thực nghiệm](reports/experiment-plan.md) |
+| Độ trễ cập nhật | Mục tiêu tạm p95 ≤ 5 giây; AT-02 | Chưa đo end-to-end |
+| Tốc độ xử lý CV/AI | Mục tiêu tạm trung vị ≥ 5 FPS ở khoảng 416 px; AT-03 | Có phép đo detector sơ bộ nhưng không đại diện toàn luồng |
+| Trải nghiệm người dùng | Mục tiêu SUS ≥ 70; AT-04 | Chưa có kết quả khảo sát |
 
-Các chỉ tiêu này sẽ được rà soát lại sau khảo sát thực địa.
+Các mục tiêu AT/NFR đang chờ xác nhận theo SRS; không coi là kết quả nghiệm thu.
 
 ## 12. Quy ước làm việc nhóm (Git và Jira)
 
-Áp dụng cho mọi thành viên. Muốn đổi quy ước phải thống nhất trong buổi họp tuần và ghi vào [mục 15](#15-lịch-sử-thay-đổi).
+Áp dụng cho mọi thành viên. Bản chuẩn nằm trong
+[conventions.md](conventions.md); muốn đổi quy ước cần ghi nhận quyết định
+thực tế theo quy trình nhóm.
 
 ### 12.1. Quy ước Jira
 
@@ -437,11 +448,13 @@ Nhánh Git và Pull Request luôn gắn với mã của Task đang làm. Story v
 |---|---|---|
 | `main` | Bản ổn định để demo và nộp | Cấm push trực tiếp. Chỉ merge từ `dev` qua PR do nhóm trưởng duyệt |
 | `dev` | Nơi gộp công việc hằng ngày | Cấm push trực tiếp, chỉ merge qua PR |
-| `feature/SEAT-x-ten-ngan` | Làm tính năng | Tạo từ `dev` |
+| `feat/SEAT-x-ten-ngan` | Làm tính năng | Tạo từ `dev` |
 | `fix/SEAT-x-ten-ngan` | Sửa lỗi | Tạo từ `dev` |
 | `docs/SEAT-x-ten-ngan` | Tài liệu, báo cáo | Tạo từ `dev` |
 
-Đặt tên nhánh: chữ thường, không dấu, nối bằng gạch ngang, bắt đầu bằng loại nhánh và mã issue. Ví dụ: `feature/SEAT-12-api-nhan-su-kien`. Mã issue phải **viết hoa đúng** (`SEAT-12`), nếu không Jira không nhận ra.
+Đặt tên nhánh theo `<loại>/SEAT-<số>-<mô-tả-ngắn>`, ví dụ:
+`feat/SEAT-12-api-nhan-su-kien`. Mã issue phải viết hoa đúng (`SEAT-12`).
+Không dùng `feature/` thay cho loại `feat`.
 
 **Commit**
 
@@ -486,7 +499,7 @@ git commit -m 'SEAT-12 fix: sua loi dem trung khi 2 nguoi di sat nhau'
 3. Tạo nhánh có mã issue (Jira tự chuyển thẻ sang **In Progress**):
 
    ```bash
-   git checkout -b feature/SEAT-12-api-nhan-su-kien
+   git checkout -b feat/SEAT-12-api-nhan-su-kien
    ```
 
 4. Làm việc, commit thường xuyên theo quy ước ở trên.
@@ -500,7 +513,7 @@ git commit -m 'SEAT-12 fix: sua loi dem trung khi 2 nguoi di sat nhau'
 6. Push nhánh:
 
    ```bash
-   git push -u origin feature/SEAT-12-api-nhan-su-kien
+   git push -u origin feat/SEAT-12-api-nhan-su-kien
    ```
 
 7. Mở Pull Request vào `dev` (Jira tự chuyển thẻ sang **In Review**).
@@ -515,21 +528,9 @@ git commit -m 'SEAT-12 fix: sua loi dem trung khi 2 nguoi di sat nhau'
 
 - **Tiêu đề** có mã issue: `SEAT-12 Them endpoint nhan su kien`.
 - **Base** là `dev` (riêng PR từ `dev` vào `main` do nhóm trưởng tạo khi chốt mốc).
-- **Mô tả** theo mẫu:
-
-  ```markdown
-  ## Lam gi
-  (1-2 cau)
-
-  ## Cach kiem tra
-  (cac buoc de nguoi review chay thu)
-
-  ## Anh / ket qua
-  (anh chup, bang so lieu neu co)
-
-  ## Lien quan
-  SEAT-12
-  ```
+- **Mô tả** phải theo đúng các heading và checklist tại
+  [mẫu Pull Request](../.github/pull_request_template.md); không thay bằng mẫu
+  rút gọn riêng trong README.
 
 - Một PR chỉ giải quyết **một issue** và nên nhỏ (khoảng dưới 300 dòng thay đổi nếu có thể).
 - Cần **ít nhất một người khác** review. Tác giả không tự merge PR của mình.
@@ -592,14 +593,17 @@ git commit -m 'SEAT-12 fix: sua loi dem trung khi 2 nguoi di sat nhau'
 | Tình huống | Cách xử lý |
 |---|---|
 | Quên mã issue ở commit cuối, **chưa push** | `git commit --amend -m 'SEAT-12 feat: noi dung'` |
-| Lỡ commit trực tiếp trên `dev`, chưa push | Tạo nhánh giữ lại công việc: `git branch feature/SEAT-12-ten`, rồi đưa `dev` về đồng bộ: `git reset --hard origin/dev`. Nếu không chắc, hỏi nhóm trưởng trước |
+| Lỡ commit trực tiếp trên `dev`, chưa push | Giữ nguyên commit bằng cách tạo nhánh công việc từ vị trí hiện tại: `git switch -c feat/SEAT-12-ten`. Xác nhận bằng `git status` và `git log -1 --oneline`; không reset hoặc ghi đè nhánh. Sau đó báo nhóm trưởng để xử lý `dev` theo quy trình nhóm |
 | Xung đột khi merge | Mở file có dấu `<<<<<<<`, giữ đoạn đúng, xóa các dấu, rồi `git add` và `git commit`. Không chắc thì hỏi người viết đoạn đó |
 | Jira không hiện commit hoặc nhánh | Kiểm tra mã issue, email Git, repo đã được cấp quyền cho app GitHub for Atlassian |
 | Thẻ không tự chuyển | Xem [mục 12.5](#125-tự-động-hóa-jira-và-github) |
 | Commit sai email | Sửa `git config user.email` rồi commit mới. Commit cũ sai email có thể bỏ qua |
 | Lỡ đẩy mật khẩu hoặc API key lên repo | Báo nhóm trưởng ngay và **đổi mật khẩu hoặc key lập tức**. Xóa file là chưa đủ vì lịch sử vẫn còn |
 
-Các lỗi riêng của từng thành phần (CV/AI, Backend, Frontend): **`[CHƯA CÓ DỮ KIỆN]`**
+Khi lỗi thuộc một thành phần, xem README của thư mục tương ứng và thu thập log
+bằng `docker compose logs <service_name>`. Tài liệu này chưa có một danh mục lỗi
+đã xác minh chung cho CV/AI, Backend và Frontend; không tự suy diễn nguyên nhân
+từ trạng thái container.
 
 ## 14. Kiểm tra README trên máy phát triển
 

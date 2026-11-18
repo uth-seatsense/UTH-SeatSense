@@ -2,14 +2,19 @@
 
 ## Tổng quan
 
-Dự án được tổ chức theo mô hình một kho mã dùng Docker Compose:
+Dự án được tổ chức theo mô hình một kho mã dùng Docker Compose cho các service
+phát triển. Tài liệu mô tả kiến trúc mục tiêu; trạng thái từng endpoint được
+ghi trong [API contract](api-contracts.md), không suy ra là đã triển khai từ
+sơ đồ.
 
 - **Giao diện:** React/Vite cho giao diện người dùng
 - **Máy chủ:** FastAPI cung cấp API và các dịch vụ nghiệp vụ
-- **Dịch vụ CV:** FastAPI dùng để xử lý video (dự kiến)
+- **Dịch vụ CV:** xử lý webcam/video; chạy ngoài Docker khi cần truy cập camera
 - **Cơ sở dữ liệu:** PostgreSQL lưu thông tin phòng, lượt đặt chỗ và dữ liệu mật độ
 
-Máy chủ điều phối các luồng xử lý của ứng dụng và dùng dữ liệu mật độ từ dịch vụ CV. Bộ khung ban đầu chưa triển khai xác thực, hợp đồng API và giao tiếp giữa các dịch vụ.
+CV gửi dữ liệu đếm tới Backend; Backend xử lý nghiệp vụ và lưu dữ liệu vào
+PostgreSQL. API event, idempotency, heartbeat và các luồng đặt phòng/auth là
+target Sprint 4, chưa được coi là đã tích hợp chỉ từ sơ đồ.
 
 ---
 
@@ -44,11 +49,12 @@ classDiagram
         +string room_type
         +string building
         +int capacity
+        +bool capacity_confirmed
         +string location
         +string status
         +bool is_active
         +datetime created_at
-        +available_seats(current_count) int
+        +available_seats(current_count, baseline_valid) optional_int
         +is_available() bool
         +can_accommodate(count) bool
     }
@@ -60,6 +66,7 @@ classDiagram
         +datetime start_time
         +datetime end_time
         +int participant_count
+        +int buffer_minutes
         +string status
         +datetime created_at
         +datetime updated_at
@@ -86,18 +93,21 @@ classDiagram
         +int id
         +uuid observation_id
         +int room_id
+        +uuid session_id
         +int current_count
         +int available_seats
         +datetime recorded_at
         +string source
         +string device_status
-        +is_stale(threshold_seconds) bool
-        +calculate_available_seats(room) int
+        +occupancy_status(configured_threshold) string
+        +calculate_available_seats(room) optional_int
     }
     
     class CountEvent {
-        +int event_id
+        +uuid event_id
+        +uuid session_id
         +int room_id
+        +string device_id
         +string direction
         +datetime event_time
         +datetime received_at
@@ -105,6 +115,23 @@ classDiagram
         +datetime created_at
         +is_entry() bool
         +is_exit() bool
+    }
+
+    class CountSession {
+        +uuid session_id
+        +int room_id
+        +int initial_occupancy
+        +int operator_id
+        +datetime started_at
+        +datetime ended_at "nullable while active"
+    }
+
+    class DeviceStatus {
+        +string device_id
+        +int room_id
+        +string status
+        +datetime last_seen_at
+        +datetime updated_at
     }
     
     class AuditLog {
@@ -154,6 +181,10 @@ classDiagram
     Room "1" --> "0..*" Booking : có
     Room "1" --> "0..*" OccupancyRecord : theo dõi
     Room "1" --> "0..*" CountEvent : ghi nhận
+    Room "1" --> "0..*" CountSession : có phiên
+    CountSession "1" --> "0..*" CountEvent : chứa
+    CountSession "1" --> "0..*" OccupancyRecord : snapshot
+    Room "1" --> "0..*" DeviceStatus : nguồn
     Room "1" --> "0..*" OccupancyAdjustment : điều chỉnh
     Booking "1" --> "0..1" CheckIn : xác nhận có mặt
 ```
@@ -165,16 +196,17 @@ classDiagram
 - `is_student()`, `is_librarian()`, `is_admin()`: Các phương thức hỗ trợ phân quyền
 
 **Room (Phòng):**
-- `available_seats(current_count)`: Tính số ghế trống theo `capacity - current_count`
+- `available_seats(current_count, baseline_valid)`: Trả `null` nếu chưa có N0
+  hợp lệ; nếu đủ dữ liệu thì `max(0, capacity - current_count)`.
 - `is_available()`: Kiểm tra phòng đang hoạt động (`status = 'active'`)
 - `can_accommodate(count)`: Kiểm tra phòng có đủ chỗ cho số người
 
 **Booking (Đặt chỗ):**
 - `overlaps(other)`: Kiểm tra trùng lịch với lượt đặt chỗ khác (TC-07)
-- `can_check_in(current_time)`: Kiểm tra lượt đặt chỗ ở trạng thái `confirmed` và còn trong khung giờ xác nhận có mặt
-- `mark_no_show()`: Đánh dấu lượt đặt chỗ là `cancelled` nếu quá giờ
-- `is_active()`: Kiểm tra trạng thái là `pending` hoặc `confirmed`
-- `is_in_checkin_window(current_time)`: Kiểm tra còn trong khung giờ xác nhận có mặt
+- `can_check_in(current_time)`: Kiểm tra lượt đặt chỗ `booked` còn trong cửa sổ từ giờ bắt đầu đến giờ bắt đầu + 15 phút
+- `mark_no_show()`: Đánh dấu trạng thái `no_show` nếu hết thời gian chờ check-in theo cấu hình
+- `is_active()`: Kiểm tra trạng thái còn hiệu lực theo state machine booking
+- `is_in_checkin_window(current_time)`: Kiểm tra cửa sổ check-in theo BR-05/TC-08
 - `is_valid_group_size()`: Kiểm tra số người tham gia nằm trong giới hạn (BR-18: 2-6 người)
 
 **CheckIn (Xác nhận có mặt)**
@@ -182,7 +214,7 @@ classDiagram
 - `verify_timing(booking)`: Xác minh thời điểm xác nhận có mặt hợp lệ
 
 **OccupancyRecord (Bản ghi mật độ):**
-- `is_stale(threshold_seconds)`: Kiểm tra dữ liệu đã quá ngưỡng lỗi thời (mặc định 30 giây)
+- `occupancy_status(configured_threshold)`: Phân loại freshness theo cấu hình đã thống nhất; không hard-code mặc định 30 giây
 - `calculate_available_seats(room)`: Tính số ghế trống
 
 **CountEvent (Sự kiện đếm):**
@@ -336,7 +368,7 @@ graph TB
 - `list_bookings(filters)`: Liệt kê lượt đặt chỗ theo bộ lọc
 - `cancel_booking(id)`: Hủy lượt đặt chỗ
 - `check_availability(room_id, start, end)`: Kiểm tra phòng có trống
-- `auto_cancel_no_shows()`: Tự động hủy lượt đặt chỗ khi người đặt vắng mặt
+- `mark_no_show_bookings()`: Chuyển booking sang `no_show` sau khi hết cửa sổ chờ check-in theo cấu hình
 
 #### CheckInService (Dịch vụ xác nhận có mặt)
 **Phụ thuộc:** CheckInRepository, BookingRepository
@@ -392,9 +424,10 @@ graph TB
 
 ### Cấu trúc dữ liệu Pydantic theo tuyến API
 
-> **Lưu ý:** Cấu trúc dữ liệu chi tiết sẽ được hoàn thiện trong hợp đồng API của SEAT-40.
->
-> Đây là bản thảo dựa trên thiết kế cơ sở dữ liệu và yêu cầu hiện tại.
+Đây là sơ đồ khái niệm; [API contract](api-contracts.md) là nguồn chuẩn cho
+method, path, request/response và trạng thái `PROPOSED`/`IMPLEMENTED`. Các
+operation dưới đây chưa được xác nhận trong runtime trừ khi API contract ghi
+`IMPLEMENTED`.
 
 #### API đặt chỗ
 
@@ -403,24 +436,24 @@ graph TB
 | `/api/v1/bookings` | POST | `BookingCreate` | `BookingResponse` |
 | `/api/v1/bookings/{id}` | GET | — | `BookingResponse` |
 | `/api/v1/bookings` | GET | Tham số truy vấn | `BookingList` |
-| `/api/v1/bookings/{id}/cancel` | PUT | — | `BookingResponse` |
+| `/api/v1/bookings/{id}` | DELETE | — | `204` |
 
 **Cấu trúc dữ liệu dự thảo**
 ```python
 class BookingCreate(BaseModel):
     room_id: int
-    start_time: datetime
-    end_time: datetime
+    starts_at: datetime
+    ends_at: datetime
     participant_count: int  # BR-18: 2-6 người
 
 class BookingResponse(BaseModel):
-    booking_id: int
-    user_id: int
+    id: str
+    user_id: str
     room_id: int
     start_time: datetime
     end_time: datetime
     participant_count: int
-    status: str  # 'pending' | 'confirmed' | 'completed' | 'cancelled'
+    status: str  # 'booked' | 'checked_in' | 'completed' | 'cancelled' | 'no_show'
     created_at: datetime
     updated_at: datetime
 
@@ -433,35 +466,30 @@ class BookingList(BaseModel):
 
 | Tuyến API | Phương thức | Cấu trúc đầu vào | Cấu trúc đầu ra |
 |----------|--------|--------------|---------------|
-| `/api/v1/check-ins` | POST | `CheckInRequest` | `CheckInResponse` |
-| `/api/v1/check-ins/{id}` | GET | — | `CheckInResponse` |
-| `/api/v1/check-ins/verify-qr` | POST | `QRVerifyRequest` | `CheckInResponse` |
+| `/api/v1/bookings/{booking_id}/check-in-token` | POST | — | QR token |
+| `/api/v1/check-in` | POST | `CheckInRequest` | `CheckInResponse` |
 
 **Cấu trúc dữ liệu dự thảo**
 ```python
 class CheckInRequest(BaseModel):
-    booking_id: int
-
-class QRVerifyRequest(BaseModel):
+    booking_id: str
     qr_token: str
 
 class CheckInResponse(BaseModel):
-    checkin_id: int
-    booking_id: int
-    checkin_time: datetime
-    method: str  # 'qr' | 'manual'
-    status: str  # 'success' | 'failed' | 'expired'
-    created_at: datetime
+    booking_id: str
+    status: str  # 'checked_in'
+    checked_in_at: datetime
 ```
 
 #### API số người trong phòng
 
 | Tuyến API | Phương thức | Cấu trúc đầu vào | Cấu trúc đầu ra |
 |----------|--------|--------------|---------------|
-| `/api/v1/occupancy/current` | GET | — | `CurrentOccupancyResponse` |
-| `/api/v1/occupancy/history/{room_id}` | GET | Tham số truy vấn | `OccupancyHistoryResponse` |
+| `/api/v1/occupancy/current` | GET | — | Legacy aggregate response |
+| `/api/v1/rooms/{room_id}/occupancy/history` | GET | Tham số truy vấn | `OccupancyHistoryResponse` |
+| `/api/v1/occupancy/rooms/{room_id}/latest` | GET | — | Occupancy hiện tại + freshness/device status (target Sprint 4) |
 
-**Cấu trúc dữ liệu dự thảo**
+**Cấu trúc response legacy**
 ```python
 class CurrentOccupancyResponse(BaseModel):
     current_count: Optional[int]
@@ -475,7 +503,7 @@ class OccupancyHistoryResponse(BaseModel):
 class OccupancyRecordResponse(BaseModel):
     id: int
     room_id: int
-    current_count: int
+    current_count: Optional[int]
     available_seats: Optional[int]
     recorded_at: datetime
     source: str
@@ -496,7 +524,7 @@ Xem cấu trúc dữ liệu trong [Hợp đồng API cho dữ liệu CV](./api-c
 |----------|--------|--------------|---------------|
 | `/api/v1/rooms` | GET | Tham số truy vấn | `RoomList` |
 | `/api/v1/rooms/{id}` | GET | — | `RoomResponse` |
-| `/api/v1/rooms/{id}/availability` | GET | Tham số truy vấn | `RoomAvailability` |
+| `/api/v1/occupancy/rooms/{room_id}/latest` | GET | — | Trạng thái occupancy hiện tại |
 
 **Cấu trúc dữ liệu dự thảo**
 ```python
@@ -507,6 +535,7 @@ class RoomResponse(BaseModel):
     room_type: str
     building: Optional[str]
     capacity: int
+    capacity_confirmed: bool
     location: Optional[str]
     status: str
     is_active: bool
@@ -522,12 +551,11 @@ class RoomAvailability(BaseModel):
     available_slots: List[TimeSlot]
 ```
 
-#### API bảng tổng quan
+#### API dashboard
 
 | Tuyến API | Phương thức | Cấu trúc đầu vào | Cấu trúc đầu ra |
 |----------|--------|--------------|---------------|
-| `/api/v1/dashboard/stats` | GET | — | `DashboardStats` |
-| `/api/v1/dashboard/occupancy` | GET | — | `DashboardOccupancy` |
+| `/api/v1/dashboard/summary` | GET | `from`, `to`, scope | `DashboardSummary` |
 
 **Cấu trúc dữ liệu dự thảo** Sẽ được xác định trong SEAT-40
 
@@ -535,8 +563,8 @@ class RoomAvailability(BaseModel):
 
 | Tuyến API | Phương thức | Cấu trúc đầu vào | Cấu trúc đầu ra |
 |----------|--------|--------------|---------------|
-| `/api/v1/auth/send-otp` | POST | `SendOTPRequest` | `SendOTPResponse` |
-| `/api/v1/auth/verify-otp` | POST | `VerifyOTPRequest` | `AuthResponse` |
+| `/api/v1/auth/register` | POST | `SendOTPRequest` | `SendOTPResponse` |
+| `/api/v1/auth/login` | POST | `VerifyOTPRequest` | `AuthResponse` |
 | `/api/v1/auth/logout` | POST | — | `LogoutResponse` |
 
 **Cấu trúc dữ liệu dự thảo**
@@ -649,23 +677,23 @@ class AdjustmentHistoryResponse(BaseModel):
 
 ```mermaid
 stateDiagram-v2
-    [*] --> pending: Tạo lượt đặt chỗ
-    pending --> confirmed: Tự động xác nhận
-    pending --> cancelled: Người dùng hủy
-    confirmed --> completed: Xác nhận có mặt thành công
-    confirmed --> cancelled: Người dùng hủy hoặc vắng mặt
+    [*] --> booked: Tạo lượt đặt chỗ
+    booked --> checked_in: Check-in hợp lệ
+    booked --> cancelled: Người dùng hủy
+    checked_in --> completed: Hoàn tất khung giờ
+    booked --> no_show: Hết cửa sổ check-in mà chưa có mặt
+    no_show --> [*]
     completed --> [*]
     cancelled --> [*]
     
-    note right of confirmed
-        Khung giờ xác nhận có mặt
-        [start_time - 15 phút, end_time]
+    note right of booked
+        Khung giờ check-in
+        [start_time, start_time + 15 phút]
     end note
     
-    note right of cancelled
-        Tự động hủy lượt đặt chỗ nếu
-        chưa xác nhận có mặt trước
-        start_time + grace_period
+    note right of no_show
+        Trạng thái no_show sau khi hết
+        cửa sổ chờ check-in theo BR-05
     end note
 ```
 
@@ -689,9 +717,12 @@ stateDiagram-v2
 - **Mô hình nghiệp vụ** tương ứng với cấu trúc trong [Thiết kế cơ sở dữ liệu](./database-design.md).
 - **Các phương thức nghiệp vụ** triển khai quy tắc từ yêu cầu SRS và các tình huống kiểm thử.
 - **Ràng buộc chống trùng lịch (TC-07)** áp dụng ở cả cơ sở dữ liệu (ràng buộc loại trừ) và tầng dịch vụ (quy tắc nghiệp vụ).
-- **Cấu trúc dữ liệu Pydantic** sẽ được hoàn thiện sau SEAT-40.
-- **Mã lỗi** sẽ được chuẩn hóa trong hợp đồng API của SEAT-40.
-- **Dịch vụ xác thực và phân quyền** sẽ được thiết kế sau khi có yêu cầu từ SEAT-40.
+- **Cấu trúc dữ liệu Pydantic** và trạng thái triển khai được đối chiếu trong
+  [API contract](api-contracts.md); các trường event/session mới là target
+  Sprint 4 cho tới khi OpenAPI runtime xác nhận.
+- **Mã lỗi** mục tiêu cho event, occupancy chưa khởi tạo và service unavailable
+  được nêu trong API contract; không nhầm 503 dịch vụ lỗi với occupancy = 0.
+- **Dịch vụ xác thực và phân quyền** là target theo SRS; chưa có handler/middleware runtime, xem API contract.
 
 ## Sơ đồ tuần tự UC-06: Đếm qua đường ảo
 
@@ -707,9 +738,9 @@ SEAT-34 · Người soạn: Lê Văn Trí · Bản thiết kế cho luồng đ�
 | PostgreSQL | Lưu bản ghi tại từng thời điểm, sự kiện, trạng thái nguồn và số người theo hợp đồng được chốt |
 | Giao diện web React + Vite | Gọi máy chủ để hiển thị số người ước tính, chỗ trống và trạng thái dữ liệu |
 
-Máy chủ API, PostgreSQL và giao diện chạy bằng Docker Compose. CV dùng webcam và chạy trên
-máy chạy Docker theo SRS.
-- [SRS v1.9](../requirements/UTH-SeatSense_SRS_v1.9.md): UC-06, FR-OCC-05,
+Máy chủ API, PostgreSQL và giao diện chạy bằng Docker Compose. CV chạy ngoài
+Docker trên máy có webcam/video theo SRS; Compose CV hiện chỉ là scaffold API.
+- [SRS 1.9](../requirements/srs.md): UC-06, FR-OCC-05,
   BR-02, BR-17, BR-21–24, NFR-PRI-01/02, Q-03/Q-15/Q-16.
 - [Điều lệ dự án hiện hành](../requirements/Project%20Charter.md): phiên bản 1.7.
 - [Hợp đồng CV v1.0](cv-data-contract.md): đầu ra CV cục bộ của SEAT-17.
@@ -721,10 +752,10 @@ máy chạy Docker theo SRS.
 |---|---|---|
 | CV | Xuất `CountResult` và `CrossingEvent` dưới dạng JSONL, có giao diện thử webcam và video | Chưa có bộ gửi HTTP, hàng đợi lưu qua lần khởi động lại, khóa API hay tín hiệu báo nguồn còn hoạt động |
 | POST bản ghi số đếm | `/api/v1/cv/count-records`, nhận theo lô, khai báo HTTP 200 | Ghi `cv_count_records`; không ghi `CountEvent` hoặc cập nhật số người theo sự kiện |
-| GET theo phòng | `/api/v1/occupancy/rooms/{room_id}/latest` | Đọc bản ghi webcam. Đánh dấu lỗi thời sau 30 giây tính từ `received_at` |
+| GET theo phòng | `/api/v1/occupancy/rooms/{room_id}/latest` | Handler legacy đọc bản ghi webcam; target freshness theo trạng thái nguồn và ngưỡng cấu hình, không hard-code 30 giây |
 | Tuyến GET giao diện đang dùng | `/api/v1/occupancy/current`; giao diện làm mới mỗi 30 giây | Đọc `occupancy_records`; khác nguồn của GET theo phòng |
-| Mô hình sự kiện | Có `CountEvent` và `OccupancyRecord` | Mã sự kiện là số nguyên tự tăng. Chưa tiếp nhận và chống trùng theo UUID từ CV |
-| Xác thực nguồn | `security.py` mới là phần giữ chỗ | Chưa có khóa tiếp nhận hoặc tuyến báo trạng thái thiết bị |
+| Mô hình sự kiện | Có mô hình `CountEvent` và `OccupancyRecord` | Runtime hiện chưa nhận event UUID từ CV; target Sprint 4 dùng UUID idempotency, phiên N0 và occupancy nullable khi chưa đủ dữ liệu |
+| Xác thực nguồn | `security.py` mới là phần giữ chỗ | Chưa có khóa tiếp nhận hoặc tuyến heartbeat/status theo API contract |
 
 
 ### Sơ đồ tuần tự đề xuất
@@ -771,7 +802,7 @@ sequenceDiagram
     end
     opt Camera hoặc xử lý lỗi, CV còn mạng
         CV->>CV: Ghi nhật ký lỗi
-        CV->>BE: POST /api/v1/cv/device-status để báo mất kết nối hoặc lỗi
+        CV->>BE: PUT /api/v1/cv/devices/{device_id}/status
         BE->>DB: Lưu trạng thái nguồn và thời điểm, không đổi số người
     end
     Note over CV,DB: Khi CV mất mạng, tín hiệu hoạt động quá hạn và dữ liệu bị đánh dấu lỗi thời hoặc chưa biết<br/>Không suy ra số người bằng 0

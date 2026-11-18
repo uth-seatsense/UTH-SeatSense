@@ -10,31 +10,23 @@ function renderRoute(location) {
   );
 }
 
-describe("skeleton routes", () => {
-  it.each([
-    "/login",
-    "/rooms",
-    "/reservation",
-    "/my-bookings",
-    "/checkin",
-    "/health",
-  ])("uses consistent skeleton spacing at %s", (location) => {
-    expect(renderRoute(location)).toContain('<main class="skeleton-page">');
+describe("application routes", () => {
+  it("renders OTP login rather than a placeholder", () => {
+    const markup = renderRoute("/login");
+    expect(markup).toContain("<h1>Đăng nhập bằng email</h1>");
+    expect(markup).toContain('type="email"');
+    expect(markup).toContain("Gửi mã OTP");
+    expect(markup).not.toContain("skeleton-page");
   });
 
-  it.each([
-    ["/", "Tổng quan Thư viện UTH"],
-    ["/login", "Đăng nhập"],
-    ["/rooms", "Phòng học"],
-    ["/reservation", "Đặt chỗ"],
-    ["/my-bookings", "Lịch đặt của tôi"],
-    ["/checkin", "Check-in"],
-    ["/dashboard", "Tổng quan Thư viện UTH"],
-    ["/health", "Health Check"],
-    ["/missing", "404"],
-  ])("renders the page heading at %s", (location, heading) => {
-    expect(renderRoute(location)).toContain(`<h1>${heading}</h1>`);
-  });
+  it.each(["/rooms", "/reservation", "/my-bookings", "/checkin"])(
+    "protects booking routes when signed out: %s",
+    (location) => {
+      const markup = renderRoute(location);
+      expect(markup).toContain("<h1>Cần đăng nhập</h1>");
+      expect(markup).toContain('href="/login"');
+    },
+  );
 
   it.each([
     ["/", true],
@@ -82,4 +74,8 @@ describe("skeleton routes", () => {
       expect(renderRoute(location)).not.toContain('href="#rooms"');
     },
   );
+
+  it("renders the 404 page for unknown routes", () => {
+    expect(renderRoute("/missing")).toContain("<h1>404</h1>");
+  });
 });

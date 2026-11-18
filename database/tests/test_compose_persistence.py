@@ -65,8 +65,15 @@ class ComposePersistenceTests(unittest.TestCase):
     def test_fresh_database_bootstrap(self):
         self.setup_project(legacy=False)
         self.compose('up','-d','--wait','--wait-timeout','120','db')
-        self.assertEqual(self.sql("SELECT version FROM schema_migrations;"),'002_cv_count_records')
+        self.assertEqual(self.sql("SELECT version FROM schema_migrations WHERE version='002_cv_count_records';"),'002_cv_count_records')
+        self.assertEqual(self.sql("SELECT version FROM schema_migrations WHERE version='009_add_email_otp_auth';"),'009_add_email_otp_auth')
+        self.assertEqual(self.sql("SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('email_otp_challenges','auth_sessions');"),'2')
         self.assertEqual(self.sql("SELECT count(*) FROM cv_count_records;"),'0')
+        migration = (ROOT/'database/init/009_add_email_otp_auth.sql').read_text(encoding='utf-8')
+        self.compose('exec','-T','db','sh','-c',
+                     'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"',
+                     input=migration)
+        self.assertEqual(self.sql("SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('email_otp_challenges','auth_sessions');"),'2')
 
     def test_upgrade_backend_write_read_and_restart(self):
         self.setup_project(legacy=True)

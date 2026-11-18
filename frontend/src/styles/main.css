@@ -1,6 +1,12 @@
 :root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   color: #0b1c30;
   background: #f7f8ff;
   font-synthesis: none;
@@ -112,6 +118,343 @@ button:disabled {
 
 .skeleton-page pre {
   overflow-x: auto;
+}
+
+.app-navigation-account {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  color: var(--primary);
+  font-size: 13px;
+}
+
+.navigation-feedback {
+  margin: 0;
+  padding: 8px 18px;
+}
+
+.feature-page {
+  width: min(100% - 32px, 1120px);
+  padding: 32px 0 48px;
+  margin: 0 auto;
+}
+
+.feature-page--narrow {
+  width: min(100% - 32px, 560px);
+}
+
+.feature-heading {
+  margin-bottom: 22px;
+}
+
+.feature-heading h1 {
+  margin: 4px 0 8px;
+  color: var(--primary);
+  font-size: clamp(24px, 4vw, 34px);
+  letter-spacing: -0.035em;
+}
+
+.feature-heading p {
+  max-width: 720px;
+  margin: 0;
+  color: #596173;
+  line-height: 1.6;
+}
+
+.feature-heading .eyebrow {
+  color: var(--secondary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.feature-panel,
+.empty-panel {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--outline);
+  border-radius: 12px;
+  background: var(--surface-card);
+  box-shadow: 0 2px 6px rgb(11 28 48 / 4%);
+}
+
+.feature-form {
+  display: grid;
+  gap: 16px;
+}
+
+.form-field {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid #b9c3d4;
+  border-radius: 7px;
+  background: white;
+  color: #0b1c30;
+  font: inherit;
+  font-weight: 400;
+}
+
+.form-field textarea {
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 13px;
+}
+
+.form-field input:disabled,
+.form-field select:disabled {
+  background: #f0f2f7;
+  color: #596173;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 14px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  text-align: center;
+  text-decoration: none;
+}
+
+.button--primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.button--primary:hover:not(:disabled) {
+  background: #123b70;
+}
+
+.button--secondary {
+  border-color: #b9d1ff;
+  background: #eef4ff;
+  color: var(--secondary);
+}
+
+.button--quiet {
+  background: transparent;
+  color: var(--secondary);
+}
+
+.text-link {
+  color: var(--secondary);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  text-underline-offset: 3px;
+}
+
+.feedback {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 7px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.feedback--error {
+  border: 1px solid #e8b8b8;
+  background: #fff3f2;
+  color: var(--error);
+}
+
+.feedback--success {
+  border: 1px solid #b8e3cc;
+  background: #effaf4;
+  color: #176444;
+}
+
+.feedback--warning {
+  border: 1px solid #efd29d;
+  background: #fff8e9;
+  color: #805000;
+}
+
+.helper-text,
+.data-unavailable {
+  margin: 0;
+  color: #596173;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.feature-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0;
+  color: #596173;
+  font-size: 14px;
+}
+
+.room-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
+  gap: 16px;
+}
+
+.room-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.room-card h2,
+.booking-card h2 {
+  margin: 0;
+  color: var(--primary);
+  font-size: 18px;
+}
+
+.room-card p,
+.booking-card p {
+  margin: 0;
+  color: #596173;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.room-card__heading,
+.booking-card__details {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.room-type,
+.status-tag {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border-radius: 99px;
+  background: #eef4ff;
+  color: var(--secondary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.room-availability {
+  display: grid;
+  gap: 4px;
+  color: #596173;
+  font-size: 13px;
+}
+
+.room-availability strong {
+  color: var(--green);
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.room-card .button {
+  margin-top: 4px;
+}
+
+.empty-panel {
+  color: #596173;
+  line-height: 1.6;
+}
+
+.booking-list {
+  display: grid;
+  gap: 14px;
+}
+
+.booking-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.booking-card__details {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  flex: 1;
+}
+
+.booking-card__details > p {
+  grid-column: 1 / -1;
+}
+
+.booking-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.status-tag--checked_in,
+.status-tag--completed {
+  background: #effaf4;
+  color: #176444;
+}
+
+.status-tag--cancelled,
+.status-tag--no_show {
+  background: #f3f4f7;
+  color: #596173;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  overflow: auto;
+  place-items: center;
+  padding: 20px;
+  background: rgb(11 28 48 / 58%);
+}
+
+.qr-dialog {
+  display: grid;
+  width: min(100%, 380px);
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.qr-dialog h2,
+.qr-dialog p {
+  margin: 0;
+}
+
+.qr-dialog h2 {
+  color: var(--primary);
+}
+
+.qr-camera {
+  width: min(100%, 420px);
+  max-height: 55vh;
+  border-radius: 8px;
+  background: #0b1c30;
 }
 
 .app-shell {
@@ -1008,6 +1351,42 @@ button:disabled {
 }
 
 @media (max-width: 600px) {
+  .feature-page {
+    width: min(100% - 24px, 1120px);
+    padding-top: 22px;
+  }
+
+  .feature-page--narrow {
+    width: min(100% - 24px, 560px);
+  }
+
+  .feature-panel,
+  .empty-panel {
+    padding: 15px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .booking-card__actions {
+    width: 100%;
+  }
+
+  .booking-card__actions .button {
+    flex: 1;
+  }
+
+  .app-navigation-account {
+    gap: 5px;
+    font-size: 11px;
+  }
+
   .topbar {
     flex-wrap: wrap;
     gap: 7px;

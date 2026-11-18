@@ -2,6 +2,12 @@
 
 This guide describes the Backend endpoints for CV ingestion and the Frontend's latest live occupancy view. Field semantics and full validation rules are in the [shared API contract](../architecture/api-contracts.md).
 
+> **Legacy SEAT-19 runtime guide:** the 404 `occupancy_not_found` response,
+> `is_stale` 30-second threshold, and 5-second poll below describe the older
+> runtime contract. Sprint 4 target behavior is `503 occupancy_unavailable`
+> when occupancy/N0 is unavailable, with freshness thresholds from configuration
+> and 3–5-second polling. See the shared API contract before implementing clients.
+
 ## Start the development services
 
 From the repository root, configure `.env` using `.env.example`, then run:

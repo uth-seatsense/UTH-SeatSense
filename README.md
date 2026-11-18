@@ -41,6 +41,7 @@ Mục tiêu của dự án:
 | Backend (`backend/`) | API nghiệp vụ và kết nối cơ sở dữ liệu | Python, FastAPI, SQLAlchemy |
 | Database (`db`) | Lưu trữ dữ liệu hệ thống | PostgreSQL 16.6 |
 | Frontend (`frontend/`) | Giao diện web và proxy API | React, Vite, TypeScript |
+| Android (`android/`) | Ứng dụng native xem chỗ, đặt phòng và check-in QR | Kotlin, Jetpack Compose |
 | Adminer (`adminer`) | Giao diện quản trị database cho phát triển | Adminer 4.8.1 |
 | Orchestration | Xây dựng và kết nối các dịch vụ | Docker Compose |
 
@@ -59,6 +60,7 @@ UTH-SeatSense/
 ├── cv/                 # Computer Vision service
 ├── backend/            # FastAPI backend
 ├── frontend/           # React + Vite frontend
+├── android/            # Ứng dụng Android native (Kotlin/Compose)
 ├── database/init/      # SQL khởi tạo PostgreSQL
 ├── docs/               # Tài liệu dự án và kiến trúc
 ├── tests/              # Integration tests
@@ -76,6 +78,8 @@ Trước khi bắt đầu, đảm bảo máy đã cài:
 - **Docker Desktop** - [Tải tại đây](https://www.docker.com/products/docker-desktop/)
   - Windows: Chọn WSL 2 khi cài đặt
   - Mở Docker Desktop và đợi Engine khởi động
+- **Android Studio, Android SDK Platform 35 và JDK 17** - chỉ cần nếu build
+  ứng dụng Android; API 26 tối thiểu hiện là giả định tạm thời.
 
 Kiểm tra cài đặt thành công:
 
@@ -176,6 +180,12 @@ Dùng mật khẩu đơn giản gồm chữ và số, không dấu. Đây chỉ 
 
 > **Lưu ý:** Không đổi các giá trị khác trừ khi port bị conflict với ứng dụng khác đang chạy.
 
+Để bật đăng nhập OTP cho ứng dụng Android, cấu hình thêm `ALLOWED_EMAIL_DOMAINS`,
+`OTP_HASH_SECRET` ngẫu nhiên tối thiểu 32 ký tự và các biến `SMTP_*` trong `.env`.
+Không commit khóa OTP, mật khẩu SMTP hoặc file `.env`. Nếu dùng PostgreSQL volume
+đã tồn tại, hãy sao lưu và áp migration `009_add_email_otp_auth.sql` theo
+[hướng dẫn Database](database/README.md); migration không tự chạy lại trên volume cũ.
+
 ### Bước 3: Khởi động hệ thống
 
 ```bash
@@ -252,6 +262,18 @@ Sau khi khởi động thành công, truy cập các địa chỉ sau:
 | **CV Service** | http://localhost:8001 | Giao diện kiểm thử CV |
 | **CV API Docs** | http://localhost:8001/docs | API tài liệu CV service |
 | **Adminer** | http://localhost:8080 | Web UI quản lý PostgreSQL |
+
+### Build ứng dụng Android
+
+Với Android SDK Platform 35 đã cài, chạy từ thư mục gốc:
+
+```powershell
+.\android\gradlew.bat testDebugUnitTest assembleDebug
+```
+
+Emulator mặc định dùng `http://10.0.2.2:8000/api/v1/`. Cấu hình URL cho thiết bị
+thật bằng `-PseatsenseApiBaseUrl=http://<DIA_CHI_MAY>:8000/api/v1/`. Chỉ bản debug
+cho phép HTTP; bản phát hành cần HTTPS. Xem [hướng dẫn Android](android/README.md).
 
 ### Đăng nhập Adminer (quản lý database)
 
@@ -413,6 +435,10 @@ UTH-SeatSense/
 │   │   └── App.tsx       # Main app
 │   ├── tests/            # Frontend tests
 │   └── README.md         # Hướng dẫn chi tiết Frontend
+│
+├── android/              # Ứng dụng Kotlin/Jetpack Compose
+│   ├── app/src/main/     # Màn hình, API client và TokenStore
+│   └── README.md         # Hướng dẫn build và cấu hình Android
 │
 ├── database/             # Database scripts
 │   └── init/             # Init SQL scripts (chạy khi tạo DB lần đầu)
@@ -702,6 +728,7 @@ Xem chi tiết trong [docs/](docs/)
 - [cv/README.md](cv/README.md) - Computer Vision service
 - [backend/README.md](backend/README.md) - Backend API
 - [frontend/README.md](frontend/README.md) - Frontend web
+- [android/README.md](android/README.md) - Ứng dụng Android native
 - [database/README.md](database/README.md) - Database schema
 
 ### Quy ước và quy trình
@@ -731,5 +758,5 @@ Tạo issue trên GitHub hoặc Jira task với:
 
 ---
 
-**Cập nhật lần cuối:** 2026-11-09  
+**Cập nhật lần cuối:** 2026-11-15
 **Phiên bản README:** 2.0 (Streamlined for quick start)
