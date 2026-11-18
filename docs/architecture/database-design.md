@@ -2,6 +2,10 @@
 
 Tài liệu này mô tả schema cơ sở dữ liệu PostgreSQL cho hệ thống đặt phòng và theo dõi mật độ UTH SeatSense, bao gồm ERD (Entity Relationship Diagram) và từ điển dữ liệu đầy đủ.
 
+Các trường gắn nhãn **target Sprint 4** là thiết kế cần triển khai/đối chiếu
+với migration; mô tả ở đây không khẳng định chúng đã tồn tại trong database
+đang chạy. Migration đã áp dụng được nêu riêng trong ghi chú của bảng.
+
 ## Mục lục
 
 1. [ERD - Sơ đồ quan hệ thực thể](#erd---sơ-đồ-quan-hệ-thực-thể)
@@ -19,11 +23,17 @@ Tài liệu này mô tả schema cơ sở dữ liệu PostgreSQL cho hệ thốn
 erDiagram
     User ||--o{ Booking : creates
     User ||--o{ AuditLog : performs
+    User ||--o{ OccupancyAdjustment : records
     Campus ||--o{ Room : contains
     Room ||--o{ Booking : has
     Room ||--o{ OccupancyRecord : tracks
     Room ||--o{ CVCountRecord : monitors
+    Room ||--o{ CountSession : starts
     Room ||--o{ CountEvent : records
+    Room ||--o{ DeviceStatus : reports
+    CountSession ||--o{ CountEvent : contains
+    CountSession ||--o{ OccupancyRecord : snapshots
+    CountSession ||--o{ OccupancyAdjustment : adjusts
     Booking ||--o| CheckIn : "checked-in"
     Booking ||--o{ CheckInToken : issues
 
@@ -53,6 +63,7 @@ erDiagram
         string building
         int campus_id FK "nullable until legacy mapping is confirmed"
         int capacity
+        bool capacity_confirmed
         string location
         string status
         bool is_active
@@ -66,6 +77,7 @@ erDiagram
         int participant_count "2..6 for new bookings; nullable for legacy rows"
         timestamp start_time
         timestamp end_time
+        int buffer_minutes
         string status
         timestamp checkin_at
         timestamp no_show_at
@@ -96,11 +108,21 @@ erDiagram
         int id PK
         uuid observation_id UK
         int room_id FK
-        int current_count
-        int available_seats
+        uuid session_id FK
+        int current_count "nullable until valid baseline"
+        int available_seats "nullable until valid baseline"
         timestamp recorded_at
         string source
         string device_status
+    }
+
+    CountSession {
+        uuid session_id PK
+        int room_id FK
+        int initial_occupancy
+        int operator_id FK
+        timestamp started_at
+        timestamp ended_at
     }
 
     CVCountRecord {
@@ -126,12 +148,33 @@ erDiagram
     }
 
     CountEvent {
-        int event_id PK
+        uuid event_id PK "idempotency key from CV"
+        uuid session_id FK
         int room_id FK
+        string device_id
         string direction
         timestamp event_time
         timestamp received_at
         string source
+        timestamp created_at
+    }
+
+    DeviceStatus {
+        string device_id PK
+        int room_id FK
+        string status
+        timestamp last_seen_at
+        timestamp updated_at
+    }
+
+    OccupancyAdjustment {
+        int adjustment_id PK
+        uuid session_id FK
+        int room_id FK
+        int previous_count
+        int adjusted_count
+        int actor_id FK
+        string reason
         timestamp created_at
     }
 
@@ -155,7 +198,13 @@ erDiagram
 - Room → Booking: Một phòng có nhiều booking (1-nhiều)
 - Room → OccupancyRecord: Một phòng có nhiều bản ghi mật độ (1-nhiều)
 - Room → CVCountRecord: Một phòng có nhiều bản ghi CV (1-nhiều)
-- Room → CountEvent: Một phòng có nhiều sự kiện đếm (1-nhiều)
+- Room → CountSession: Một phòng có nhiều phiên đếm; mỗi phiên lưu N0 đã kiểm tra.
+- CountSession → CountEvent: Sự kiện thuộc phiên đếm; `event_id` UUID duy nhất
+  từ CV được giữ nguyên qua mọi lần retry.
+- Room → DeviceStatus: Trạng thái mới nhất của mỗi thiết bị/nguồn.
+- CountSession → OccupancyRecord: Snapshot occupancy có thể truy về phiên.
+- CountSession → OccupancyAdjustment: Hiệu chỉnh gắn với phiên và được audit.
+- User → OccupancyAdjustment: Mỗi N0/hiệu chỉnh ghi người thực hiện và lý do.
 - Booking → CheckIn: Một booking có tối đa một check-in (1-0..1)
 - Booking → CheckInToken: Một booking có lịch sử phát token; tối đa một token chưa dùng/chưa thu hồi tại một thời điểm.
 
@@ -206,10 +255,11 @@ Phòng học/đọc khả dụng để đặt chỗ.
 | id | INTEGER | NOT NULL | PRIMARY KEY | auto-increment | — |
 | code | VARCHAR(50) | NOT NULL | UNIQUE | — | Mã phòng (vd: 'A101') |
 | name | VARCHAR(150) | NOT NULL | — | — | Tên hiển thị |
-| room_type | VARCHAR(50) | NOT NULL | — | — | CHECK: 'reading_room', 'group_study_room' |
+| room_type | VARCHAR(50) | NOT NULL | — | — | Target Sprint 4: CHECK `free_area`, `topic_room` |
 | building | VARCHAR(150) | NULL | — | — | Tên cơ sở (vd: 'Cơ sở chính', 'Cơ sở 2') |
 | campus_id | INTEGER | NULL | FOREIGN KEY → campuses.campus_id | — | NULL chỉ dành cho phòng cũ chưa được xác minh; phải gán trước khi bật filter cơ sở |
 | capacity | INTEGER | NOT NULL | — | — | **CHECK: capacity > 0** |
+| capacity_confirmed | BOOLEAN | NOT NULL | — | FALSE | Chỉ TRUE sau khi sức chứa được xác nhận; nếu FALSE không công bố chỗ trống/mức đông chính thức |
 | location | VARCHAR(255) | NULL | — | — | Vị trí cụ thể (vd: 'Tầng 1, Khu A') |
 | status | VARCHAR(20) | NOT NULL | — | 'active' | CHECK: 'active', 'maintenance', 'closed' |
 | is_active | BOOLEAN | NOT NULL | — | TRUE | Legacy soft delete |
@@ -221,7 +271,11 @@ Phòng học/đọc khả dụng để đặt chỗ.
 **Ràng buộc:**
 - `ck_rooms_capacity`: capacity > 0
 - `ck_rooms_status`: status IN ('active', 'maintenance', 'closed')
-- `ck_rooms_type`: room_type IN ('reading_room', 'group_study_room')
+- `ck_rooms_type`: room_type IN ('free_area', 'topic_room')
+
+**Chuyển đổi dữ liệu:** schema/seed legacy hiện dùng `reading_room` và
+`group_study_room`; migration Sprint 4 phải ánh xạ có chủ đích sang
+`free_area`/`topic_room`. Không đổi nhãn bằng cách suy đoán ý nghĩa phòng.
 
 ---
 
@@ -237,6 +291,7 @@ Phòng học/đọc khả dụng để đặt chỗ.
 | participant_count | INTEGER | NULL | — | — | 2–6 với booking mới; NULL chỉ giữ dữ liệu lịch sử chưa có sĩ số |
 | start_time | TIMESTAMPTZ | NOT NULL | — | — | Thời gian bắt đầu |
 | end_time | TIMESTAMPTZ | NOT NULL | — | — | Thời gian kết thúc |
+| buffer_minutes | INTEGER | NOT NULL | — | 15 | Khoảng đệm sau booking; lưu giá trị cấu hình tại thời điểm tạo |
 | status | VARCHAR(20) | NOT NULL | — | 'booked' | CHECK: 'booked', 'checked_in', 'completed', 'cancelled', 'no_show' |
 | checkin_at | TIMESTAMPTZ | NULL | — | — | Thời điểm check-in thành công; có giá trị khi status là 'checked_in' hoặc 'completed' |
 | no_show_at | TIMESTAMPTZ | NULL | — | — | Thời điểm tác vụ định kỳ chuyển booking thành `no_show` |
@@ -251,7 +306,10 @@ Phòng học/đọc khả dụng để đặt chỗ.
 **Ràng buộc:**
 - `ck_bookings_time_order`: end_time > start_time
 - `ck_bookings_participant_count`: participant_count IS NULL OR participant_count BETWEEN 2 AND 6
-- **`no_overlapping_bookings` (TC-07):** EXCLUDE USING gist (room_id WITH =, tstzrange(start_time, end_time) WITH &&) WHERE (status IN ('booked', 'checked_in'))
+- `ck_bookings_buffer_minutes`: buffer_minutes >= 0
+- **`no_overlapping_bookings` (TC-07):** EXCLUDE USING gist cho khoảng từ
+  `start_time` đến `end_time + buffer_minutes`; giá trị `buffer_minutes` được
+  nạp từ cấu hình khi tạo booking để kiểm tra overlap và buffer.
 
 **State diagram và điều kiện chuyển:** xem [booking-lifecycle.md](booking-lifecycle.md).
 
@@ -303,7 +361,8 @@ Quan sát mật độ phòng theo thời gian.
 | id | INTEGER | NOT NULL | PRIMARY KEY | auto-increment | — |
 | observation_id | UUID | NOT NULL | UNIQUE | — | ID duy nhất cho quan sát |
 | room_id | INTEGER | NOT NULL | FOREIGN KEY → rooms.id | — | ON DELETE RESTRICT |
-| current_count | INTEGER | NOT NULL | — | 0 | **CHECK: current_count >= 0**. Số người hiện tại |
+| session_id | UUID | NULL | FOREIGN KEY → count_sessions.session_id | — | NULL chỉ cho dữ liệu legacy chưa ánh xạ phiên |
+| current_count | INTEGER | NULL | — | — | CHECK: current_count >= 0; NULL khi chưa có N0 hợp lệ |
 | available_seats | INTEGER | NULL | — | — | CHECK: available_seats >= 0 hoặc NULL |
 | recorded_at | TIMESTAMPTZ | NOT NULL | — | — | Thời điểm ghi nhận |
 | source | VARCHAR(30) | NOT NULL | — | 'cv' | Nguồn: 'cv' hoặc 'manual' |
@@ -321,8 +380,10 @@ Sự kiện rời rạc (discrete events) vào/ra. Khác với cv_count_records 
 
 | Trường | Kiểu dữ liệu | Null | Khóa | Mặc định | Ràng buộc |
 |---|---|---|---|---|---|
-| event_id | INTEGER | NOT NULL | PRIMARY KEY | auto-increment | **Duy nhất cho mỗi sự kiện** |
+| event_id | UUID | NOT NULL | PRIMARY KEY | CV cấp | Idempotency key; giữ nguyên qua retry |
+| session_id | UUID | NOT NULL | FOREIGN KEY → count_sessions.session_id | — | Phiên đếm sở hữu sự kiện |
 | room_id | INTEGER | NOT NULL | FOREIGN KEY → rooms.id | — | ON DELETE RESTRICT |
+| device_id | VARCHAR(100) | NOT NULL | — | — | Mã thiết bị, không phải ID theo dõi cá nhân |
 | direction | VARCHAR(10) | NOT NULL | — | — | **CHECK: direction IN ('in', 'out')** |
 | event_time | TIMESTAMPTZ | NOT NULL | — | — | Thời điểm sự kiện xảy ra |
 | received_at | TIMESTAMPTZ | NOT NULL | — | NOW() | Thời điểm backend nhận được |
@@ -332,7 +393,64 @@ Sự kiện rời rạc (discrete events) vào/ra. Khác với cv_count_records 
 **Chỉ mục:**
 - `idx_count_events_room` trên (room_id, event_time DESC)
 - `idx_count_events_received` trên (received_at DESC)
-- Primary key trên event_id đảm bảo tính duy nhất
+- Primary key UUID trên `event_id` bảo đảm tính duy nhất và hỗ trợ retry idempotent
+
+---
+
+### Bảng: count_sessions (target Sprint 4)
+
+Mỗi phiên đếm có N0 được người vận hành kiểm tra; không suy ra N0 bằng 0.
+
+| Trường | Kiểu dữ liệu | Null | Khóa | Mặc định | Ràng buộc |
+|---|---|---|---|---|---|
+| session_id | UUID | NOT NULL | PRIMARY KEY | do backend tạo | ID phiên |
+| room_id | INTEGER | NOT NULL | FOREIGN KEY → rooms.id | — | ON DELETE RESTRICT |
+| initial_occupancy | INTEGER | NOT NULL | — | — | CHECK >= 0; giá trị người vận hành xác nhận |
+| operator_id | INTEGER | NOT NULL | FOREIGN KEY → users.user_id | — | Người kiểm tra/nhập N0 |
+| started_at | TIMESTAMPTZ | NOT NULL | — | NOW() | Thời điểm bắt đầu |
+| ended_at | TIMESTAMPTZ | NULL | — | — | NULL khi phiên còn mở |
+
+Mỗi phiên mới cần N0 mới theo FR-OCC-06/BR-21/24. Nếu chưa xác định được N0,
+không mở phiên occupancy chính thức; trạng thái UI phải là insufficient-data.
+Giá trị capacity mẫu trong seed không đồng nghĩa `capacity_confirmed = TRUE`.
+
+---
+
+### Bảng: device_statuses (target Sprint 4)
+
+Lưu trạng thái nguồn mới nhất; heartbeat không phải sự kiện IN/OUT và không
+được cộng vào occupancy.
+
+| Trường | Kiểu dữ liệu | Null | Khóa | Mặc định | Ràng buộc |
+|---|---|---|---|---|---|
+| device_id | VARCHAR(100) | NOT NULL | PRIMARY KEY | — | Mã nguồn không chứa ID track |
+| room_id | INTEGER | NOT NULL | FOREIGN KEY → rooms.id | — | ON DELETE RESTRICT |
+| status | VARCHAR(20) | NOT NULL | — | — | CHECK: `online`, `offline`, `error` |
+| last_seen_at | TIMESTAMPTZ | NOT NULL | — | — | Thời điểm heartbeat cuối |
+| updated_at | TIMESTAMPTZ | NOT NULL | — | NOW() | Lần cập nhật trạng thái cuối |
+
+Ngưỡng stale/offline lấy từ cấu hình; migration/seed không đặt các ngưỡng này
+thành hằng số trong logic.
+
+---
+
+### Bảng: occupancy_adjustments (target Sprint 4)
+
+Lưu N0 và mọi hiệu chỉnh sau đó để truy vết; không cập nhật/xóa sự kiện CV thô.
+
+| Trường | Kiểu dữ liệu | Null | Khóa | Mặc định | Ràng buộc |
+|---|---|---|---|---|---|
+| adjustment_id | INTEGER | NOT NULL | PRIMARY KEY | auto-increment | — |
+| session_id | UUID | NOT NULL | FOREIGN KEY → count_sessions.session_id | — | Phiên được hiệu chỉnh |
+| room_id | INTEGER | NOT NULL | FOREIGN KEY → rooms.id | — | ON DELETE RESTRICT |
+| previous_count | INTEGER | NULL | — | — | NULL cho bản ghi N0 ban đầu |
+| adjusted_count | INTEGER | NOT NULL | — | — | CHECK >= 0 |
+| actor_id | INTEGER | NOT NULL | FOREIGN KEY → users.user_id | — | Người thực hiện |
+| reason | TEXT | NOT NULL | — | — | Không rỗng |
+| created_at | TIMESTAMPTZ | NOT NULL | — | NOW() | Thời điểm ghi |
+
+Index `idx_adjustments_session_time` trên `(session_id, created_at DESC)` phục
+vụ truy vết N0 và hiệu chỉnh theo phiên.
 
 ---
 
@@ -363,9 +481,11 @@ Nhật ký kiểm toán hệ thống cho bảo mật và tuân thủ.
 
 ### TC-07 / BR-04: Chống trùng lịch đặt phòng
 
-**Yêu cầu:** Ngăn chặn các lượt đặt hợp lệ trên cùng phòng chồng lấn thời gian.
+**Yêu cầu:** Ngăn chặn các lượt đặt hợp lệ trên cùng phòng chồng lấn thời gian
+hoặc vi phạm khoảng đệm sau booking. `buffer_minutes` được lấy từ cấu hình khi
+tạo booking và lưu trên bản ghi để ràng buộc DB kiểm tra được.
 
-**Triển khai:**
+**Triển khai mục tiêu:**
 ```sql
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
@@ -373,7 +493,10 @@ ALTER TABLE bookings
 ADD CONSTRAINT no_overlapping_bookings
 EXCLUDE USING gist (
     room_id WITH =,
-    tstzrange(start_time, end_time) WITH &&
+    tstzrange(
+        start_time,
+        end_time + buffer_minutes * INTERVAL '1 minute'
+    ) WITH &&
 ) WHERE (status IN ('booked', 'checked_in'));
 ```
 
@@ -390,7 +513,11 @@ EXCLUDE USING gist (
 3. **Hướng sự kiện đếm:** direction IN ('in', 'out') (CHECK constraint)
 4. **Một check-in mỗi booking:** UNIQUE constraint trên check_ins.booking_id
 5. **Logic CV line counter:** Khi line_enabled=true, in_count và out_count bắt buộc; khi false phải NULL
-6. **Tính estimated_occupancy:** max(0, initial_occupancy + in_count - out_count)
+6. **Tính estimated_occupancy:** `max(0, N0 + tổng IN − tổng OUT)` trong một
+   phiên; nếu N0 chưa được xác nhận, occupancy/chỗ trống/mức đông là NULL/
+   insufficient-data, không phải 0.
+7. **Idempotency sự kiện:** `event_id` UUID từ CV là khóa duy nhất; cùng ID và
+   payload giống nhau trả receipt cũ, cùng ID nhưng payload khác bị từ chối.
 
 ---
 
@@ -415,6 +542,9 @@ EXCLUDE USING gist (
 | cv_count_records | UNIQUE trên (session_id, frame_index) | Idempotency |
 | count_events | idx_count_events_room | Lịch sử sự kiện theo phòng |
 | count_events | idx_count_events_received | Sự kiện gần đây |
+| count_events | PRIMARY KEY event_id UUID | Khử trùng sự kiện qua retry |
+| device_statuses | PRIMARY KEY device_id | Trạng thái mới nhất của nguồn |
+| occupancy_adjustments | idx_adjustments_session_time | Truy vết N0 và hiệu chỉnh theo phiên |
 | audit_logs | idx_audit_actor_time | Audit trail theo user |
 | audit_logs | idx_audit_entity | Lịch sử thay đổi thực thể |
 | audit_logs | idx_audit_action | Audit theo loại hành động |
@@ -536,4 +666,4 @@ Volume mới chạy init 001/002; volume cũ phải áp dụng 002 riêng. Khôn
 schema bằng ORM create_all hoặc xóa volume để nâng cấp. File SQL chạy trong
 transaction và có advisory lock; migration mới cần file phiên bản mới.
 Xem [hướng dẫn database](../../database/README.md) và
-[bàn giao SEAT-24](../seat24-handover.md).
+[API contract CV](api-contracts.md) để biết mapping dữ liệu CV.

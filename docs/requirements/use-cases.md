@@ -24,7 +24,7 @@
 | UC-09 | Khởi tạo phiên đếm | Thủ thư/Ops | Must |
 
 ## Relationships
-- **Include:** UC-01, UC-02, UC-03, UC-05 ..|> UC-08
+- **Include:** UC-02, UC-03, UC-05, UC-09 ..|> UC-08
 - **Data flow:** UC-06 → UC-01, UC-05
 - **Precondition:** UC-04 ← UC-03
 - **Release slot:** UC-04 → UC-02
@@ -74,10 +74,10 @@ graph TB
     AUTO --> UC04
     
     %% Include relationships
-    UC01 -->|include| UC08
     UC02 -->|include| UC08
     UC03 -->|include| UC08
     UC05 -->|include| UC08
+    UC09 -->|include| UC08
     
     %% Data flow
     UC06 -->|cấp dữ liệu| UC01
@@ -93,7 +93,7 @@ graph TB
 
 ---
 
-# B. Mô tả Use Cases (UC-01 → UC-08)
+# B. Mô tả Use Cases (UC-01 → UC-09)
 
 ## UC-01: Xem chỗ trống khu tự học
 
@@ -359,7 +359,7 @@ graph TB
 6. Người dùng nhập mã
 7. Backend: kiểm tra hash, hạn, dùng, attempts < 5
 8. Tìm/tạo user (nếu lần đầu)
-9. Cấp token/session (24h)
+9. Cấp token/session; thời hạn, refresh và revoke cần được thống nhất trước khi triển khai
 10. Đăng nhập thành công
 
 ### Luồng thay thế
@@ -392,6 +392,46 @@ graph TB
 3. Portal xác thực → trả token
 4. Tạo/cập nhật user
 5. Cấp phiên (không lưu password)
+
+---
+
+# UC-09: Khởi tạo phiên đếm
+
+**Mã:** UC-09 | **Tác nhân:** Người vận hành được phân quyền | **Ưu tiên:** Must
+
+### Tiền điều kiện
+- Người vận hành đã đăng nhập và có quyền khởi tạo/hiệu chỉnh occupancy.
+- Phòng và cơ sở đã được xác minh; sức chứa đã được xác nhận nếu cần công bố
+  chỗ trống hoặc mức đông.
+- Chưa có phiên đếm đang hoạt động cho cùng nguồn/phòng.
+
+### Hậu điều kiện
+- Phiên mới được lưu với `session_id`, phòng, N0, người vận hành và thời điểm.
+- Các sự kiện IN/OUT tiếp theo được gắn với phiên; bản ghi CV thô không bị sửa.
+- Nếu không xác định được N0, không tạo occupancy chính thức và UI báo chưa
+  đủ dữ liệu.
+
+### Luồng chính
+1. Người vận hành mở chức năng khởi tạo phiên đếm.
+2. Hệ thống kiểm tra quyền, phòng, cơ sở, thiết bị và trạng thái phiên hiện tại.
+3. Người vận hành kiểm tra khu vực, đếm số người có mặt và nhập N0.
+4. Hệ thống xác thực N0 không âm, lưu phiên và bản ghi N0 kèm người nhập/
+   thời gian.
+5. Hệ thống bắt đầu nhận event của phiên và cung cấp trạng thái occupancy.
+
+### Luồng thay thế
+- **A1:** Người dùng không có quyền → từ chối, không tạo phiên.
+- **A2:** Không xác định được N0 hoặc sức chứa chưa xác nhận → không công bố
+  số chỗ trống/mức đông chính thức; ghi trạng thái chưa đủ dữ liệu.
+- **A3:** Phòng/thiết bị chưa được ánh xạ hoặc đã có phiên mở → báo lỗi cụ thể,
+  không tạo phiên thứ hai.
+- **A4:** Hiệu chỉnh sau khi bắt đầu → yêu cầu lý do, ghi giá trị trước/sau,
+  người thực hiện và thời gian; giữ nguyên sự kiện CV thô.
+
+### BR, FR, TC
+- **BR:** 01, 21, 24
+- **FR:** OCC-06
+- **TC:** 19, 20, 23
 
 ---
 

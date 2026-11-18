@@ -3,8 +3,9 @@
 **SEAT-35 · Lê Văn Trí ·**
 
 So sánh số đếm CV với đếm tay, đo tốc độ xử lý và độ trễ lên web.
-Dùng cùng [mẫu bảng ghi](experiment-record-template.md).
-Căn cứ: [SRS v1.8](../requirements/UTH-SeatSense_SRS_v1.8.md),
+Ghi thông số phiên trong [mẫu bảng ghi](experiment-record-template.md), và
+quan sát định lượng trong [CSV template](experiment-data-template.csv).
+Căn cứ: [SRS 1.9](../requirements/srs.md),
 [Charter v1.7](../requirements/Project%20Charter.md) và
 [thuật toán SEAT-33](../../cv/README.md).
 
@@ -121,6 +122,8 @@ số đếm tổng hợp tạm giữ tối đa 90 ngày sau đánh giá, không 
 ## 6. Điều kiện hoàn thành
 
 - [ ] Kế hoạch đủ phiên, hai người đếm độc lập và mẫu bảng ghi.
+- [ ] Mỗi dòng CSV có mốc thời gian UTC, mã phiên, N0 (nếu biết), đếm tay/CV
+  và thông tin ghép với web; ô trống không được thay bằng 0.
 - [ ] AT-01/02/03 có cách đo; nêu rõ phần chưa thử được.
 - [ ] Uyên duyệt cách tính sai số, mốc độ trễ, phạm vi FPS và kế hoạch dữ liệu.
 

@@ -37,14 +37,19 @@ frontend/src/
 │   ├── MyBookingsPage.jsx
 │   ├── ReservationPage.jsx
 │   └── RoomsPage.jsx
+├── auth/
+│   ├── AuthContext.jsx
+│   └── RequireAuth.jsx
 ├── routes/
 │   └── .gitkeep
 ├── services/
-│   └── api.js
+│   ├── api.js
+│   └── checkin.js
 ├── styles/
 │   └── main.css
 └── tests/
     ├── App.test.jsx
+    ├── ApiBookings.test.js
     ├── DashboardStatus.test.jsx
     ├── Health.test.js
     └── Routes.test.jsx
@@ -54,8 +59,11 @@ frontend/src/
 `/`, `/login`, `/rooms`, `/reservation`, `/my-bookings`, `/checkin`,
 `/dashboard`, `/health` và trang 404.
 Home dùng trực tiếp Dashboard, không thêm header trùng phía sau sidebar.
-`RoomsPage`, `ReservationPage`, `CheckinPage`, `LoginPage` và `MyBookingsPage`
-là placeholder; chưa triển khai nghiệp vụ.
+Các luồng đăng nhập OTP, xem phòng/chỗ trống, đặt/hủy booking và check-in QR
+gọi chung Backend API với Android. Các trang phòng, booking và check-in yêu cầu
+đăng nhập; token Bearer chỉ lưu trong `sessionStorage` của tab hiện tại.
+QR được tạo trong trình duyệt; quét camera dùng `BarcodeDetector` khi trình
+duyệt hỗ trợ, nếu không có thể dán nội dung QR SeatSense.
 
 Quy ước khi bổ sung: component React viết PascalCase (ví dụ `RoomCard.jsx`);
 custom hook bắt đầu bằng `use` (ví dụ `useOccupancy.js`). Component dùng chung
@@ -93,7 +101,7 @@ docker compose up --no-build --no-deps -d frontend
 
 Hai lệnh này không build hoặc khởi động CV/backend. Mở
 `http://localhost:3000` (hoặc cổng `FRONTEND_PORT` đã cấu hình).
-Image dùng `npm ci` và chạy Vite dev server cho skeleton, không phải cấu hình
+Image dùng `npm ci` và chạy Vite dev server cho giao diện phát triển, không phải cấu hình
 production.
 
 `VITE_API_BASE_URL` là biến API base của frontend (tương ứng `API_BASE_URL`
@@ -109,30 +117,25 @@ sẵn sàng, trạng thái lỗi là bình thường, không được thay bằn
 
 ## API và trạng thái hiện có
 
-`src/services/api.js` hiện có `getApiHealth()` và `getCurrentOccupancy()`.
+`src/services/api.js` dùng chung base URL, JSON, Bearer token và xử lý lỗi
+cho các endpoint `auth/*`, `rooms`, `occupancy/rooms/{id}/latest`,
+`bookings` và `check-in`. OTP đăng nhập lấy access token opaque từ Backend;
+401 trên endpoint được bảo vệ xóa token phiên và yêu cầu đăng nhập lại.
+
 Dashboard gọi `GET /api/v1/occupancy/current`, làm mới mỗi 30 giây, chấp nhận
 số nguyên không âm trong `current_count`, `people_count`, `occupancy_count`
 hoặc `count`. Số 0 hợp lệ; trường count null/thiếu được hiển thị như chưa có
 dữ liệu. Lỗi HTTP, mạng hoặc JSON sai được hiển thị thành lỗi.
 
 Backend hiện trả tổng số người trong các phòng hoạt động, không nhận lọc cơ sở.
-Endpoint `GET /api/v1/occupancy/rooms/{room_id}/latest` có `is_stale`, nhưng
-Dashboard hiện chưa gọi endpoint này. Xem [API Contract](../docs/architecture/api-contracts.md)
-và [bảng ánh xạ màn hình](../docs/ui/screen-api-mapping.md) để biết các route
-đã có, route mới chỉ được mô tả và route nghiệp vụ còn cần thống nhất.
+Endpoint `GET /api/v1/occupancy/rooms/{room_id}/latest` được gọi tại trang
+phòng và có `is_stale`. Xem [API Contract](../docs/architecture/api-contracts.md)
+và [bảng ánh xạ màn hình](../docs/ui/screen-api-mapping.md).
 
 ## Mock và service layer — trạng thái
 
-Thư mục `src/mocks/` hiện còn rỗng. Chưa có mock API client, fixture, xử lý token chung hoặc điều
-hướng về đăng nhập khi gặp HTTP 401. Frontend vì vậy chưa thể chạy các luồng
-phòng/đặt chỗ/check-in khi Backend chưa sẵn sàng; các màn này vẫn là placeholder.
+Thư mục `src/mocks/` hiện còn rỗng; frontend không giả lập thành công khi Backend lỗi.
 Không có biến `VITE_USE_MOCK_API` được hỗ trợ hiện tại.
-
-Khi triển khai lớp services, dùng một API client chung cho base URL, JSON,
-token và lỗi HTTP; xử lý 401 bằng xóa token phiên và điều hướng tới đăng nhập.
-Mock nên bật/tắt bằng biến môi trường (ví dụ `VITE_USE_MOCK_API`) và trả đúng
-shape API Contract; chỉ bật mock khi có fixture/route tương ứng, không thay lỗi
-thật bằng response thành công giả.
 
 Không đặt mật khẩu/token bí mật trong mã nguồn hoặc biến `VITE_*`; các biến này
 được đóng gói công khai phía trình duyệt. Không đưa dữ liệu cá nhân hoặc QR

@@ -14,8 +14,8 @@ Quy chuẩn gọn dùng chung cho web responsive và Android native. Dùng token
 | **Chữ chính** | #171D1B | #171D1B | #F5FBF8 | 16.32:1 | Nội dung chính |
 | **Chữ phụ** | #3D4946 | #3D4946 | #F5FBF8 | 8.95:1 | Mô tả, label |
 | **Vắng** | #047857 | #FFFFFF | #047857 | 5.21:1 | Badge ≤50% |
-| **Vừa** | #92400E | #FFFFFF | #92400E | 6.84:1 | Badge 50–85% |
-| **Đông** | #9F1239 | #FFFFFF | #9F1239 | 7.30:1 | Badge ≥85% |
+| **Vừa** | #92400E | #FFFFFF | #92400E | 6.84:1 | Badge >50% và <80% |
+| **Đông** | #9F1239 | #FFFFFF | #9F1239 | 7.30:1 | Badge ≥80% |
 | **Lỗi** | #BA1A1A | #FFFFFF | #BA1A1A | 5.00:1 | Lỗi, nguy hiểm |
 | **Cảnh báo** | #92400E | #92400E | #FFFBEB | 6.84:1 | Dữ liệu cũ |
 | **Viền** | #B8D9D3 | — | — | — | Điều khiển |
@@ -32,8 +32,8 @@ Quy chuẩn gọn dùng chung cho web responsive và Android native. Dùng token
 | Mức | Ngưỡng | Hiển thị | Badge |
 |---|---|---|---|
 | **Vắng** | <50% | "Vắng · 40%" | Nền #ECFDF5, chữ #047857 |
-| **Vừa** | 50–85% | "Vừa · 73%" | Nền #FFFBEB, chữ #92400E |
-| **Đông** | ≥85% | "Đông · 92%" | Nền #FFF1F2, chữ #9F1239 |
+| **Vừa** | >50% và <80% | "Vừa · 73%" | Nền #FFFBEB, chữ #92400E |
+| **Đông** | ≥80% | "Đông · 92%" | Nền #FFF1F2, chữ #9F1239 |
 
 **Bắt buộc:** Luôn có nhãn chữ + số lượng/phần trăm; không chỉ màu. Khi dữ liệu thiếu hoặc cũ, hiển thị "Chưa có dữ liệu mới" chứ không suy diễn trạng thái.
 
@@ -182,7 +182,9 @@ Cập nhật lần cuối lúc 10:40. Số chỗ trống có thể đã thay đ�
 
 ### 4.2 Kiểm tra responsive
 
-Kiểm tra tại: **320, 390, 600, 768, 1024, 1280 px** + **chữ phóng to +200%**
+Ma trận nghiệm thu Sprint 4 dùng **360, 390, 768, 1024, 1440 px**; trình
+duyệt/thiết bị và case được quy định trong
+[test-plan.md §7](../test-plan.md#7-kiểm-thử-giao-diện-responsive).
 
 ### 4.3 Quy tắc mobile
 
