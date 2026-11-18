@@ -8,46 +8,48 @@ Bảng ánh xạ màn hình, API, quyền và trạng thái xem
 ## Cấu trúc hiện tại
 
 ```text
-frontend/src/
-├── App.jsx
-├── main.jsx
-├── assets/
-│   └── .gitkeep
-├── components/
-│   ├── checkin/   
-│   ├── common/
+frontend/
+├── mocks/
+│   ├── occupancy.fresh.json
+│   ├── occupancy.offline.json
+│   ├── occupancy.stale.json
+│   └── rooms.json
+├── src/
+│   ├── App.jsx
+│   ├── main.jsx
+│   ├── assets/
 │   │   └── .gitkeep
-│   ├── dashboard/
-│   │   └── .gitkeep
-│   ├── occupancy/
-│   │   └── .gitkeep
-│   ├── reservations/
-│   │   └── .gitkeep
-│   └── rooms/
-│       └── .gitkeep
-├── hooks/
-│   └── .gitkeep
-├── mocks/          
-├── pages/
-│   ├── CheckinPage.jsx
-│   ├── DashboardPage.jsx
-│   ├── HomePage.jsx
-│   ├── HealthPage.jsx
-│   ├── LoginPage.jsx
-│   ├── MyBookingsPage.jsx
-│   ├── ReservationPage.jsx
-│   └── RoomsPage.jsx
-├── routes/
-│   └── .gitkeep
-├── services/
-│   └── api.js
-├── styles/
-│   └── main.css
+│   ├── components/
+│   │   ├── checkin/
+│   │   ├── common/
+│   │   ├── dashboard/
+│   │   ├── occupancy/
+│   │   ├── reservations/
+│   │   └── rooms/
+│   ├── hooks/
+│   ├── pages/
+│   │   ├── CheckinPage.jsx
+│   │   ├── DashboardPage.jsx
+│   │   ├── HomePage.jsx
+│   │   ├── HealthPage.jsx
+│   │   ├── LoginPage.jsx
+│   │   ├── MyBookingsPage.jsx
+│   │   ├── ReservationPage.jsx
+│   │   └── RoomsPage.jsx
+│   ├── routes/
+│   ├── services/
+│   │   ├── apiClient.ts
+│   │   └── api.js
+│   ├── styles/
+│   │   └── main.css
+│   └── tests/
+│       └── DashboardStatus.test.jsx
 └── tests/
-    ├── App.test.jsx
-    ├── DashboardStatus.test.jsx
-    ├── Health.test.js
-    └── Routes.test.jsx
+    ├── apiClient.mock.test.js
+    ├── HealthPage.test.jsx
+    ├── Mock.test.js
+    ├── setup.js
+    └── setup.ts
 ```
 
 `main.jsx` khởi tạo `BrowserRouter`; `App.jsx` định nghĩa các route:
@@ -109,7 +111,9 @@ sẵn sàng, trạng thái lỗi là bình thường, không được thay bằn
 
 ## API và trạng thái hiện có
 
-`src/services/api.js` hiện có `getApiHealth()` và `getCurrentOccupancy()`.
+`src/services/apiClient.ts` cung cấp `getApiHealth()`, `getRooms()` và
+`getCurrentOccupancy()`; `src/services/api.js` giữ tương thích với các import
+đang có.
 Dashboard gọi `GET /api/v1/occupancy/current`, làm mới mỗi 30 giây, chấp nhận
 số nguyên không âm trong `current_count`, `people_count`, `occupancy_count`
 hoặc `count`. Số 0 hợp lệ; trường count null/thiếu được hiển thị như chưa có
@@ -121,35 +125,77 @@ Dashboard hiện chưa gọi endpoint này. Xem [API Contract](../docs/architect
 và [bảng ánh xạ màn hình](../docs/ui/screen-api-mapping.md) để biết các route
 đã có, route mới chỉ được mô tả và route nghiệp vụ còn cần thống nhất.
 
-## Mock và service layer — trạng thái
+## Mock và service layer
 
-Thư mục `src/mocks/` hiện còn rỗng. Chưa có mock API client, fixture, xử lý token chung hoặc điều
-hướng về đăng nhập khi gặp HTTP 401. Frontend vì vậy chưa thể chạy các luồng
-phòng/đặt chỗ/check-in khi Backend chưa sẵn sàng; các màn này vẫn là placeholder.
-Không có biến `VITE_USE_MOCK_API` được hỗ trợ hiện tại.
+Thư mục `frontend/mocks/` chứa dữ liệu mẫu cho ba trạng thái:
+- `occupancy.fresh.json`: Dữ liệu mới (is_stale: false)
+- `occupancy.stale.json`: Dữ liệu cũ hơn 30 giây (is_stale: true)
+- `occupancy.offline.json`: Mất kết nối camera (device_status: offline)
+- `rooms.json`: Danh sách phòng mẫu
 
-Khi triển khai lớp services, dùng một API client chung cho base URL, JSON,
-token và lỗi HTTP; xử lý 401 bằng xóa token phiên và điều hướng tới đăng nhập.
-Mock nên bật/tắt bằng biến môi trường (ví dụ `VITE_USE_MOCK_API`) và trả đúng
-shape API Contract; chỉ bật mock khi có fixture/route tương ứng, không thay lỗi
-thật bằng response thành công giả.
+### Bật/tắt mock bằng biến môi trường
+
+Mock được bật bằng biến `VITE_USE_MOCK=true`. Khi bật, `getRooms()` và
+`getCurrentOccupancy()` dùng fixture trong `frontend/mocks/`; `getApiHealth()`
+trả về `{ status: "ok", service: "backend" }` mà không gọi backend. Khi tắt
+hoặc không đặt biến này, cả ba hàm gọi API thật. Sau khi đổi biến, khởi động
+lại Vite.
+
+**Bash/Git Bash:**
+```sh
+VITE_USE_MOCK=true npm run dev
+```
+
+**PowerShell:**
+```powershell
+$env:VITE_USE_MOCK='true'; npm run dev
+```
+
+**Command Prompt (cmd.exe):**
+```cmd
+set VITE_USE_MOCK=true && npm run dev
+```
+
+**Cách dễ nhất — đặt trong `frontend/.env.local`:**
+```env
+VITE_USE_MOCK=true
+```
+
+Rồi chạy `npm run dev` bình thường. Để chọn trạng thái occupancy khi đang dùng
+mock, có thể đặt thêm `VITE_MOCK_OCCUPANCY_STATE=fresh`, `stale` hoặc `offline`;
+mặc định là `fresh`. Với trạng thái `fresh`, API client cập nhật timestamp
+theo thời điểm gọi; `stale` và `offline` giữ timestamp cố định của fixture.
+
+### Cấu trúc dữ liệu mock
+
+Mock data khớp API Contract (SEAT-39, SEAT-56):
+- Danh sách phòng với campus_id, campus_code, capacity, building, is_active
+- Occupancy với room_type, current_count, available_seats, occupancy_level, is_stale, device_status
+- Ba trạng thái: dữ liệu mới, cũ, mất kết nối
 
 Không đặt mật khẩu/token bí mật trong mã nguồn hoặc biến `VITE_*`; các biến này
-được đóng gói công khai phía trình duyệt. Không đưa dữ liệu cá nhân hoặc QR
-thật vào fixture.
+được đóng gói công khai phía trình duyệt. Dữ liệu cá nhân hoặc QR thật không được
+đưa vào fixture.
 
 ## Kiểm tra
 
 ```sh
-npm test
-npm run lint
-npm run format:check
-npm run build
+npm test                  # Chạy test suite
+npm run lint              # Kiểm tra ESLint
+npm run format:check      # Kiểm tra định dạng Prettier
+npm run build             # Build production
 ```
 
-`npm run format` định dạng JS/JSX; Dashboard kế thừa được loại tạm khỏi
-Prettier để giữ nguyên code ngoài phạm vi task. ESLint vẫn kiểm tra Dashboard;
-các cảnh báo props hiện có không chặn build.
+Vitest chạy trong môi trường `jsdom`; `tests/setup.ts` cấu hình cleanup cho
+React Testing Library. `tests/apiClient.mock.test.js` kiểm tra fixture phòng,
+ba trạng thái occupancy và mock health; `tests/HealthPage.test.jsx` kiểm tra
+trang health. `src/tests/DashboardStatus.test.jsx` kiểm tra trạng thái
+occupancy trên Dashboard.
+
+`npm run format` định dạng JS/JSX và sửa file tại chỗ; `npm run format:check`
+chỉ kiểm tra định dạng. Dashboard kế thừa được loại tạm khỏi Prettier để giữ
+nguyên code ngoài phạm vi task. ESLint vẫn kiểm tra Dashboard; các cảnh báo
+props hiện có không chặn build.
 Test route dùng `StaticRouter` trong môi trường Node, còn trình duyệt dùng
 `BrowserRouter`. Khi nghiệm thu, kiểm tra mở trực tiếp/reload từng route,
 navigation ở desktop/mobile và trang Home không bị sidebar che chữ.
