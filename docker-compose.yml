@@ -29,6 +29,7 @@ services:
       DATABASE_USER: ${POSTGRES_USER:-seatsense}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       CV_SERVICE_URL: http://cv:8001
+      CV_INGEST_API_KEY: ${CV_INGEST_API_KEY:-}
       ALLOWED_EMAIL_DOMAINS: ${ALLOWED_EMAIL_DOMAINS:-}
       OTP_HASH_SECRET: ${OTP_HASH_SECRET:-}
       OTP_TTL_MINUTES: ${OTP_TTL_MINUTES:-5}
@@ -66,6 +67,9 @@ services:
 
   cv:
     build: ./cv
+    environment:
+      BACKEND_URL: ${BACKEND_URL:-http://backend:8000}
+      CV_API_KEY: ${CV_API_KEY:-}
     volumes:
       - ./cv/models:/app/models:ro
     ports:

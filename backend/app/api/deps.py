@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import hashlib
 
 from fastapi import Depends
+from fastapi import Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -11,6 +12,13 @@ from app.api.errors import api_error
 from app.db.session import get_db
 from app.models.auth_session import AuthSession
 from app.models.user import User
+from app.core.config import settings
+
+
+def require_cv_api_key(x_api_key: str | None = Header(default=None, alias="X-API-Key")) -> None:
+    configured = settings.cv_ingest_api_key.get_secret_value() if settings.cv_ingest_api_key else None
+    if not configured or x_api_key is None or not hashlib.sha256(x_api_key.encode()).digest() == hashlib.sha256(configured.encode()).digest():
+        raise api_error(401, "unauthorized", "A valid CV API key is required")
 
 bearer_scheme = HTTPBearer(auto_error=False)
 

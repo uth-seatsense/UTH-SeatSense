@@ -1,9 +1,12 @@
 from datetime import datetime, timezone
+from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.occupancy_record import OccupancyRecord
+from app.models.count_event import CountEvent
 from app.repositories import occupancy_repository
 from app.schemas.occupancy import OccupancyObservationCreate
 
@@ -18,6 +21,54 @@ class OccupancyNotFoundError(Exception):
 
 class ObservationConflictError(Exception):
     pass
+
+
+class CountEventConflictError(Exception):
+    pass
+
+
+class OccupancyService:
+    """Persist CV crossing events once; occupancy aggregates remain service-owned."""
+
+    @staticmethod
+    def receive_count_event(db: Session, incoming) -> tuple[CountEvent, bool]:
+        existing = db.get(CountEvent, incoming.event_id)
+        if existing is not None:
+            same = (
+                existing.session_id == incoming.session_id
+                and existing.room_id == incoming.room_id
+                and existing.device_id == incoming.device_id
+                and existing.direction == incoming.direction
+                and _as_utc(existing.event_time) == incoming.event_time
+                and existing.device_status == incoming.device_status
+            )
+            if same:
+                return existing, False
+            raise CountEventConflictError
+        if occupancy_repository.get_room(db, incoming.room_id) is None:
+            raise RoomNotFoundError
+        event = CountEvent(
+            event_id=incoming.event_id, session_id=incoming.session_id,
+            device_id=incoming.device_id, device_status=incoming.device_status,
+            room_id=incoming.room_id, direction=incoming.direction,
+            event_time=incoming.event_time, source="cv",
+        )
+        db.add(event)
+        try:
+            db.commit()
+            db.refresh(event)
+            return event, True
+        except IntegrityError:
+            db.rollback()
+            existing = db.get(CountEvent, incoming.event_id)
+            if existing is None:
+                raise
+            same = (existing.session_id == incoming.session_id and existing.room_id == incoming.room_id
+                    and existing.device_id == incoming.device_id and existing.direction == incoming.direction
+                    and _as_utc(existing.event_time) == incoming.event_time and existing.device_status == incoming.device_status)
+            if same:
+                return existing, False
+            raise CountEventConflictError from None
 
 
 def _as_utc(value: datetime) -> datetime:

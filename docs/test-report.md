@@ -1,67 +1,100 @@
-# Test report
+# Báo cáo kiểm thử
 
-## Validation run — 2026-11-15
+## Đợt kiểm tra — 2026-11-15 (tài liệu và giao diện web)
 
-Scope: documentation updates; frontend source was not changed. Commands ran
-from `frontend` after restoring dependencies with `npm.cmd ci`.
+Phạm vi: cập nhật tài liệu; không thay đổi mã nguồn frontend. Các lệnh được
+chạy trong thư mục `frontend` sau khi khôi phục dependency bằng `npm.cmd ci`.
 
-| Command | Result | Notes |
+| Lệnh | Kết quả | Ghi chú |
 |---|---|---|
-| `npm.cmd run format:check` | Failed | Prettier reports formatting issues in 14 existing frontend source/test files. They were not changed as part of the original documentation task. |
-| `npm.cmd test` | Passed | 4 test files, 39 tests. |
-| `npm.cmd run lint` | Passed with warnings | Exit code 0; 0 errors and 14 existing `react/prop-types` warnings in `src/pages/DashboardPage.jsx`. |
-| `npm.cmd run build` | Passed | Vite production build completed. |
+| `npm.cmd run format:check` | Không đạt | Prettier báo lỗi định dạng ở 14 tệp mã nguồn/kiểm thử frontend có sẵn. Các tệp này không thuộc phạm vi thay đổi tài liệu ban đầu. |
+| `npm.cmd test` | Đạt | 4 tệp kiểm thử, tổng cộng 39 kiểm thử. |
+| `npm.cmd run lint` | Đạt, có cảnh báo | Mã thoát 0; không có lỗi, có 14 cảnh báo `react/prop-types` đã tồn tại trong `src/pages/DashboardPage.jsx`. |
+| `npm.cmd run build` | Đạt | Hoàn tất build production bằng Vite. |
 
-Backend, Docker Compose, end-to-end, and native Android tests were not run
-during that initial documentation validation. Later results are recorded below.
-This report records command outcomes only; it is not evidence that Sprint 4
-requirements or external Jira acceptance criteria have been completed.
+Trong đợt kiểm tra tài liệu ban đầu, chưa chạy kiểm thử Backend, Docker Compose,
+end-to-end hoặc Android native. Kết quả chạy sau đó được ghi ở các mục bên
+dưới. Báo cáo này chỉ ghi kết quả các lệnh, không chứng minh rằng toàn bộ yêu
+cầu Sprint 4 hoặc tiêu chí nghiệm thu Jira đã hoàn tất.
 
-## Validation run — 2026-11-15 (Backend, Docker, Android)
+## Đợt kiểm tra — 2026-11-15 (Backend, Docker, Android)
 
-| Command / check | Result | Notes |
+| Lệnh / nội dung kiểm tra | Kết quả | Ghi chú |
 |---|---|---|
-| `$env:SEAT24_RUN_DB_TESTS = '1'; .\.venv\Scripts\python.exe -m pytest backend\tests -q` | Failed: 25 passed, 1 failed | `test_cv_batch_receipt_and_idempotent_retry`: retrying the same CV batch returns HTTP 409 instead of the expected HTTP 200. This run enables the real PostgreSQL persistence tests. |
-| `$env:SEAT24_RUN_DB_TESTS = '1'; .\.venv\Scripts\python.exe -m unittest discover -s database\tests -p test_cv_migration.py -v` | Passed: 6 tests | PostgreSQL migration/constraint tests ran in a disposable container. |
-| `$env:SEAT24_RUN_COMPOSE_TESTS = '1'; .\.venv\Scripts\python.exe -m unittest discover -s database\tests -p test_compose_persistence.py -v` | Passed: 2 tests | Isolated Compose checks covered fresh database bootstrap, migration upgrade, Backend write/read, database outage, restart, and persistence. Temporary test resources were cleaned up. |
-| `docker compose config --quiet` | Passed | Compose configuration parsed successfully. |
-| `http://localhost:8000/health/db` and `http://localhost:3000/` | Passed: HTTP 200 each | Smoke checks against the already-running local Backend and Frontend containers. |
-| Android project/toolchain check | Blocked | No Android project, Gradle wrapper, `AndroidManifest.xml`, `adb`, or Android SDK environment variables were present. No APK/runtime test could be performed. |
+| `$env:SEAT24_RUN_DB_TESTS = '1'; .\.venv\Scripts\python.exe -m pytest backend\tests -q` | Không đạt: 25 đạt, 1 lỗi | `test_cv_batch_receipt_and_idempotent_retry`: gửi lại cùng lô dữ liệu CV trả HTTP 409 thay vì HTTP 200 như mong đợi. Lệnh này bật kiểm thử lưu trữ PostgreSQL thực tế. |
+| `$env:SEAT24_RUN_DB_TESTS = '1'; .\.venv\Scripts\python.exe -m unittest discover -s database\tests -p test_cv_migration.py -v` | Đạt: 6 kiểm thử | Kiểm thử migration và constraint PostgreSQL chạy trong container tạm thời. |
+| `$env:SEAT24_RUN_COMPOSE_TESTS = '1'; .\.venv\Scripts\python.exe -m unittest discover -s database\tests -p test_compose_persistence.py -v` | Đạt: 2 kiểm thử | Kiểm tra Compose cô lập gồm khởi tạo database mới, nâng cấp migration, đọc/ghi Backend, database mất kết nối, khởi động lại và tính bền vững dữ liệu. Tài nguyên kiểm thử tạm đã được dọn. |
+| `docker compose config --quiet` | Đạt | Cấu hình Compose hợp lệ. |
+| `http://localhost:8000/health/db` và `http://localhost:3000/` | Đạt: mỗi URL trả HTTP 200 | Kiểm tra nhanh Backend và Frontend container đang chạy tại máy. |
+| Kiểm tra dự án/toolchain Android | Bị chặn | Chưa có dự án Android, Gradle wrapper, `AndroidManifest.xml`, `adb` hoặc biến môi trường Android SDK. Không thể kiểm tra APK/runtime. |
 
-At the time of this initial run, the Backend retry failure was unresolved and
-the Android module/toolchain was not present. Follow-up fixes and validation
-are recorded below; neither run alone constitutes full Sprint 4 acceptance.
+Ở thời điểm kiểm tra này, lỗi gửi lại CV của Backend chưa được khắc phục và
+chưa có module/toolchain Android. Các lần sửa và kiểm tra tiếp theo được ghi
+bên dưới; riêng từng đợt không đồng nghĩa toàn bộ Sprint 4 đã được nghiệm thu.
 
-## Validation run — 2026-11-15 (mobile implementation follow-up)
+## Đợt kiểm tra — 2026-11-15 (tiếp nối triển khai ứng dụng di động)
 
-| Command / check | Result | Notes |
+| Lệnh / nội dung kiểm tra | Kết quả | Ghi chú |
 |---|---|---|
-| `$env:SEAT24_RUN_DB_TESTS = '1'; .\.venv\Scripts\python.exe -m pytest backend\tests -q` | Passed: 31 tests | Includes CV idempotent retry and new OTP/session, room, booking, and single-use QR API tests. One Starlette/httpx deprecation warning remains. SMTP delivery is mocked in API tests. |
-| `$env:SEAT24_RUN_COMPOSE_TESTS = '1'; .\.venv\Scripts\python.exe -m unittest discover -s database\tests -p test_compose_persistence.py -v` | Passed: 2 tests | Disposable Compose projects; fresh bootstrap verifies migration 009 and safe reapplication, and persistence coverage includes backend health/restart. No user database volume was modified. |
-| `docker compose config --quiet` | Passed | Compose accepts the new OTP, SMTP, and booking environment variables. |
-| `gradle -p android testDebugUnitTest assembleDebug --no-daemon` using Gradle 8.11.1 and Android SDK 35 | Passed | Kotlin compilation and debug APK packaging succeeded. `testDebugUnitTest` reported `NO-SOURCE`; no Android unit tests exist yet. APK: `android/app/build/outputs/apk/debug/app-debug.apk`. |
-| `.\android\gradlew.bat testDebugUnitTest assembleDebug` | Blocked on first attempt | Gradle Wrapper distribution download ended with a connection reset. The wrapper was generated; the same build succeeded using the locally downloaded Gradle distribution. |
-| `adb devices` | No devices attached | APK was not installed/launched; Android runtime and camera/QR scanning remain unverified. |
-| Frontend tests/build | Not rerun in this follow-up | No frontend source changed. The previous run remains 39/39 tests and build passed; `format:check` still reports the 14 pre-existing files listed above. |
-| `git diff --check` | Passed | No whitespace errors in the worktree. |
+| `$env:SEAT24_RUN_DB_TESTS = '1'; .\.venv\Scripts\python.exe -m pytest backend\tests -q` | Đạt: 31 kiểm thử | Bao gồm gửi lại CV idempotent và các kiểm thử API OTP/session, phòng, đặt phòng và QR dùng một lần. Còn một cảnh báo không tương thích trong Starlette/httpx. Việc gửi email SMTP được giả lập trong kiểm thử API. |
+| `$env:SEAT24_RUN_COMPOSE_TESTS = '1'; .\.venv\Scripts\python.exe -m unittest discover -s database\tests -p test_compose_persistence.py -v` | Đạt: 2 kiểm thử | Dự án Compose tạm thời; khởi tạo mới xác nhận migration 009 và chạy lại an toàn; kiểm thử tính bền vững bao gồm health/restart Backend. Không sửa volume database của người dùng. |
+| `docker compose config --quiet` | Đạt | Compose chấp nhận các biến môi trường OTP, SMTP và quy tắc đặt phòng mới. |
+| `gradle -p android testDebugUnitTest assembleDebug --no-daemon` với Gradle 8.11.1 và Android SDK 35 | Đạt | Biên dịch Kotlin và đóng gói APK debug thành công. `testDebugUnitTest` báo `NO-SOURCE`; hiện chưa có kiểm thử Android unit. APK: `android/app/build/outputs/apk/debug/app-debug.apk`. |
+| `.\android\gradlew.bat testDebugUnitTest assembleDebug` | Bị chặn ở lần đầu | Tải Gradle Wrapper bị ngắt kết nối. Wrapper đã được tạo; build cùng nội dung thành công khi dùng bản Gradle đã tải về máy. |
+| `adb devices` | Không có thiết bị kết nối | Chưa cài/khởi chạy APK; chưa xác minh Android runtime và quét camera/QR. |
+| Kiểm thử/build Frontend | Không chạy lại trong đợt này | Không sửa mã nguồn frontend. Kết quả trước đó vẫn là 39/39 kiểm thử và build đạt; `format:check` vẫn báo 14 tệp tồn tại từ trước như đã nêu. |
+| `git diff --check` | Đạt | Không có lỗi khoảng trắng trong worktree. |
 
-The UTC/naive datetime comparison causing the earlier CV retry 409 was fixed;
-the latest full Backend suite now passes. API 26 remains a provisional minimum
-pending product confirmation. SMTP delivery against an actual mail server,
-Android runtime/E2E, and applying migration 009 to an existing user volume
-were not tested; existing PostgreSQL volumes require a backup and manual
-migration as described in `database/README.md`.
+Lỗi so sánh datetime UTC/không timezone gây ra HTTP 409 khi gửi lại CV đã
+được sửa; toàn bộ Backend suite mới nhất tại đợt đó đã đạt. API 26 vẫn là mức
+tối thiểu tạm thời, chờ xác nhận sản phẩm. Chưa kiểm tra gửi SMTP qua máy chủ
+mail thật, Android runtime/E2E hoặc áp dụng migration 009 lên volume người
+dùng hiện có; cần sao lưu volume PostgreSQL hiện hữu và chạy migration thủ công
+theo hướng dẫn trong `database/README.md`.
 
-## Validation run — 2026-11-16 (web API integration)
+## Đợt kiểm tra — 2026-11-16 (tích hợp API web)
 
-| Command / check | Result | Notes |
+| Lệnh / nội dung kiểm tra | Kết quả | Ghi chú |
 |---|---|---|
-| `npm.cmd test` | Passed: 37 tests | Covers OTP requests, shared Bearer token use across web API endpoints, backend error handling, protected routes, and the Android-compatible QR payload. |
-| `npm.cmd run lint` | Passed with warnings | Exit code 0; 0 errors and 16 `react/prop-types` warnings (14 existing in Dashboard components and 2 for auth component children). |
-| `npm.cmd run build` | Passed | Vite production build completed with locally generated QR rendering. |
-| Prettier on changed frontend files | Passed | Changed JS/JSX/CSS files were formatted. The repository-wide check now reports 6 unrelated existing files: `main.jsx`, `HealthPage.jsx`, `HomePage.jsx`, `App.test.jsx`, `DashboardStatus.test.jsx`, and `Health.test.js`. |
+| `npm.cmd test` | Đạt: 37 kiểm thử | Bao gồm yêu cầu OTP, dùng chung Bearer token cho các endpoint web, xử lý lỗi Backend, route được bảo vệ và payload QR tương thích Android. |
+| `npm.cmd run lint` | Đạt, có cảnh báo | Mã thoát 0; không có lỗi, có 16 cảnh báo `react/prop-types` (14 cảnh báo có sẵn trong Dashboard và 2 cảnh báo với component con của auth). |
+| `npm.cmd run build` | Đạt | Hoàn tất build production bằng Vite. |
+| Chạy Prettier trên các tệp frontend đã sửa | Đạt | Các tệp JS/JSX/CSS đã sửa đúng định dạng. Kiểm tra toàn repository hiện báo 6 tệp không liên quan đã tồn tại: `main.jsx`, `HealthPage.jsx`, `HomePage.jsx`, `App.test.jsx`, `DashboardStatus.test.jsx` và `Health.test.js`. |
 
-The web now calls the same Backend auth, rooms, occupancy, booking and check-in
-routes as Android. No browser-to-live-Backend OTP/booking/QR camera E2E was run;
-it requires a configured SMTP server and a ready database. Camera scanning uses
-the browser `BarcodeDetector` API when supported, with QR text input as fallback.
+Web hiện gọi chung các route auth, rooms, occupancy, booking và check-in của
+Backend với Android. Chưa chạy E2E OTP/đặt phòng/quét QR camera từ trình duyệt
+đến Backend thật; cần SMTP đã cấu hình và database sẵn sàng. Quét camera dùng
+API `BarcodeDetector` của trình duyệt nếu được hỗ trợ, nếu không có thể nhập
+nội dung QR bằng văn bản.
+
+## Đợt kiểm thử — 2026-11-18 (API sự kiện CV của SEAT-53)
+
+| Lệnh / nội dung kiểm tra | Kết quả | Ghi chú |
+|---|---|---|
+| `python -m pytest tests/test_count_event_api.py tests/test_cv_api.py -q` | Đạt: 20 kiểm thử | Chạy từ thư mục `backend`; bao gồm tạo/gửi lại sự kiện CV, API key, hướng không hợp lệ, phòng không tồn tại, JSON sai định dạng và trường dữ liệu thừa. |
+| `docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm backend-test` | Đạt: 33 kiểm thử, bỏ qua 6 | Chạy bộ kiểm thử Backend trong image kiểm thử với các dịch vụ Docker Compose. |
+| Kiểm tra migration bằng `docker compose exec db psql ...` | Đạt | Migration `010_cv_count_event_uuid.sql` tạo `count_events.event_id` kiểu PostgreSQL `uuid` cùng các cột session/device/status bắt buộc. |
+| Gửi curl thực tế lần đầu tới `/api/v1/cv/events` | Đạt: HTTP 201 | Payload dùng `room_id` 5 và `event_id` UUID duy nhất; phản hồi có `duplicate=false`. |
+| Gửi lại cùng payload curl | Đạt: HTTP 201 | Phản hồi có `duplicate=true`; PostgreSQL chỉ lưu một dòng cho `event_id` đó. |
+| Gửi curl với API key sai | Đạt: HTTP 401 | Mã lỗi trả về là `unauthorized`. |
+| Gửi curl với JSON sai định dạng | Đạt: HTTP 400 | Mã lỗi trả về là `malformed_json`. |
+| Kiểm tra bản ghi PostgreSQL/Adminer | Đạt | Bảng `count_events` còn một dòng; yêu cầu gửi lại không tạo thêm bản ghi. |
+| Chụp endpoint bằng Swagger | Đạt | Ảnh: `seat53-swagger.png`. |
+| Chụp bản ghi bằng Adminer | Đạt | Ảnh: `seat53-adminer-count-events.png`. |
+
+API key nhận dữ liệu CV được tạo cục bộ và cấu hình giống nhau cho
+`CV_API_KEY` và `CV_INGEST_API_KEY` trong `.env`. Docker Compose nhận các biến
+này; giá trị key không được ghi vào tệp kết quả hoặc báo cáo.
+
+Các tệp bằng chứng nằm trong thư mục bằng chứng của phiên làm việc:
+`seat53-curl-first.txt`, `seat53-curl-duplicate-key-json.txt`,
+`seat53-payload.json`, `seat53-swagger.png`,
+`seat53-adminer-count-events.png`, `seat53-pytest-host.txt` và
+`seat53-pytest-docker.txt`.
+
+Các việc còn lại, nằm ngoài phạm vi endpoint SEAT-53:
+
+- Cập nhật `OccupancyRecord` khi nhận sự kiện `in`/`out` hợp lệ.
+- Kiểm tra nhiều yêu cầu trùng được gửi đồng thời với PostgreSQL, không chỉ gửi lại tuần tự.
+- Kiểm tra phản hồi HTTP 503 khi database mất kết nối và xác nhận giao dịch được rollback đúng.
+- Đưa các thay đổi schema phòng còn đang áp dụng trực tiếp cho database kiểm thử vào migration chính thức cho các volume hiện có.
