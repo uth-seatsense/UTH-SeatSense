@@ -1,7 +1,8 @@
 # Frontend — UTH-SeatSense
 
-Frontend React/Vite cung cấp giao diện để xem tình trạng chỗ ngồi, đặt phòng
-học nhóm và check-in; dashboard thủ thư là một luồng nghiệp vụ trong SRS.
+Frontend React/Vite hiện có Dashboard, Health Check và service layer cho một số
+API. Các trang đăng nhập, danh sách phòng, đặt phòng, lịch đặt và check-in vẫn
+là skeleton/placeholder; dashboard thủ thư là một luồng nghiệp vụ trong SRS.
 Bảng ánh xạ màn hình, API, quyền và trạng thái xem
 [tại đây](../docs/ui/screen-api-mapping.md).
 
@@ -14,36 +15,39 @@ frontend/
 │   ├── occupancy.offline.json
 │   ├── occupancy.stale.json
 │   └── rooms.json
-├── src/
-│   ├── App.jsx
-│   ├── main.jsx
-│   ├── assets/
-│   │   └── .gitkeep
-│   ├── components/
-│   │   ├── checkin/
-│   │   ├── common/
-│   │   ├── dashboard/
-│   │   ├── occupancy/
-│   │   ├── reservations/
-│   │   └── rooms/
-│   ├── hooks/
-│   ├── pages/
-│   │   ├── CheckinPage.jsx
-│   │   ├── DashboardPage.jsx
-│   │   ├── HomePage.jsx
-│   │   ├── HealthPage.jsx
-│   │   ├── LoginPage.jsx
-│   │   ├── MyBookingsPage.jsx
-│   │   ├── ReservationPage.jsx
-│   │   └── RoomsPage.jsx
-│   ├── routes/
-│   ├── services/
-│   │   ├── apiClient.ts
-│   │   └── api.js
-│   ├── styles/
-│   │   └── main.css
-│   └── tests/
-│       └── DashboardStatus.test.jsx
+└── src/
+    ├── App.jsx
+    ├── main.jsx
+    ├── assets/
+    │   └── .gitkeep
+    ├── components/
+    │   ├── common/
+    │   ├── dashboard/
+    │   ├── occupancy/
+    │   ├── reservations/
+    │   └── rooms/
+    ├── hooks/
+    ├── pages/
+    │   ├── CheckinPage.jsx
+    │   ├── DashboardPage.jsx
+    │   ├── HealthPage.jsx
+    │   ├── HomePage.jsx
+    │   ├── LoginPage.jsx
+    │   ├── MyBookingsPage.jsx
+    │   ├── ReservationPage.jsx
+    │   └── RoomsPage.jsx
+    ├── routes/
+    ├── services/
+    │   ├── api.js
+    │   └── apiClient.ts
+    ├── styles/
+    │   └── main.css
+    ├── tests/
+    │   ├── App.test.jsx
+    │   ├── DashboardStatus.test.jsx
+    │   ├── Health.test.js
+    │   └── Routes.test.jsx
+    └── vite-env.d.ts
 └── tests/
     ├── apiClient.mock.test.js
     ├── HealthPage.test.jsx
@@ -56,8 +60,10 @@ frontend/
 `/`, `/login`, `/rooms`, `/reservation`, `/my-bookings`, `/checkin`,
 `/dashboard`, `/health` và trang 404.
 Home dùng trực tiếp Dashboard, không thêm header trùng phía sau sidebar.
-`RoomsPage`, `ReservationPage`, `CheckinPage`, `LoginPage` và `MyBookingsPage`
-là placeholder; chưa triển khai nghiệp vụ.
+Hiện `/health` và Dashboard có nội dung hoạt động; `/login`, `/rooms`,
+`/reservation`, `/my-bookings` và `/checkin` chưa được triển khai nghiệp vụ và
+đang hiển thị skeleton/placeholder. Các hàm API đăng nhập, booking và check-in
+đã có trong service layer nhưng chưa được nối với các trang placeholder.
 
 Quy ước khi bổ sung: component React viết PascalCase (ví dụ `RoomCard.jsx`);
 custom hook bắt đầu bằng `use` (ví dụ `useOccupancy.js`). Component dùng chung
@@ -111,9 +117,11 @@ sẵn sàng, trạng thái lỗi là bình thường, không được thay bằn
 
 ## API và trạng thái hiện có
 
-`src/services/apiClient.ts` cung cấp `getApiHealth()`, `getRooms()` và
-`getCurrentOccupancy()`; `src/services/api.js` giữ tương thích với các import
-đang có.
+`src/services/api.js` chứa các hàm đăng nhập, đặt phòng và check-in, dùng chung
+base URL, Bearer token và xử lý lỗi; các trang tương ứng chưa gọi các hàm này.
+`src/services/apiClient.ts` cung cấp health, danh sách phòng, occupancy hiện
+tại và dữ liệu mock. `getRooms()` giữ kiểu trả về mảng phòng cho các callers
+hiện có.
 Dashboard gọi `GET /api/v1/occupancy/current`, làm mới mỗi 30 giây, chấp nhận
 số nguyên không âm trong `current_count`, `people_count`, `occupancy_count`
 hoặc `count`. Số 0 hợp lệ; trường count null/thiếu được hiển thị như chưa có
@@ -128,6 +136,7 @@ và [bảng ánh xạ màn hình](../docs/ui/screen-api-mapping.md) để biết
 ## Mock và service layer
 
 Thư mục `frontend/mocks/` chứa dữ liệu mẫu cho ba trạng thái:
+
 - `occupancy.fresh.json`: Dữ liệu mới (is_stale: false)
 - `occupancy.stale.json`: Dữ liệu cũ hơn 30 giây (is_stale: true)
 - `occupancy.offline.json`: Mất kết nối camera (device_status: offline)
@@ -138,8 +147,9 @@ Thư mục `frontend/mocks/` chứa dữ liệu mẫu cho ba trạng thái:
 Mock được bật bằng biến `VITE_USE_MOCK=true`. Khi bật, `getRooms()` và
 `getCurrentOccupancy()` dùng fixture trong `frontend/mocks/`; `getApiHealth()`
 trả về `{ status: "ok", service: "backend" }` mà không gọi backend. Khi tắt
-hoặc không đặt biến này, cả ba hàm gọi API thật. Sau khi đổi biến, khởi động
-lại Vite.
+hoặc không đặt biến này, các hàm trên gọi API thật. Auth, booking, check-in và
+occupancy theo từng phòng vẫn dùng Backend API. Sau khi đổi biến, khởi động lại
+Vite.
 
 **Bash/Git Bash:**
 ```sh
@@ -169,6 +179,7 @@ theo thời điểm gọi; `stale` và `offline` giữ timestamp cố định c�
 ### Cấu trúc dữ liệu mock
 
 Mock data khớp API Contract (SEAT-39, SEAT-56):
+
 - Danh sách phòng với campus_id, campus_code, capacity, building, is_active
 - Occupancy với room_type, current_count, available_seats, occupancy_level, is_stale, device_status
 - Ba trạng thái: dữ liệu mới, cũ, mất kết nối
