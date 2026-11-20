@@ -92,6 +92,11 @@ Các tệp bằng chứng nằm trong thư mục bằng chứng của phiên là
 `seat53-adminer-count-events.png`, `seat53-pytest-host.txt` và
 `seat53-pytest-docker.txt`.
 
+Ghi chú: `docker-compose.test.yml` và service `backend-test` đã được gỡ theo
+yêu cầu SEAT-58. Dòng chạy Docker test phía trên là kết quả lịch sử, không còn
+là lệnh có thể lặp lại từ cấu hình hiện tại; chạy Backend tests trực tiếp bằng
+`python -m pytest backend\tests -q`.
+
 Các việc còn lại, nằm ngoài phạm vi endpoint SEAT-53:
 
 - Cập nhật `OccupancyRecord` khi nhận sự kiện `in`/`out` hợp lệ.

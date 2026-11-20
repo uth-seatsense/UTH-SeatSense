@@ -325,6 +325,24 @@ docker compose down -v
 docker compose up --build -d
 ```
 
+### 9.7. Khởi tạo CSDL và seed
+
+Khi volume PostgreSQL mới được tạo, Compose chạy các script trong
+`database/init/` theo thứ tự tên. Bao gồm chuyển khóa `count_events` sang UUID,
+chuẩn hóa loại phòng, tạo dữ liệu CS1/CS3 và bốn phòng mẫu `free_area` /
+`topic_room`. Tạo `.env` từ `.env.example`, thay mật khẩu PostgreSQL mẫu bằng
+giá trị riêng, rồi khởi động:
+
+```bash
+docker compose up -d --build
+```
+
+`docker compose down` rồi `docker compose up -d` giữ volume và dữ liệu. Chỉ
+dùng `docker compose down -v` khi chủ ý xóa toàn bộ database phát triển và
+chấp nhận nạp lại schema/seed. Volume đã tồn tại không tự chạy các script mới;
+sao lưu trước rồi áp migration `010`–`012` lần lượt theo
+[hướng dẫn Database](../database/README.md).
+
 ## 10. Cổng truy cập
 
 | Thành phần | Cổng | Địa chỉ truy cập |

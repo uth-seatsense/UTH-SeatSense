@@ -16,8 +16,9 @@ database/
 └── README.md
 ```
 
-Các bước thay đổi cấu trúc cơ sở dữ liệu được quản lý cùng Backend trong
-`backend/migrations/` để các thành viên dễ cập nhật thống nhất.
+Các migration PostgreSQL được đặt trong `init/` và chạy theo thứ tự tên file
+khi volume mới được khởi tạo. Seed hai cơ sở và phòng mẫu cũng được nạp sau
+migration; các tệp trong `seeds/` là fixture bổ sung, không tự nạp.
 ## Chuẩn bị và chạy
 
 Cần PostgreSQL hoặc Docker Desktop có Docker Compose. Dùng `.env.example`
@@ -30,9 +31,28 @@ mật khẩu và thông tin kết nối dùng chung với Backend.
 docker compose up -d db
 ```
 
-Các file trong `init/` dùng để tạo cơ sở dữ liệu ban đầu. Dữ liệu trong
-`seeds/` được nạp riêng khi cần thử nghiệm. Khi đổi cấu trúc bảng, nhóm cần
-thống nhất cách cập nhật và sao lưu dữ liệu cần giữ.
+Các file trong `init/` tạo schema, chuẩn hóa loại phòng và thêm hai cơ sở cùng
+bốn phòng mẫu (`free_area`, `topic_room`) trên volume mới. `docker compose
+down` rồi `up` giữ volume và dữ liệu; không dùng `down -v` nếu cần giữ dữ liệu.
+
+### Nâng cấp PostgreSQL volume đã tồn tại
+
+PostgreSQL không chạy lại các file init trên volume đã có dữ liệu. Sao lưu
+database trước, sau đó áp dụng lần lượt các migration/seed mới từ PowerShell ở
+thư mục gốc:
+
+```powershell
+Get-Content -Raw database\init\010_cv_count_event_uuid.sql |
+  docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+Get-Content -Raw database\init\011_normalize_room_types.sql |
+  docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+Get-Content -Raw database\init\012_seed_campuses_and_rooms.sql |
+  docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+```
+
+Migration ánh xạ rõ `reading_room` → `free_area` và `group_study_room` →
+`topic_room`. Nếu dữ liệu có loại phòng khác, migration dừng để rà soát thay vì
+tự suy đoán hoặc đổi nhãn.
 
 ### Áp dụng migration OTP cho PostgreSQL volume đã tồn tại
 

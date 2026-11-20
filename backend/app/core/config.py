@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     database_password: SecretStr | None = Field(default=None, repr=False)
     cv_service_url: str = "http://localhost:8001"
     cv_ingest_api_key: SecretStr | None = Field(default=None, repr=False)
+    occupancy_crowded_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
+    occupancy_stale_seconds: int = Field(default=30, ge=1)
+    device_offline_seconds: int = Field(default=90, ge=1)
     allowed_email_domains: str = ""
     otp_hash_secret: SecretStr | None = Field(default=None, repr=False)
     otp_ttl_minutes: int = Field(default=5, ge=1, le=15)
