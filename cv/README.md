@@ -28,6 +28,21 @@ Tải [trọng số mô hình](https://drive.google.com/drive/folders/1q9-reDJxY
 
 `416` là kích thước đầu vào YOLO dùng cho thử nghiệm. Kết quả nằm trong `cv/outputs/<mã-phiên>/`. Xem `counts.csv` để đọc số đếm và `summary.json` để kiểm tra trạng thái phiên.
 
+### SEAT-52 — Đếm lượt vào và ra trên máy host
+
+Từ thư mục `cv`, chọn một trong hai nguồn:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.counting --source sample
+.\.venv\Scripts\python.exe -m app.counting --source webcam
+```
+
+`sample` đọc trực tiếp `annotated.mp4` trong thư mục phiên ghi ở YAML. Trên máy khác, đặt clip ở máy rồi chỉnh đường dẫn `sources.sample`. `webcam` mở camera số 0 của máy đang chạy Python. Terminal hiển thị số đếm khi có lượt qua vạch và tổng IN/OUT khi hết clip hoặc nhấn Ctrl+C. Hai lệnh này không ghi ảnh hay video.
+
+Trong YAML, `start` và `end` là hai đầu vạch theo tọa độ chuẩn hóa từ 0 đến 1, gốc ở góc trên trái. Mẫu dùng vạch dọc giữa khung, chiều IN từ phải sang trái. Đổi `in_direction` thành `positive-to-negative` nếu cửa có chiều ngược lại. Chỉnh vạch theo góc đặt webcam. `deadband` là bề rộng vùng đệm tính từ vạch, `cooldown_ms` là thời gian nghỉ theo từng track. Các mục CS1/CS3 đang để chú thích trong YAML đến khi có nguồn camera thực tế.
+
+Phiếu đối chiếu: [kết quả Sprint 4](tests/SPRINT4_RESULTS.md).
+
 **Webcam laptop hoặc USB.** Từ thư mục `cv`, chạy:
 
 ```powershell
