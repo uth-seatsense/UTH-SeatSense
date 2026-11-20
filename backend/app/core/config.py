@@ -12,8 +12,35 @@ class Settings(BaseSettings):
     database_user: str | None = None
     database_password: SecretStr | None = Field(default=None, repr=False)
     cv_service_url: str = "http://localhost:8001"
+    cv_ingest_api_key: SecretStr | None = Field(default=None, repr=False)
+    allowed_email_domains: str = ""
+    otp_hash_secret: SecretStr | None = Field(default=None, repr=False)
+    otp_ttl_minutes: int = Field(default=5, ge=1, le=15)
+    otp_resend_seconds: int = Field(default=60, ge=1, le=600)
+    otp_max_attempts: int = Field(default=5, ge=1, le=5)
+    access_token_ttl_minutes: int = Field(default=60, ge=5, le=1440)
+    smtp_host: str | None = None
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_username: str | None = None
+    smtp_password: SecretStr | None = Field(default=None, repr=False)
+    smtp_from_email: str | None = None
+    smtp_starttls: bool = True
+    booking_min_duration_minutes: int = Field(default=30, ge=15, le=120)
+    booking_max_duration_minutes: int = Field(default=120, ge=30, le=240)
+    booking_max_advance_days: int = Field(default=7, ge=1, le=30)
+    booking_max_per_day: int = Field(default=1, ge=1, le=10)
+    booking_gap_minutes: int = Field(default=15, ge=0, le=120)
+    booking_cancel_cutoff_minutes: int = Field(default=30, ge=0, le=1440)
+    checkin_grace_minutes: int = Field(default=15, ge=1, le=60)
 
     model_config = SettingsConfigDict(extra="ignore")
+
+    def email_domain_allowlist(self) -> frozenset[str]:
+        return frozenset(
+            domain.strip().lower()
+            for domain in self.allowed_email_domains.split(",")
+            if domain.strip()
+        )
 
     def connection_url(self):
         if self.database_url:

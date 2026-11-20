@@ -1,4 +1,10 @@
-import { NavLink, Route, Routes, useLocation } from "react-router-dom";
+import {
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import HomePage from "./pages/HomePage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import RoomsPage from "./pages/RoomsPage.jsx";
@@ -7,6 +13,9 @@ import MyBookingsPage from "./pages/MyBookingsPage.jsx";
 import CheckinPage from "./pages/CheckinPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import HealthPage from "./pages/HealthPage.jsx";
+import { AuthProvider, useAuth } from "./auth/AuthContext.jsx";
+import RequireAuth from "./auth/RequireAuth.jsx";
+import { useState } from "react";
 
 const navigation = [
   ["/", "Trang chủ"],
@@ -18,7 +27,18 @@ const navigation = [
 ];
 
 export default function App() {
+  return (
+    <AuthProvider>
+      <Application />
+    </AuthProvider>
+  );
+}
+
+function Application() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  const [navigationError, setNavigationError] = useState("");
   const path = pathname.replace(/\/+$/, "") || "/";
   const hasSidebar = path === "/" || path === "/dashboard";
 
@@ -35,17 +55,75 @@ export default function App() {
             </NavLink>
           ))}
         </div>
-        <NavLink className="app-navigation-login" to="/login" end>
-          Đăng nhập
-        </NavLink>
+        {user ? (
+          <div className="app-navigation-account">
+            <span>{user.display_name || user.email}</span>
+            <button
+              className="button button--quiet"
+              onClick={async () => {
+                setNavigationError("");
+                try {
+                  await signOut();
+                  navigate("/login", { replace: true });
+                } catch (error) {
+                  setNavigationError(error.message);
+                }
+              }}
+              type="button"
+            >
+              Đăng xuất
+            </button>
+          </div>
+        ) : (
+          <NavLink className="app-navigation-login" to="/login" end>
+            Đăng nhập
+          </NavLink>
+        )}
       </nav>
+      {navigationError && (
+        <p
+          className="feedback feedback--error navigation-feedback"
+          role="alert"
+        >
+          Đã đăng xuất khỏi thiết bị nhưng máy chủ chưa xác nhận:{" "}
+          {navigationError}
+        </p>
+      )}
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/rooms" element={<RoomsPage />} />
-        <Route path="/reservation" element={<ReservationPage />} />
-        <Route path="/my-bookings" element={<MyBookingsPage />} />
-        <Route path="/checkin" element={<CheckinPage />} />
+        <Route
+          path="/rooms"
+          element={
+            <RequireAuth>
+              <RoomsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/reservation"
+          element={
+            <RequireAuth>
+              <ReservationPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/my-bookings"
+          element={
+            <RequireAuth>
+              <MyBookingsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/checkin"
+          element={
+            <RequireAuth>
+              <CheckinPage />
+            </RequireAuth>
+          }
+        />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/health" element={<HealthPage />} />
         <Route

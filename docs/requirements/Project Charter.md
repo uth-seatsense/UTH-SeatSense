@@ -254,7 +254,7 @@ Ràng buộc
 
 • Họp: Sprint Planning đầu tuần (30 phút), Daily Standup 15 phút (hoặc cập nhật qua chat), Sprint Review + Retro cuối tuần (45 phút).
 
-• Git: nhánh main (ổn định), dev, feature/SEAT-x-ten-ngan, fix/..., docs/...; mọi thay đổi vào dev phải qua Pull Request và có ít nhất một người khác review. Commit theo dạng SEAT-x loai: noi dung (feat, fix, docs, ...). Chi tiết trong tài liệu "Quy ước làm việc nhóm – Git và Jira" và README.
+• Git: nhánh main (ổn định), dev, feat/SEAT-x-ten-ngan, fix/..., docs/...; mọi thay đổi vào dev phải qua Pull Request và có ít nhất một người khác review. Commit theo dạng SEAT-x loai: noi dung (feat, fix, docs, ...). Chi tiết trong [conventions.md](../conventions.md).
 
 • Cấu trúc repo: cv/, backend/, frontend/, docs/; file Docker Compose: [vị trí chưa chốt].
 

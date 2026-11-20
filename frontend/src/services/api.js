@@ -12,6 +12,8 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "/api/v1").replace(
   /\/$/,
   "",
 );
+const OCCUPANCY_ENDPOINT =
+  import.meta.env.VITE_OCCUPANCY_API_URL ?? `${API_BASE_URL}/occupancy/current`;
 const AUTH_TOKEN_KEY = "seatsense_access_token";
 const API_ERROR_MESSAGES = {
   email_not_allowed: "Email này chưa nằm trong danh sách được phép.",

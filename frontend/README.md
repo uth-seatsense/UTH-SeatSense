@@ -20,50 +20,56 @@ frontend/
     ├── main.jsx
     ├── assets/
     │   └── .gitkeep
+    ├── auth/
+    │   ├── AuthContext.jsx
+    │   └── RequireAuth.jsx
     ├── components/
+    │   ├── checkin/
     │   ├── common/
+    │   │   └── .gitkeep
     │   ├── dashboard/
+    │   │   └── .gitkeep
     │   ├── occupancy/
+    │   │   └── .gitkeep
     │   ├── reservations/
+    │   │   └── .gitkeep
     │   └── rooms/
+    │       └── .gitkeep
     ├── hooks/
+    │   └── .gitkeep
     ├── pages/
     │   ├── CheckinPage.jsx
     │   ├── DashboardPage.jsx
-    │   ├── HealthPage.jsx
     │   ├── HomePage.jsx
+    │   ├── HealthPage.jsx
     │   ├── LoginPage.jsx
     │   ├── MyBookingsPage.jsx
     │   ├── ReservationPage.jsx
     │   └── RoomsPage.jsx
     ├── routes/
+    │   └── .gitkeep
     ├── services/
     │   ├── api.js
-    │   └── apiClient.ts
+    │   └── checkin.js
     ├── styles/
     │   └── main.css
-    ├── tests/
-    │   ├── App.test.jsx
-    │   ├── DashboardStatus.test.jsx
-    │   ├── Health.test.js
-    │   └── Routes.test.jsx
-    └── vite-env.d.ts
-└── tests/
-    ├── apiClient.mock.test.js
-    ├── HealthPage.test.jsx
-    ├── Mock.test.js
-    ├── setup.js
-    └── setup.ts
+    └── tests/
+        ├── App.test.jsx
+        ├── ApiBookings.test.js
+        ├── DashboardStatus.test.jsx
+        ├── Health.test.js
+        └── Routes.test.jsx
 ```
 
 `main.jsx` khởi tạo `BrowserRouter`; `App.jsx` định nghĩa các route:
 `/`, `/login`, `/rooms`, `/reservation`, `/my-bookings`, `/checkin`,
 `/dashboard`, `/health` và trang 404.
 Home dùng trực tiếp Dashboard, không thêm header trùng phía sau sidebar.
-Hiện `/health` và Dashboard có nội dung hoạt động; `/login`, `/rooms`,
-`/reservation`, `/my-bookings` và `/checkin` chưa được triển khai nghiệp vụ và
-đang hiển thị skeleton/placeholder. Các hàm API đăng nhập, booking và check-in
-đã có trong service layer nhưng chưa được nối với các trang placeholder.
+Các luồng đăng nhập OTP, xem phòng/chỗ trống, đặt/hủy booking và check-in QR
+gọi chung Backend API với Android. Các trang phòng, booking và check-in yêu cầu
+đăng nhập; token Bearer chỉ lưu trong `sessionStorage` của tab hiện tại.
+QR được tạo trong trình duyệt; quét camera dùng `BarcodeDetector` khi trình
+duyệt hỗ trợ, nếu không có thể dán nội dung QR SeatSense.
 
 Quy ước khi bổ sung: component React viết PascalCase (ví dụ `RoomCard.jsx`);
 custom hook bắt đầu bằng `use` (ví dụ `useOccupancy.js`). Component dùng chung
@@ -101,7 +107,7 @@ docker compose up --no-build --no-deps -d frontend
 
 Hai lệnh này không build hoặc khởi động CV/backend. Mở
 `http://localhost:3000` (hoặc cổng `FRONTEND_PORT` đã cấu hình).
-Image dùng `npm ci` và chạy Vite dev server cho skeleton, không phải cấu hình
+Image dùng `npm ci` và chạy Vite dev server cho giao diện phát triển, không phải cấu hình
 production.
 
 `VITE_API_BASE_URL` là biến API base của frontend (tương ứng `API_BASE_URL`
@@ -117,21 +123,19 @@ sẵn sàng, trạng thái lỗi là bình thường, không được thay bằn
 
 ## API và trạng thái hiện có
 
-`src/services/api.js` chứa các hàm đăng nhập, đặt phòng và check-in, dùng chung
-base URL, Bearer token và xử lý lỗi; các trang tương ứng chưa gọi các hàm này.
-`src/services/apiClient.ts` cung cấp health, danh sách phòng, occupancy hiện
-tại và dữ liệu mock. `getRooms()` giữ kiểu trả về mảng phòng cho các callers
-hiện có.
+`src/services/api.js` dùng chung base URL, JSON, Bearer token và xử lý lỗi
+cho các endpoint `auth/*`, `rooms`, `occupancy/rooms/{id}/latest`,
+`bookings` và `check-in`. OTP đăng nhập lấy access token opaque từ Backend;
+401 trên endpoint được bảo vệ xóa token phiên và yêu cầu đăng nhập lại.
 Dashboard gọi `GET /api/v1/occupancy/current`, làm mới mỗi 30 giây, chấp nhận
 số nguyên không âm trong `current_count`, `people_count`, `occupancy_count`
 hoặc `count`. Số 0 hợp lệ; trường count null/thiếu được hiển thị như chưa có
 dữ liệu. Lỗi HTTP, mạng hoặc JSON sai được hiển thị thành lỗi.
 
 Backend hiện trả tổng số người trong các phòng hoạt động, không nhận lọc cơ sở.
-Endpoint `GET /api/v1/occupancy/rooms/{room_id}/latest` có `is_stale`, nhưng
-Dashboard hiện chưa gọi endpoint này. Xem [API Contract](../docs/architecture/api-contracts.md)
-và [bảng ánh xạ màn hình](../docs/ui/screen-api-mapping.md) để biết các route
-đã có, route mới chỉ được mô tả và route nghiệp vụ còn cần thống nhất.
+Endpoint `GET /api/v1/occupancy/rooms/{room_id}/latest` được gọi tại trang
+phòng và có `is_stale`. Xem [API Contract](../docs/architecture/api-contracts.md)
+và [bảng ánh xạ màn hình](../docs/ui/screen-api-mapping.md).
 
 ## Mock và service layer
 

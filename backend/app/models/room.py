@@ -27,6 +27,13 @@ class Room(Base):
     campus_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("campuses.campus_id", ondelete="RESTRICT")
     )
+    room_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, server_default=text("'reading_room'")
+    )
+    location: Mapped[str | None] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default=text("'active'")
+    )
     capacity: Mapped[int] = mapped_column(Integer, nullable=False)
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("true")

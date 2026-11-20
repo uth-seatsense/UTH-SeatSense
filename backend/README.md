@@ -95,4 +95,19 @@ Kiểm tra trạng thái dịch vụ bằng `docker compose ps`; xem log Backend
 `GET /api/v1/occupancy/current` trả tổng số người từ bản ghi mới nhất của mỗi
 phòng đang hoạt động. Phản hồi gồm `current_count`, `updated_at` và `location`;
 hai trường đầu có thể là `null` khi chưa có dữ liệu. Các nghiệp vụ đặt phòng,
-check-in và xác thực vẫn đang được phát triển.
+check-in và xác thực được triển khai qua các API sau:
+
+- `POST /api/v1/auth/register` gửi OTP email; `POST /api/v1/auth/login` xác
+  minh OTP và cấp Bearer token; `POST /api/v1/auth/logout` thu hồi phiên;
+  `GET /api/v1/auth/me` trả hồ sơ hiện tại.
+- `GET /api/v1/rooms` và `GET /api/v1/rooms/{room_id}` trả phòng đang hoạt động.
+- `/api/v1/bookings` hỗ trợ liệt kê, tạo, đọc, hủy lượt đặt và cấp token QR.
+- `POST /api/v1/check-in` xác minh QR và ghi nhận check-in một lần.
+
+OTP yêu cầu cấu hình miền email được phép, khóa `OTP_HASH_SECRET` tối thiểu
+32 ký tự và SMTP; các giá trị mẫu được mô tả trong `.env.example`. Quy tắc
+booking/check-in là giá trị tạm theo SRS 1.9. Migration
+`009_add_email_otp_auth.sql` tự chạy trên volume mới; với volume cũ, cần sao
+lưu và áp dụng migration thủ công theo [README Database](../database/README.md).
+API Android và giới hạn kiểm thử hiện tại được ghi trong
+[README Android](../android/README.md) và [báo cáo kiểm thử](../docs/test-report.md).

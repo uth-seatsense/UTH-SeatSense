@@ -10,6 +10,12 @@ from app.models.room import Room
 from app.schemas.cv_count import CVCountInput
 
 
+def _normalize_datetime(value: datetime) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 class CVRecordConflict(Exception):
     """An idempotency key was reused with a different CV payload."""
 
@@ -66,11 +72,15 @@ class CVCountRepository:
             raise RuntimeError('Inserted CV record could not be reloaded')
         # room_id is a database enrichment of the source room_code. A retry
         # after a room mapping is added must remain an identical source event.
-        if any(
-            key != "room_id" and getattr(record, key) != value
-            for key, value in values.items()
-        ):
-            raise CVRecordConflict
+        for key, value in values.items():
+            if key == "room_id":
+                continue
+            persisted_value = getattr(record, key)
+            if isinstance(value, datetime) and isinstance(persisted_value, datetime):
+                if _normalize_datetime(persisted_value) != _normalize_datetime(value):
+                    raise CVRecordConflict
+            elif persisted_value != value:
+                raise CVRecordConflict
         return record, True
 
     def get_latest_webcam_for_room(self, room_id: int) -> CVCountRecord | None:

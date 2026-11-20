@@ -5,7 +5,7 @@
 
 ### 1.1 Luồng Sinh Viên
 
-Luồng dưới đây bám theo SRS v1.8: xem khu tự học tự do không cần đặt chỗ; đăng nhập OTP được yêu cầu khi đặt phòng; check-in và no-show là các luồng Should.
+Luồng dưới đây bám theo SRS 1.9: xem khu tự học tự do không cần đặt chỗ; đăng nhập OTP được yêu cầu khi đặt phòng; check-in và no-show là các luồng Should.
 
 ```mermaid
 flowchart TD
@@ -91,7 +91,7 @@ flowchart TD
 
 ### 1.2 Luồng Thủ Thư - Dashboard
 
-Luồng này theo SRS v1.8: dashboard và quản lý phòng chỉ dành cho vai trò được cấp quyền; cấu hình dùng tại thư viện cần đại diện thư viện xác nhận. Khởi tạo phiên đếm là tác vụ người vận hành (UC-09), không mặc định là quyền của mọi thủ thư.
+Luồng này theo SRS 1.9: dashboard và quản lý phòng chỉ dành cho vai trò được cấp quyền; cấu hình dùng tại thư viện cần đại diện thư viện xác nhận. Khởi tạo phiên đếm là tác vụ người vận hành (UC-09), không mặc định là quyền của mọi thủ thư.
 
 ```mermaid
 flowchart TD
@@ -178,25 +178,25 @@ flowchart TD
 | Trạng Thái | Điều Kiện | Hiển Thị | Người Dùng Làm | Ghi Chú |
 |---|---|---|---|---|
 | Loading | API đang xử lý, lần đầu mở màn hình | Spinner - "Đang tải..." | Chờ hoặc hủy | Timeout > 10s -> Error |
-| Success | API trả 200, dữ liệu hợp lệ | Hiển thị dữ liệu đầy đủ | Tương tác với dữ liệu | Dữ liệu cache 5s |
+| Success | API trả 2xx, dữ liệu hợp lệ | Hiển thị dữ liệu đầy đủ | Tương tác với dữ liệu | Cache theo chính sách của từng API |
 | Empty | API 200 nhưng list = 0 | "Không có dữ liệu" | Quay lại hoặc tạo mới | Kiểm tra bộ lọc |
-| Error API | API trả 4xx/5xx | Thông báo lỗi tiếng Việt + mã lỗi | Thử lại, quay lại, liên hệ | Nút "Thử lại" bật len |
-| Error No Connection | Không kết nối Internet | "Mất kết nối mạng" | Kiểm tra WiFi/3G, thử lại | Retry tự động sau 30s |
+| Error API | API trả 4xx/5xx | Thông báo lỗi tiếng Việt + mã lỗi | Thử lại, quay lại, liên hệ | Không tự gửi lại thao tác tạo/cập nhật |
+| Error No Connection | Không kết nối Internet | "Mất kết nối mạng" | Kiểm tra WiFi/3G, thử lại | Không tự gửi lại thao tác tạo/cập nhật |
 | Error 404 | Resource không tồn tại | "Không tìm thấy" cụ thể | Quay lại, xem lại danh sách | Kiểm tra ID |
-| Stale Data | received_at > 30s | Dữ liệu + cảnh báo "Cập nhật cách đây XX giây" | Thử lại để cập nhật | Chỉ dùng cho occupancy |
+| Stale Data | API trả `occupancy_status=stale` theo ngưỡng cấu hình | Cảnh báo + thời điểm cập nhật | Thử lại để cập nhật | Không tự hard-code ngưỡng khác với backend |
 | Unauthorized | Token hết hạn, không đủ quyền 403 | "Không đủ quyền" hoặc "Phiên hết, đăng nhập lại" | Đăng nhập lại | Redirect login screen |
 
 ### 2.2 Màn Hình Tình Trạng Phòng (Occupancy)
 
 | Trạng Thái | Điều Kiện | Hiển Thị | Người Dùng Làm | Ghi Chú |
 |---|---|---|---|---|
-| Loading | Mở lần đầu - Nhấn Refresh | Skeleton phòng - "Đang tải..." | Chờ | Fetch từ GET /api/v1/occupancy |
-| Loaded Fresh | API 200, is_stale=false | Phòng + số người + % công suất + "Cập nhật: 2 phút trước" | Xem chi tiết - Đặt phòng | Polling 5s |
-| Loaded Stale | API 200, is_stale=true | Phòng + số người + "Dữ liệu cũ >30s" | Nhấn Refresh | Vẫn hiển thị, cảnh báo |
-| No Data 404 | occupancy_not_found | "Phòng chưa có dữ liệu" | Chọn phòng khác | CV chưa gửi count |
-| Empty | API 200, count=0 | Phòng - "0/60 người" | Có thể đặt phòng | Hợp lệ, không lỗi |
+| Loading | Mở lần đầu - nhấn Refresh | Skeleton phòng - "Đang tải..." | Chờ | `GET /api/v1/occupancy/rooms/{room_id}/latest` |
+| Loaded Fresh | API 200, `occupancy_status=fresh` | Phòng + số người + chỗ trống + mức đông + thời điểm cập nhật | Xem chi tiết | Polling 3–5 giây theo cấu hình |
+| Loaded Stale | API 200, `occupancy_status=stale` | Cảnh báo + thời điểm cập nhật; không đánh dấu là mới | Nhấn Refresh | Ngưỡng stale lấy từ cấu hình |
+| Insufficient Data | `503 occupancy_unavailable` theo target SEAT-56 | "Chưa đủ dữ liệu"; không hiện số chỗ trống/mức đông chính thức | Thử lại sau | Không đồng nghĩa phòng không tồn tại |
+| Empty/Zero | API 200, N0 và sức chứa đã xác nhận, occupancy = 0 | Hiển thị số 0 là giá trị hợp lệ | Xem chi tiết | Không áp dụng khi thiếu baseline |
 | Error API | API 5xx - timeout - connection fail | "Lỗi tải dữ liệu. Thử lại" | Nhấn Thử lại | Retry với backoff |
-| Error No Connection | Mất mạng | "Mất kết nối mạng" | Kiểm tra WiFi | Auto-retry 5s |
+| Error No Connection | Mất mạng | "Mất kết nối mạng" | Kiểm tra WiFi, thử lại | Không tự gửi thao tác ghi |
 
 ### 2.3 Màn Hình Đặt Phòng
 
@@ -204,8 +204,8 @@ flowchart TD
 |---|---|---|---|---|
 | Idle | Lần đầu mở form | Form trống, nút "Đặt phòng" xám | Nhập liệu | - |
 | Validation Error | Frontend reject | Cảnh báo từng trường | Sửa đầu vào | Không gửi API |
-| Submitting | Gửi API booking | Nút xám + spinner - "Đang xử lý..." | Chờ | POST /api/v1/bookings/create |
-| Success | API 201 | "Đặt phòng thành công" - Booking ID + QR | Xem QR - Về trang chủ | Tự chuyển schedule sau 2s |
+| Submitting | Gửi API booking | Nút xám + spinner - "Đang xử lý..." | Chờ | `POST /api/v1/bookings` |
+| Success | API 201, status=`booked` | "Đặt phòng thành công" - booking ID | Xem lịch | QR theo luồng Should riêng |
 | Error Conflict | API 409 booking_conflict | "Phòng trùng giờ. Chọn phòng/giờ khác" | Sửa form | Phòng đã có booking |
 | Error Daily Limit | API 409, vượt 1/ngày | "Đã đặt 1 lần hôm nay. Quay lại ngày khác" | Chọn ngày khác | Max 1/day |
 | Error Invalid Participant | API 422 số người sai | "Số người phải 2-6" | Sửa form | BR-04 |
@@ -219,23 +219,23 @@ flowchart TD
 | Ready Scan | Lần đầu mở, camera OK | Viewfinder QR - "Quét mã QR" | Quét | Camera bật, focus |
 | Scanning | Đang parse QR | Spinner - "Đang quét..." | Chờ | Không gửi API ngay |
 | QR Invalid | Format QR sai | "Không thể đọc mã QR. Thử lại" | Quét lại | Không phải QR hợp lệ |
-| Submitting | Gửi API check-in | Nút xám - "Đang xác nhận..." | Chờ | POST /api/v1/check-ins |
+| Submitting | Gửi API check-in | Nút xám - "Đang xác nhận..." | Chờ | `POST /api/v1/check-in` |
 | Success | API 200 | "Check-in thành công" - Phòng + thời gian | Nhấn OK -> Lịch đặt | Booking status = checked-in |
 | Error No Permission | API 403 | "Không có quyền check-in QR này" | Liên hệ thủ thư | QR của người khác |
 | Error Booking Not Found | API 404 booking_not_found | "Không tìm thấy lượt đặt" | Kiểm tra QR | booking_id không tồn tại |
-| Error Overdue | API 422 now > end+15m | "Hết thời gian check-in hôm nay XX:XX" | Liên hệ thủ thư | Chỉ check-in trong end+15m |
+| Error Overdue | API 409 `checkin_window_closed` ngoài cửa sổ từ giờ bắt đầu đến giờ bắt đầu + 15 phút | "Hết thời gian check-in" | Liên hệ thủ thư | Theo BR-05/TC-08 |
 | Error Duplicate | API 409 duplicate_checkin | "Đã check-in rồi" | Xem lại lịch | Cùng booking quét lần 2 |
-| Error QR Expired | API 422 booking cancel | "Mã QR hết hạn" | Tạo QR mới | Booking > 24h |
+| Error QR Expired | API 409 `checkin_window_closed` hoặc `booking_not_active` | "Mã QR không còn hiệu lực" | Xem lịch đặt | Theo cửa sổ check-in, không đặt thời hạn cố định 24 giờ |
 
 ### 2.5 Màn Hình Lịch Đặt & QR
 
 | Trạng Thái | Điều Kiện | Hiển Thị | Người Dùng Làm | Ghi Chú |
 |---|---|---|---|---|
-| Loading | Mở lần đầu - Refresh | Skeleton list - "Đang tải..." | Chờ | GET /api/v1/bookings/my-bookings |
+| Loading | Mở lần đầu - Refresh | Skeleton list - "Đang tải..." | Chờ | `GET /api/v1/bookings` (mặc định chỉ booking của người dùng) |
 | Loaded | API 200, danh sách > 0 | Danh sách booking Phòng - Ngày - Giờ - Status - QR | Nhấn booking xem chi tiết | Sắp xếp theo ngày DESC |
 | Empty | API 200, danh sách = 0 | "Chưa có lượt đặt nào" - nút "Đặt phòng mới" | Đặt phòng mới | Lần đầu hoặc hết hạn |
 | Detail Modal | Nhấn 1 booking | Phòng - Ngày - Giờ - Người - Status - QR code | Xem QR - Hủy - Check-in | QR chỉ hiển thị nếu status=booked |
-| QR Display | Nhấn "Xem QR" | Mã QR + booking_id + "Sử dụng để check-in" | Quét hoặc lưu ảnh | QR hợp lệ 24h |
+| QR Display | Booking đủ điều kiện check-in | Mã QR token + hướng dẫn check-in | Quét mã | Hiệu lực từ giờ bắt đầu đến tối đa 15 phút sau giờ bắt đầu |
 | Cancel Modal | Nhấn "Hủy" | Xác nhận - "Bạn chắc hủy?" | Xác nhận hoặc quay lại | Chỉ hủy nếu status=booked |
 | Error API | API 5xx | "Lỗi tải dữ liệu" | Thử lại | Retry |
 
@@ -243,10 +243,10 @@ flowchart TD
 
 | Trạng Thái | Điều Kiện | Hiển Thị | Người Dùng Làm | Ghi Chú |
 |---|---|---|---|---|
-| Loading | Mở lần đầu - Thay bộ lọc | Skeleton biểu đồ - "Đang tải..." | Chờ | GET /api/v1/occupancy/summary |
+| Loading | Mở lần đầu - Thay bộ lọc | Skeleton biểu đồ - "Đang tải..." | Chờ | `GET /api/v1/dashboard/summary` (target; chưa có handler) |
 | Loaded | API 200, dữ liệu > 0 | Biểu đồ mật độ + thống kê (max/min/avg) | Xem biểu đồ - thay bộ lọc | Cache 1 phút |
 | Empty | API 200, dữ liệu = 0 | "Chưa có dữ liệu trong khoảng này" | Thay ngày/giờ | Chọn khoảng có dữ liệu |
-| Stale | received_at > 30s | Biểu đồ + "Dữ liệu cũ >30s" | Nhấn Refresh | Vẫn hiển thị, cảnh báo |
+| Stale | API trả trạng thái stale theo ngưỡng đã cấu hình | Biểu đồ + thời điểm cập nhật + cảnh báo | Nhấn Refresh | Không tự đặt ngưỡng tại giao diện |
 | Error No Permission | API 403 | "Không đủ quyền xem dashboard" | Liên hệ admin | Role = librarian |
 | Error API | API 5xx | "Lỗi tải dữ liệu" | Thử lại sau | Retry |
 
@@ -254,7 +254,7 @@ flowchart TD
 
 | Trạng Thái | Điều Kiện | Hiển Thị | Người Dùng Làm | Ghi Chú |
 |---|---|---|---|---|
-| Loading | Mở lần đầu - Thay bộ lọc | Skeleton biểu đồ - "Đang tính toán..." | Chờ | GET /api/v1/analytics/report |
+| Loading | Mở lần đầu - Thay bộ lọc | Skeleton biểu đồ - "Đang tính toán..." | Chờ | Endpoint báo cáo chưa được xác định trong API contract |
 | Loaded | API 200 | Tỷ lệ sử dụng + Tỷ lệ no-show + Bảng tổng hợp + nút Xuất | Xem báo cáo - Xuất PDF/CSV | Cache 5 phút |
 | Empty | Không có booking trong khoảng | "Chưa có dữ liệu trong khoảng này" | Thay khoảng thời gian | Chọn ngày có hoạt động |
 | Insufficient Data | Dữ liệu < 1 giờ | "Dữ liệu chưa đủ minimum 1 giờ" | Chọn khoảng dài hơn | UC-05 tiền điều kiện |
@@ -303,17 +303,17 @@ flowchart TD
 | booking_not_found | 404 | Lượt đặt không tồn tại. | Kiểm tra lại QR | booking_id không match |
 | no_permission | 403 | Bạn không có quyền check-in lượt đặt này khác người sở hữu. | Liên hệ thủ thư | user_id ≠ booking.user_id |
 | invalid_booking_status | 422 | Lượt đặt không hợp lệ đã check-in/hủy. | Xem lại lịch | status ≠ 'booked' |
-| checkin_overdue | 422 | Hết thời gian check-in. Phòng được giải phóng lúc XX:XX. | Liên hệ thủ thư | now > end_time + 15m |
+| checkin_window_closed | 409 | Hết thời gian check-in. | Xem lại lịch đặt | Ngoài cửa sổ từ giờ bắt đầu đến giờ bắt đầu + 15 phút (BR-05/TC-08) |
 | duplicate_checkin | 409 | Đã check-in rồi. | Xem lại lịch | Đã check-in trong hôm |
-| qr_expired | 422 | Mã QR hết hạn >24h hoặc booking đã hủy. | Tạo QR mới từ booking | QR cũ |
+| booking_not_active | 409 | Mã QR không còn hiệu lực hoặc lượt đặt không còn hoạt động. | Xem lại lịch đặt | Không tạo QR ngoài cửa sổ được phép |
 
 ### 3.4 Lỗi Occupancy (3 lỗi)
 
 | Mã Lỗi API | HTTP | Thông Báo Tiếng Việt | Hành Động | Ghi Chú |
 |---|---|---|---|---|
-| occupancy_not_found | 404 | Phòng chưa có dữ liệu mật độ. Thử lại sau hoặc liên hệ OPS. | Thử lại - Liên hệ OPS | CV chưa gửi count |
+| occupancy_unavailable | 503 | Chưa đủ dữ liệu mật độ để tính chỗ trống. | Thử lại sau | Occupancy/N0 chưa khởi tạo; không hiển thị số 0 giả |
 | room_not_found | 404 | Phòng không tồn tại. | Tải lại danh sách | room_id invalid |
-| cv_connection_error | 503 | Nguồn đếm chưa kết nối. Liên hệ OPS. | Liên hệ OPS | CV service down |
+| source_offline | 200 status | Nguồn đếm mất kết nối; số liệu gần nhất lúc ... | Liên hệ OPS / thử lại | Trạng thái nguồn nằm trong occupancy response, không biến thành occupancy 0 |
 
 ### 3.5 Lỗi Dashboard & Thống Kê (4 lỗi)
 
@@ -342,22 +342,20 @@ flowchart TD
 ## 4. Quy Tắc Xử Lý Lỗi
 
 ### 4.1 Retry Logic
-- **Automatic Retry:** Network timeout - Retry 1, 2, 4 giây (3 lần) -> show error
-- **Automatic Retry:** 503 Service Unavailable - Retry 1, 2, 4 giây (3 lần) -> show error
-- **Manual Retry:** Nút "Thử lại" bật lên cho 4xx/5xx
-- **Max Manual:** Tối đa 3 lần bấm, sau đó cảnh báo "Liên hệ support"
+- GET occupancy có thể được thử lại theo chu kỳ làm mới; khi lỗi, hiển thị thời điểm cập nhật và trạng thái dữ liệu.
+- Không tự gửi lại thao tác tạo booking, check-in hoặc thao tác ghi khác nếu API chưa hỗ trợ idempotency key.
+- Lỗi 4xx cần sửa đầu vào/quyền; lỗi 5xx và mất mạng hiển thị nút thử lại, không giả định thao tác ghi đã thất bại.
 
 ### 4.2 Timeout
-- **API Request:** 30 giây
-- **Occupancy Polling:** 5 giây / lần
-- **Dashboard Auto-Refresh:** 1 phút / lần
-- **QR Timeout:** 24 giờ
+- **API Request:** cấu hình timeout theo endpoint; mục tiêu độ trễ giao diện được kiểm thử riêng trong test plan.
+- **Occupancy Polling:** 3–5 giây / lần theo yêu cầu giao diện.
+- **Dashboard Auto-Refresh:** chu kỳ cần được thống nhất khi endpoint dashboard được triển khai.
+- **QR Check-in:** từ giờ bắt đầu đến 15 phút sau giờ bắt đầu (BR-05/TC-08).
 
 ### 4.3 Caching & Freshness
-- **Occupancy Data:** Cache 5s; stale threshold 30s
-- **Booking List:** Cache 5s
-- **Dashboard Data:** Cache 1-5 phút
-- **Invalidate Cache:** Khi user thay bộ lọc / refresh manual
+- Không ấn định TTL hoặc stale threshold tại UI flow; dùng cấu hình/backend contract đã được thống nhất.
+- Mọi dữ liệu occupancy cũ phải được đánh dấu stale theo trạng thái trả về, không trình bày như dữ liệu mới.
+- Làm mới hoặc đổi bộ lọc phải cập nhật dữ liệu đang hiển thị.
 
 ### 4.4 Fallback UI States
 - **Degraded Mode:** Nếu một API fail, hiển thị cached data nếu có

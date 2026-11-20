@@ -11,14 +11,14 @@ from app.detection.tracker import PersonTracker
 from app.counting.line_counter import LineCounter
 from app.schemas.count_result import CountResult, CrossingEvent
 
-
+# //sửa dùng 416px và 5 FPS cho webcam
 class WebcamSession:
     def __init__(self, manager, job):
         self.lock = Lock()
         self.job = job
         self.options = job['options']
-        self.detector = PersonDetector(manager.model, manager.device, self.options['confidence'])
-        self.tracker = PersonTracker(10)
+        self.detector = PersonDetector(manager.model, manager.device, self.options['confidence'], image_size=416)
+        self.tracker = PersonTracker(5)
         self.counter = LineCounter(self.options['line_config']) if self.options['line_config'] else None
         self.started = time.monotonic()
         self.index = 0
