@@ -786,6 +786,12 @@ button:disabled {
   color: #93000a;
 }
 
+.connection-pill.stale {
+  border-color: #f2d394;
+  background: #fff8e6;
+  color: #7a4d00;
+}
+
 .status-dot {
   width: 6px;
   height: 6px;
@@ -805,6 +811,10 @@ button:disabled {
 
 .connection-pill.error .status-dot {
   background: var(--error);
+}
+
+.connection-pill.stale .status-dot {
+  background: #b77900;
 }
 
 .campus-switcher {

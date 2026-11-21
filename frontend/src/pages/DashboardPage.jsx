@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { getCurrentOccupancy } from "../services/api.js";
+import { getCurrentOccupancy, isMockEnabled } from "../services/api.js";
 
 const REFRESH_INTERVAL = 30_000;
 const CAMPUS_LABELS = {
@@ -145,6 +145,12 @@ export function getOccupancyConnectionStatus({ error, isLoading, occupancy }) {
   if (!occupancy) {
     return { text: "Chưa có dữ liệu", className: "empty" };
   }
+  if (occupancy.device_status === "offline") {
+    return { text: "Nguồn mất kết nối", className: "error" };
+  }
+  if (occupancy.is_stale) {
+    return { text: "Dữ liệu đã cũ", className: "stale" };
+  }
   return { text: "Cập nhật trực tiếp", className: "" };
 }
 
@@ -203,12 +209,17 @@ export default function DashboardPage() {
     isLoading,
     occupancy,
   });
-  const displayCount = occupancy
+  const displayCount = occupancy?.count != null
     ? new Intl.NumberFormat("vi-VN").format(occupancy.count)
     : "—";
   const countValue = displayCount;
   const location = occupancy?.location || "Thư viện UTH";
   const campusLabel = CAMPUS_LABELS[campus];
+  const dataSourceNote = isRefreshing
+    ? "Đang làm mới dữ liệu"
+    : isMockEnabled()
+      ? "Dữ liệu mô phỏng (mock)"
+      : "Dữ liệu từ Backend API";
 
   return (
     <div className="app-shell" id="dashboard">
@@ -263,9 +274,7 @@ export default function DashboardPage() {
               role="status"
             >
               <span className="status-dot" />
-              {error
-                ? connectionStatus.text
-                : updatedAt
+              {updatedAt && connectionStatus.className === ""
                   ? `Cập nhật: ${updatedAt}`
                   : connectionStatus.text}
             </span>
@@ -336,7 +345,7 @@ export default function DashboardPage() {
             unit="người"
             icon="group"
             variant="secondary"
-            note={isRefreshing ? "Đang làm mới dữ liệu" : "Dữ liệu từ Backend API"}
+            note={dataSourceNote}
           />
           <MetricCard
             label="Còn trống"

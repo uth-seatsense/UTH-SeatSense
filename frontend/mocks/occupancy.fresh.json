@@ -1,0 +1,21 @@
+{
+  "campus": "CS1",
+  "rooms": [
+    {
+      "room_id": 14,
+      "room_code": "A101",
+      "room_name": "Phòng A101",
+      "room_type": "free_area",
+      "capacity": 40,
+      "current_count": 23,
+      "available_seats": 17,
+      "occupancy_level": "medium",
+      "recorded_at": "2026-11-18T05:50:30Z",
+      "updated_at": "2026-11-18T05:50:30Z",
+      "is_stale": false,
+      "device_status": "online"
+    }
+  ],
+  "total_rooms": 1,
+  "last_updated": "2026-11-18T05:50:30Z"
+}
