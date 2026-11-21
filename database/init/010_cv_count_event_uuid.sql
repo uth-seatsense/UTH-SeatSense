@@ -1,5 +1,6 @@
 -- SEAT-53: upgrade the SEAT-37 integer event key to the CV-provided UUID contract.
 BEGIN;
+SELECT pg_advisory_xact_lock(240053);
 
 CREATE TABLE IF NOT EXISTS count_events (
     event_id UUID PRIMARY KEY,
@@ -37,6 +38,7 @@ BEGIN
         UPDATE count_events SET device_id = 'legacy-device' WHERE device_id IS NULL;
         ALTER TABLE count_events ALTER COLUMN device_id SET NOT NULL;
         ALTER TABLE count_events DROP CONSTRAINT IF EXISTS count_events_pkey;
+        ALTER TABLE count_events ALTER COLUMN event_id DROP IDENTITY IF EXISTS;
         ALTER TABLE count_events
             ALTER COLUMN event_id TYPE UUID
             USING md5('legacy-event-' || event_id::text)::uuid;
@@ -57,4 +59,9 @@ COMMENT ON TABLE count_events IS
     'Discrete entrance/exit events. Distinct from cv_count_records.';
 COMMENT ON COLUMN count_events.event_id IS
     'UUID idempotency key supplied by CV (SEAT-53).';
+
+INSERT INTO schema_migrations (version)
+VALUES ('010_cv_count_event_uuid')
+ON CONFLICT (version) DO NOTHING;
+
 COMMIT;

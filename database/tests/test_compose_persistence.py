@@ -67,8 +67,62 @@ class ComposePersistenceTests(unittest.TestCase):
         self.compose('up','-d','--wait','--wait-timeout','120','db')
         self.assertEqual(self.sql("SELECT version FROM schema_migrations WHERE version='002_cv_count_records';"),'002_cv_count_records')
         self.assertEqual(self.sql("SELECT version FROM schema_migrations WHERE version='009_add_email_otp_auth';"),'009_add_email_otp_auth')
+        self.assertEqual(self.sql("SELECT version FROM schema_migrations WHERE version='010_cv_count_event_uuid';"),'010_cv_count_event_uuid')
+        self.assertEqual(self.sql("SELECT version FROM schema_migrations WHERE version='011_normalize_room_types';"),'011_normalize_room_types')
+        self.assertEqual(self.sql("SELECT version FROM schema_migrations WHERE version='012_seed_campuses_and_rooms';"),'012_seed_campuses_and_rooms')
         self.assertEqual(self.sql("SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('email_otp_challenges','auth_sessions');"),'2')
         self.assertEqual(self.sql("SELECT count(*) FROM cv_count_records;"),'0')
+        self.assertEqual(self.sql("SELECT count(*) FROM campuses WHERE code IN ('CS1','CS3');"),'2')
+        self.assertEqual(self.sql("SELECT count(*) FROM rooms WHERE code LIKE 'DEMO-%';"),'4')
+        self.assertEqual(self.sql("SELECT count(DISTINCT room_type) FROM rooms WHERE code LIKE 'DEMO-%' AND room_type IN ('free_area','topic_room');"),'2')
+        self.assertEqual(self.sql("SELECT count(*) FROM rooms WHERE code LIKE 'DEMO-%' AND campus_id IS NOT NULL;"),'4')
+        self.sql("""
+            ALTER TABLE rooms DROP CONSTRAINT ck_rooms_type;
+            UPDATE rooms SET room_type = CASE room_type
+                WHEN 'free_area' THEN 'reading_room'
+                WHEN 'topic_room' THEN 'group_study_room'
+            END
+            WHERE code LIKE 'DEMO-%';
+            ALTER TABLE rooms ADD CONSTRAINT ck_rooms_type
+                CHECK (room_type IN ('reading_room', 'group_study_room'));
+        """)
+        for filename in ('011_normalize_room_types.sql', '012_seed_campuses_and_rooms.sql'):
+            script = (ROOT/'database'/'init'/filename).read_text(encoding='utf-8')
+            self.compose('exec','-T','db','sh','-c',
+                         'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"',
+                         input=script)
+        self.assertEqual(self.sql("SELECT count(*) FROM rooms WHERE code LIKE 'DEMO-%' AND room_type IN ('free_area','topic_room');"),'4')
+        self.assertEqual(self.sql("SELECT count(*) FROM rooms WHERE code LIKE 'DEMO-%';"),'4')
+        self.assertEqual(self.sql("SELECT indexdef LIKE '%UNIQUE%' FROM pg_indexes WHERE schemaname='public' AND tablename='count_events' AND indexname='count_events_pkey';"),'t')
+        self.assertEqual(self.sql("SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND indexname='idx_occupancy_room_recorded';"),'1')
+        self.sql("""
+            INSERT INTO occupancy_records
+                (room_id, current_count, available_seats, recorded_at, source, device_status)
+            SELECT id, 7, capacity - 7, '2026-11-20T14:00:00Z', 'cv', 'online'
+            FROM rooms
+            WHERE code = 'DEMO-CS1-FREE-01';
+        """)
+        self.assertEqual(self.sql("""
+            SELECT count(*)
+            FROM occupancy_records AS occupancy
+            JOIN rooms ON rooms.id = occupancy.room_id
+            WHERE rooms.code = 'DEMO-CS1-FREE-01'
+              AND occupancy.current_count = 7
+              AND occupancy.available_seats = 53
+              AND occupancy.recorded_at = '2026-11-20T14:00:00Z';
+        """),'1')
+        self.compose('down')
+        self.compose('up','-d','--wait','--wait-timeout','120','db')
+        self.assertEqual(self.sql("SELECT count(*) FROM rooms WHERE code LIKE 'DEMO-%';"),'4')
+        self.assertEqual(self.sql("""
+            SELECT count(*)
+            FROM occupancy_records AS occupancy
+            JOIN rooms ON rooms.id = occupancy.room_id
+            WHERE rooms.code = 'DEMO-CS1-FREE-01'
+              AND occupancy.current_count = 7
+              AND occupancy.available_seats = 53
+              AND occupancy.recorded_at = '2026-11-20T14:00:00Z';
+        """),'1')
         migration = (ROOT/'database/init/009_add_email_otp_auth.sql').read_text(encoding='utf-8')
         self.compose('exec','-T','db','sh','-c',
                      'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"',
