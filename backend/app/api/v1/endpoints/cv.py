@@ -14,8 +14,8 @@ from app.schemas.cv_count import (
     CVCountReceipt,
     ErrorEnvelope,
 )
-from app.services.cv_count_service import CVCountService
-from app.services.occupancy_service import OccupancyService, CountEventConflictError, RoomNotFoundError
+from app.services.cv_count_service import CVCountService, RoomNotFoundError
+from app.services.occupancy_service import OccupancyService, CountEventConflictError
 
 router = APIRouter()
 cv_count_service = CVCountService()
