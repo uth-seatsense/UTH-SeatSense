@@ -6,6 +6,10 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./tests/setup.ts"],
+    include: [
+      "src/tests/**/*.test.{js,jsx,ts,tsx}",
+      "tests/**/*.test.{js,jsx,ts,tsx}",
+    ],
   },
   server: {
     host: "0.0.0.0",
