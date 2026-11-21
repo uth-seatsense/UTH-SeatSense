@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     booking_cancel_cutoff_minutes: int = Field(default=30, ge=0, le=1440)
     checkin_grace_minutes: int = Field(default=15, ge=1, le=60)
 
+    occupancy_low_threshold: float = Field(default=0.30, ge=0, le=1)
+    occupancy_high_threshold: float = Field(default=0.70, ge=0, le=1)
+
     model_config = SettingsConfigDict(extra="ignore")
 
     def email_domain_allowlist(self) -> frozenset[str]:
