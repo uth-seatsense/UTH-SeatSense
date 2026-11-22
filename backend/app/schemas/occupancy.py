@@ -69,5 +69,6 @@ class CurrentOccupancyResponse(BaseModel):
     current_count: int | None
     updated_at: datetime | None
     location: str
+    data_status: Literal["fresh", "stale", "disconnected"] | None = None
 
     model_config = ConfigDict(from_attributes=True)
