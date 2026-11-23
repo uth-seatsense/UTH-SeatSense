@@ -1,0 +1,1 @@
+﻿{"db_outage_seconds":60,"health_during_outage":"ERR","cv_post_during_outage":"{\"error\":{\"code\":\"database_unavailable\",\"message\":\"The database is temporarily unavailable\"}}","post_is_database_unavailable":true}

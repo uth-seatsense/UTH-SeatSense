@@ -11,6 +11,7 @@ import cv2
 
 from app.detection.detector import PersonDetector
 from app.services.video_service import process_video
+from app.services.backend_sender import send_count_record
 
 logger = logging.getLogger(__name__)
 ROOT = Path(__file__).resolve().parents[2]
@@ -64,6 +65,7 @@ class Jobs:
                 job["status"] = "loading"
             detector = PersonDetector(self.model, self.device, job["options"].pop("confidence"))
             def frame_ready(record, frame, events):
+                send_count_record(record)
                 # Unannotated JPEG lets UI independently toggle bbox, IDs and line.
                 scale = min(1, 1280 / max(frame.shape[:2]))
                 preview = cv2.resize(frame, None, fx=scale, fy=scale) if scale < 1 else frame
