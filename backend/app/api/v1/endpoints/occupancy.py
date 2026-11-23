@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, Path
+from datetime import datetime, timezone, timedelta
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+from pydantic import BaseModel, ConfigDict
 
 from app.api.errors import api_error
 from app.db.session import get_db
@@ -17,6 +19,29 @@ from app.services.cv_count_service import (
 router = APIRouter()
 cv_count_service = CVCountService()
 MAX_ROOM_ID = 2**63 - 1
+
+
+class RoomOccupancyStatus(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    room_id: int
+    room_code: str
+    room_name: str
+    campus_code: str | None = None
+    campus_name: str | None = None
+    capacity: int
+    capacity_confirmed: bool
+    current_count: int | None
+    available_seats: int | None
+    updated_at: datetime | None
+    is_stale: bool
+
+
+class RoomOccupancyStatusResponse(BaseModel):
+    rooms: list[RoomOccupancyStatus]
+    total_rooms: int
+    web_logged_in_count: int
+    total_people_in_rooms: int
+    updated_at: datetime | None
 
 
 @router.get(
@@ -65,42 +90,115 @@ def read_latest_occupancy(
 
 
 @router.get("/current", response_model=CurrentOccupancyResponse)
-def get_current_occupancy(db: Session = Depends(get_db)) -> CurrentOccupancyResponse:
-    result = db.execute(
-        text(
-            """
-            WITH latest_per_room AS (
-                SELECT DISTINCT ON (occupancy.room_id)
-                    occupancy.current_count,
-                    occupancy.recorded_at,
-                    occupancy.device_status
-                FROM occupancy_records AS occupancy
-                JOIN rooms ON rooms.id = occupancy.room_id
-                WHERE rooms.is_active IS TRUE
-                ORDER BY occupancy.room_id, occupancy.recorded_at DESC, occupancy.id DESC
-            )
-            SELECT
-                CASE
-                    WHEN COUNT(*) = 0 THEN NULL
-                    ELSE SUM(current_count)::INTEGER
-                END AS current_count,
-                MAX(recorded_at) AS updated_at,
-                'Thư viện UTH' AS location,
-                (SELECT device_status FROM latest_per_room ORDER BY recorded_at DESC LIMIT 1) AS device_status
-            FROM latest_per_room
-            """
+def get_current_occupancy(
+    db: Session = Depends(get_db),
+    campus: str | None = None,
+) -> CurrentOccupancyResponse:
+    query = text(
+        """
+        WITH latest_per_room AS (
+            SELECT DISTINCT ON (occupancy.room_id)
+                occupancy.room_id,
+                occupancy.current_count,
+                occupancy.recorded_at,
+                occupancy.device_status,
+                campus.name AS campus_name
+            FROM occupancy_records AS occupancy
+            JOIN rooms ON rooms.id = occupancy.room_id
+            JOIN campuses campus ON campus.campus_id = rooms.campus_id
+            WHERE rooms.is_active IS TRUE
+              AND (:campus IS NULL OR campus.code = :campus)
+            ORDER BY occupancy.room_id, occupancy.recorded_at DESC, occupancy.id DESC
         )
-    ).mappings().one()
+        SELECT
+            CASE WHEN COUNT(*) = 0 THEN NULL ELSE SUM(current_count)::INTEGER END AS current_count,
+            MAX(recorded_at) AS updated_at,
+            COALESCE(MAX(campus_name), 'Thư viện UTH') AS location,
+            (SELECT COUNT(DISTINCT user_id)
+               FROM auth_sessions
+              WHERE revoked_at IS NULL
+                AND expires_at > NOW()) AS web_logged_in_count,
+            COUNT(*) AS active_room_count,
+            (SELECT device_status FROM latest_per_room ORDER BY recorded_at DESC LIMIT 1) AS device_status
+        FROM latest_per_room
+        """
+    ).bindparams(campus=campus)
+    result = db.execute(query).mappings().one()
 
     from app.services.occupancy_service import OccupancyService
     data_status = OccupancyService.calculate_data_status(
         result["updated_at"],
-        result.get("device_status")
+        result.get("device_status"),
     )
-
     return CurrentOccupancyResponse(
         current_count=result["current_count"],
         updated_at=result["updated_at"],
         location=result["location"],
-        data_status=data_status
+        web_logged_in_count=result.get("web_logged_in_count", 0),
+        active_room_count=result.get("active_room_count", 0),
+        data_status=data_status,
+    )
+
+
+@router.get("/rooms/status", response_model=RoomOccupancyStatusResponse)
+def get_room_occupancy_status(
+    db: Session = Depends(get_db),
+    campus: str | None = None,
+) -> RoomOccupancyStatusResponse:
+    query = text(
+        """
+        SELECT room_id, room_code, room_name, campus_code, campus_name,
+               capacity, capacity_confirmed, current_count,
+               available_seats, updated_at
+        FROM room_occupancy_status
+        WHERE (:campus IS NULL OR campus_code = :campus)
+        ORDER BY room_id
+        """
+    ).bindparams(campus=campus)
+    rows = db.execute(query).mappings().all()
+
+    web_count = db.execute(
+        text(
+            """
+            SELECT COUNT(DISTINCT user_id) AS web_logged_in_count
+            FROM auth_sessions
+            WHERE revoked_at IS NULL AND expires_at > NOW()
+            """
+        )
+    ).mappings().one()["web_logged_in_count"]
+
+    now = datetime.now(timezone.utc)
+    rooms = []
+    for row in rows:
+        updated_at = row["updated_at"]
+        if updated_at is not None and updated_at.tzinfo is None:
+            updated_at = updated_at.replace(tzinfo=timezone.utc)
+        is_stale = updated_at is None or now - updated_at > timedelta(seconds=30)
+        rooms.append(
+            RoomOccupancyStatus(
+                room_id=row["room_id"],
+                room_code=row["room_code"],
+                room_name=row["room_name"],
+                campus_code=row["campus_code"],
+                campus_name=row["campus_name"],
+                capacity=row["capacity"],
+                capacity_confirmed=row["capacity_confirmed"],
+                current_count=row["current_count"],
+                available_seats=row["available_seats"],
+                updated_at=updated_at,
+                is_stale=is_stale,
+            )
+        )
+
+    return RoomOccupancyStatusResponse(
+        rooms=rooms,
+        total_rooms=len(rooms),
+        web_logged_in_count=int(web_count),
+        total_people_in_rooms=sum(
+            room.current_count or 0 for room in rooms
+        ),
+        updated_at=max(
+            (room.updated_at for room in rooms if room.updated_at is not None),
+            default=None,
+        ),
     )

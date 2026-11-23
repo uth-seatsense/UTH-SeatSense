@@ -15,7 +15,11 @@ from app.schemas.cv_count import (
     ErrorEnvelope,
 )
 from app.services.cv_count_service import CVCountService, RoomNotFoundError
-from app.services.occupancy_service import OccupancyService, CountEventConflictError
+from app.services.occupancy_service import (
+    OccupancyService,
+    CountEventConflictError,
+    RoomNotFoundError as OccupancyRoomNotFoundError,
+)
 
 router = APIRouter()
 cv_count_service = CVCountService()
@@ -29,7 +33,7 @@ def receive_count_event(payload: CountEventCreate, db: Session = Depends(get_db)
         event, created = occupancy_service.receive_count_event(db, payload)
     except CountEventConflictError:
         raise api_error(409, "event_id_conflict", "event_id already exists with different content") from None
-    except RoomNotFoundError:
+    except OccupancyRoomNotFoundError:
         raise api_error(404, "room_not_found", "Room does not exist") from None
     return CountEventReceipt(event_id=event.event_id, room_id=event.room_id,
                              received_at=event.received_at, duplicate=not created)

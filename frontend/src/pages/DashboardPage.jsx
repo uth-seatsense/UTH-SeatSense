@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { getCurrentOccupancy, isMockEnabled } from "../services/api.js";
+import {
+  getCurrentOccupancy,
+  getRoomOccupancyStatus,
+  isMockEnabled,
+} from "../services/api.js";
 
 const REFRESH_INTERVAL = 30_000;
 const CAMPUS_LABELS = {
@@ -121,15 +125,29 @@ function AreaRow({ area, isLoading }) {
       </div>
       <div className="area-stat">
         <div className="area-count">
-          <strong>{isLoading ? "Đang tải" : "Chưa có dữ liệu"}</strong>
-          <span>—</span>
+          <strong>
+            {isLoading
+              ? "Đang tải"
+              : area.current_count != null
+                ? `${area.current_count} người`
+                : "Chưa có dữ liệu"}
+          </strong>
+          <span>
+            {area.available_seats != null
+              ? `${area.available_seats} chỗ trống`
+              : "—"}
+          </span>
         </div>
         <div className="area-track" aria-hidden="true">
           <span />
         </div>
       </div>
       <span className="area-status">
-        {isLoading ? "Đang tải" : "Chờ cập nhật"}
+        {isLoading
+          ? "Đang tải"
+          : area.is_stale
+            ? "Dữ liệu cũ"
+            : "Cập nhật trực tiếp"}
       </span>
     </article>
   );
@@ -156,6 +174,7 @@ export function getOccupancyConnectionStatus({ error, isLoading, occupancy }) {
 
 export default function DashboardPage() {
   const [occupancy, setOccupancy] = useState(null);
+  const [roomOccupancyStatus, setRoomOccupancyStatus] = useState(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -174,11 +193,19 @@ export default function DashboardPage() {
       setIsRefreshing(hasLoadedRef.current);
 
       try {
-        const result = await getCurrentOccupancy({
-          signal: controller.signal,
-        });
+        const [result, roomStatus] = await Promise.all([
+          getCurrentOccupancy({
+            signal: controller.signal,
+            campus: campus === "cs1" ? "CS1" : "CS3",
+          }),
+          getRoomOccupancyStatus({
+            signal: controller.signal,
+            campus: campus === "cs1" ? "CS1" : "CS3",
+          }),
+        ]);
         if (active) {
           setOccupancy(result);
+          setRoomOccupancyStatus(roomStatus);
         }
       } catch (requestError) {
         if (active && requestError.name !== "AbortError") {
@@ -213,6 +240,16 @@ export default function DashboardPage() {
     ? new Intl.NumberFormat("vi-VN").format(occupancy.count)
     : "—";
   const countValue = displayCount;
+  const roomStatus = roomOccupancyStatus;
+  const totalCapacity = roomStatus?.rooms?.reduce(
+    (total, room) => total + room.capacity,
+    0,
+  ) ?? null;
+  const totalAvailable = roomStatus?.rooms?.reduce(
+    (total, room) => total + (room.available_seats ?? 0),
+    0,
+  ) ?? null;
+  const webLoggedCount = roomStatus?.web_logged_in_count;
   const location = occupancy?.location || "Thư viện UTH";
   const campusLabel = CAMPUS_LABELS[campus];
   const dataSourceNote = isRefreshing
@@ -333,11 +370,11 @@ export default function DashboardPage() {
         <section className="metrics-grid" aria-label="Thống kê thư viện">
           <MetricCard
             label="Sức chứa"
-            value="—"
+            value={totalCapacity != null ? new Intl.NumberFormat("vi-VN").format(totalCapacity) : "—"}
             unit="chỗ"
             icon="chair_alt"
             variant="primary"
-            note="Chưa có dữ liệu sức chứa"
+            note={totalCapacity != null ? "Tổng sức chứa phòng đang hoạt động" : "Chưa có dữ liệu sức chứa"}
           />
           <MetricCard
             label="Đang có mặt"
@@ -349,11 +386,19 @@ export default function DashboardPage() {
           />
           <MetricCard
             label="Còn trống"
-            value="—"
+            value={totalAvailable != null ? new Intl.NumberFormat("vi-VN").format(totalAvailable) : "—"}
             unit="chỗ trống"
             icon="event_seat"
             variant="green"
-            note="Chưa có dữ liệu sức chứa"
+            note={totalAvailable != null ? "Tính từ số người mới nhất từng phòng" : "Chưa có dữ liệu sức chứa"}
+          />
+          <MetricCard
+            label="Đang đăng nhập Web"
+            value={webLoggedCount != null ? new Intl.NumberFormat("vi-VN").format(webLoggedCount) : "—"}
+            unit="người"
+            icon="person"
+            variant="secondary"
+            note="Phiên đăng nhập còn hiệu lực"
           />
           <MetricCard
             label="Mật độ trung bình"
@@ -377,14 +422,29 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="area-list">
-              {areas.map((area) => (
-                <AreaRow key={area.name} area={area} isLoading={isLoading} />
-              ))}
+              {roomOccupancyStatus?.rooms?.length
+                ? roomOccupancyStatus.rooms.map((room) => (
+                    <AreaRow
+                      key={room.room_id}
+                      area={{
+                        name: room.room_name,
+                        category: room.room_code,
+                        description: `Sức chứa ${room.capacity} người`,
+                        current_count: room.current_count,
+                        available_seats: room.available_seats,
+                        is_stale: room.is_stale,
+                      }}
+                      isLoading={isLoading}
+                    />
+                  ))
+                : areas.map((area) => (
+                    <AreaRow key={area.name} area={area} isLoading={isLoading} />
+                  ))}
             </div>
             {!isLoading && !error && (
               <p className="panel-footnote">
-                Chưa có dữ liệu phân khu từ Backend API. Số người hiện tại là
-                tổng các phòng đang hoạt động, chưa lọc theo cơ sở.
+                Số người và chỗ trống được lấy từ bản ghi mới nhất từng phòng.
+                Dữ liệu cũ hơn 30 giây được đánh dấu là stale.
               </p>
             )}
           </section>

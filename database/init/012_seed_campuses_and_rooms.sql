@@ -21,10 +21,9 @@ SELECT
     campus.campus_id
 FROM (
     VALUES
-        ('DEMO-CS1-FREE-01', 'Khu tự học CS1', 'free_area', 'CS1', 'Cơ sở 1', 60, 'Tầng 1, Khu A'),
+        ('DEMO-CS1-FREE-01', 'Khu tự học CS1', 'free_area', 'CS1', 'Cơ sở 1', 50, 'Tầng 1, Khu A'),
         ('DEMO-CS1-TOPIC-01', 'Phòng chuyên đề CS1', 'topic_room', 'CS1', 'Cơ sở 1', 12, 'Tầng 2, Khu A'),
-        ('DEMO-CS3-FREE-01', 'Khu tự học CS3', 'free_area', 'CS3', 'Cơ sở 3', 50, 'Tầng 1, Khu B'),
-        ('DEMO-CS3-TOPIC-01', 'Phòng chuyên đề CS3', 'topic_room', 'CS3', 'Cơ sở 3', 10, 'Tầng 2, Khu B')
+        ('DEMO-CS3-FREE-01', 'Khu tự học CS3', 'free_area', 'CS3', 'Cơ sở 3', 120, 'Tầng 1, Khu B')
 ) AS seed(code, name, room_type, campus_code, building, capacity, location)
 JOIN campuses AS campus ON campus.code = seed.campus_code
 ON CONFLICT (code) DO NOTHING;

@@ -159,6 +159,21 @@ export function getRoomOccupancy(roomId, { signal } = {}) {
   return requestApi(`occupancy/rooms/${roomId}/latest`, { signal });
 }
 
+export function getRoomOccupancyStatus({ signal, campus } = {}) {
+  if (isMockEnabled()) {
+    return Promise.resolve({
+      rooms: [],
+      total_rooms: 0,
+      web_logged_in_count: 0,
+      total_people_in_rooms: null,
+      updated_at: null,
+    });
+  }
+  const params = new URLSearchParams();
+  if (campus) params.set("campus", campus);
+  return requestApi(`occupancy/rooms/status?${params.toString()}`, { signal });
+}
+
 export async function getBookings({ signal } = {}) {
   const result = await requestApi("bookings?limit=100", { signal });
   return result.items;
