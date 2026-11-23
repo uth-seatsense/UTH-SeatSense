@@ -48,9 +48,9 @@ class RoomOccupancyStatusResponse(BaseModel):
     "/rooms/{room_id}/latest",
     response_model=LatestRoomOccupancy,
     responses={
-        404: {"model": ErrorEnvelope, "description": "Room/data not found"},
+        404: {"model": ErrorEnvelope, "description": "Room not found"},
         422: {"model": ErrorEnvelope, "description": "Invalid room ID"},
-        503: {"model": ErrorEnvelope, "description": "Database unavailable"},
+        503: {"model": ErrorEnvelope, "description": "Occupancy unavailable or database error"},
     },
 )
 def read_latest_occupancy(
@@ -63,8 +63,8 @@ def read_latest_occupancy(
         raise api_error(404, "room_not_found", "Room does not exist") from None
     except OccupancyNotFoundError:
         raise api_error(
-            404,
-            "occupancy_not_found",
+            503,
+            "occupancy_unavailable",
             "No live occupancy record is available for this room",
         ) from None
     except SQLAlchemyError:
@@ -95,22 +95,49 @@ def get_current_occupancy(
     campus: str | None = None,
 ) -> CurrentOccupancyResponse:
     query = text(
-            """
-            SELECT
-                CASE WHEN COUNT(*) = 0 THEN NULL ELSE SUM(current_count)::INTEGER END AS current_count,
-                MAX(updated_at) AS updated_at,
-                COALESCE(MAX(campus_name), 'Thư viện UTH') AS location,
-                (SELECT COUNT(DISTINCT user_id)
-                   FROM auth_sessions
-                  WHERE revoked_at IS NULL
-                    AND expires_at > NOW()) AS web_logged_in_count,
-                COUNT(*) AS active_room_count
-            FROM room_occupancy_status
-            WHERE (:campus IS NULL OR campus_code = :campus)
-            """
-        ).bindparams(campus=campus)
+        """
+        WITH latest_per_room AS (
+            SELECT DISTINCT ON (occupancy.room_id)
+                occupancy.room_id,
+                occupancy.current_count,
+                occupancy.recorded_at,
+                occupancy.device_status,
+                campus.name AS campus_name
+            FROM occupancy_records AS occupancy
+            JOIN rooms ON rooms.id = occupancy.room_id
+            JOIN campuses campus ON campus.campus_id = rooms.campus_id
+            WHERE rooms.is_active IS TRUE
+              AND (:campus IS NULL OR campus.code = :campus)
+            ORDER BY occupancy.room_id, occupancy.recorded_at DESC, occupancy.id DESC
+        )
+        SELECT
+            CASE WHEN COUNT(*) = 0 THEN NULL ELSE SUM(current_count)::INTEGER END AS current_count,
+            MAX(recorded_at) AS updated_at,
+            COALESCE(MAX(campus_name), 'Thư viện UTH') AS location,
+            (SELECT COUNT(DISTINCT user_id)
+               FROM auth_sessions
+              WHERE revoked_at IS NULL
+                AND expires_at > NOW()) AS web_logged_in_count,
+            COUNT(*) AS active_room_count,
+            (SELECT device_status FROM latest_per_room ORDER BY recorded_at DESC LIMIT 1) AS device_status
+        FROM latest_per_room
+        """
+    ).bindparams(campus=campus)
     result = db.execute(query).mappings().one()
-    return CurrentOccupancyResponse(**result)
+
+    from app.services.occupancy_service import OccupancyService
+    data_status = OccupancyService.calculate_data_status(
+        result["updated_at"],
+        result.get("device_status"),
+    )
+    return CurrentOccupancyResponse(
+        current_count=result["current_count"],
+        updated_at=result["updated_at"],
+        location=result["location"],
+        web_logged_in_count=result.get("web_logged_in_count", 0),
+        active_room_count=result.get("active_room_count", 0),
+        data_status=data_status,
+    )
 
 
 @router.get("/rooms/status", response_model=RoomOccupancyStatusResponse)
@@ -119,15 +146,15 @@ def get_room_occupancy_status(
     campus: str | None = None,
 ) -> RoomOccupancyStatusResponse:
     query = text(
-            """
-            SELECT room_id, room_code, room_name, campus_code, campus_name,
-                   capacity, capacity_confirmed, current_count,
-                   available_seats, updated_at
-            FROM room_occupancy_status
-            WHERE (:campus IS NULL OR campus_code = :campus)
-            ORDER BY room_id
-            """
-        ).bindparams(campus=campus)
+        """
+        SELECT room_id, room_code, room_name, campus_code, campus_name,
+               capacity, capacity_confirmed, current_count,
+               available_seats, updated_at
+        FROM room_occupancy_status
+        WHERE (:campus IS NULL OR campus_code = :campus)
+        ORDER BY room_id
+        """
+    ).bindparams(campus=campus)
     rows = db.execute(query).mappings().all()
 
     web_count = db.execute(

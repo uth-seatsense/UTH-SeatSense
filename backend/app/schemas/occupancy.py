@@ -71,5 +71,6 @@ class CurrentOccupancyResponse(BaseModel):
     location: str
     web_logged_in_count: int = 0
     active_room_count: int = 0
+    data_status: Literal["fresh", "stale", "disconnected"] | None = None
 
     model_config = ConfigDict(from_attributes=True)

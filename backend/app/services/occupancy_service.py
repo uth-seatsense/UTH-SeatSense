@@ -1,4 +1,5 @@
-﻿from app.core.config import settings
+﻿from datetime import datetime, timezone
+from app.core.config import settings
 from app.models.occupancy_record import OccupancyRecord
 from app.models.count_event import CountEvent
 from app.models.room import Room
@@ -164,6 +165,38 @@ class OccupancyService:
         db.commit()
         db.refresh(record)
         return record
+
+    @staticmethod
+    def calculate_data_status(
+        recorded_at: datetime | None,
+        device_status: str | None = None
+    ) -> str | None:
+        """
+        Calculate data freshness status based on recorded_at timestamp and device_status.
+
+        Returns:
+            - "fresh": data is recent and device is online
+            - "stale": data exceeds stale threshold
+            - "disconnected": data exceeds disconnected threshold or device is offline/error
+            - None: no data available
+        """
+        if recorded_at is None:
+            return None
+
+        now = datetime.now(timezone.utc)
+        age_seconds = (now - recorded_at).total_seconds()
+
+        # Device explicitly offline or error -> disconnected
+        if device_status in ("offline", "error"):
+            return "disconnected"
+
+        # Check time-based thresholds
+        if age_seconds >= settings.device_offline_seconds:
+            return "disconnected"
+        elif age_seconds >= settings.occupancy_stale_seconds:
+            return "stale"
+        else:
+            return "fresh"
 
 
 def _as_utc(value):

@@ -4,13 +4,14 @@ import math
 import os
 from pathlib import Path
 from time import monotonic
+from datetime import datetime, timezone
 
 # Keep app.counting.line_counter and app.counting.occupancy importable.
 __path__ = [str(Path(__file__).with_suffix(""))]
 from app.counting.line_counter import LineConfig, LineCounter
 
 
-def count_source(source, config, model, device):
+def count_source(source, config, model, device, event_client=None):
     import cv2
     from app.detection.detector import PersonDetector
     from app.detection.tracker import PersonTracker
@@ -32,6 +33,7 @@ def count_source(source, config, model, device):
         started = monotonic()
         frame_index = 0
         next_sample = 0
+        next_flush = 0.0
         while True:
             ok, frame = capture.read()
             if not ok:
@@ -43,6 +45,7 @@ def count_source(source, config, model, device):
             slot = math.floor(seconds * fps + 1e-9)
             if slot < next_sample:
                 continue
+                # bổ sung luồng đếm cho seat 51
             next_sample = slot + 1
             boxes = detector.detect(frame)
             ids = tracker.update(boxes, frame)
@@ -52,6 +55,15 @@ def count_source(source, config, model, device):
                 if float(score) >= detector.confidence
             ]
             events = counter.update(detections, frame.shape[1], frame.shape[0], seconds * 1000)
+            if live and event_client and event_client.enabled:
+                now = monotonic()
+                for event in events:
+                    event_client.enqueue_crossing(
+                        event["direction"], event_time=datetime.now(timezone.utc)
+                    )
+                if events or now >= next_flush:
+                    event_client.flush()
+                    next_flush = now + 1
             if events:
                 print(f"IN={counter.in_count} OUT={counter.out_count}", flush=True)
     except KeyboardInterrupt:
@@ -66,12 +78,16 @@ def main():
     parser.add_argument("--config", type=Path, default=Path("config/line_config.example.yaml"))
     parser.add_argument("--source", default="sample")
     parser.add_argument("--model", default=os.getenv("CV_MODEL_PATH", "models/best.pt"))
+    parser.add_argument("--room-id", type=int, default=None)
+    parser.add_argument("--device-id", default=None)
     args = parser.parse_args()
     import yaml  # Installed with the project's Ultralytics dependency.
     try:
         config = yaml.safe_load(args.config.read_text(encoding="utf-8"))
         source = config["sources"][args.source]
-        count_source(source, config, args.model, os.getenv("CV_DEVICE", "cpu"))
+        from app.event_client import EventClient
+        event_client = EventClient(room_id=args.room_id, device_id=args.device_id)
+        count_source(source, config, args.model, os.getenv("CV_DEVICE", "cpu"), event_client)
     except (KeyError, OSError, TypeError, ValueError, yaml.YAMLError) as exc:
         parser.exit(1, f"CV error: {exc}\n")
 

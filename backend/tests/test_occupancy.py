@@ -28,7 +28,7 @@ def test_current_occupancy_returns_latest_aggregated_count() -> None:
 
     class Database:
         def execute(self, query):
-            assert "room_occupancy_status" in str(query)
+            assert "latest_per_room" in str(query)
             assert "auth_sessions" in str(query)
             return Result()
 
@@ -40,6 +40,7 @@ def test_current_occupancy_returns_latest_aggregated_count() -> None:
         "location": "Thư viện UTH",
         "web_logged_in_count": 0,
         "active_room_count": 0,
+        "data_status": "disconnected",
     }
 
 
