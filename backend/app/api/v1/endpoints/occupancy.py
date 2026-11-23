@@ -71,22 +71,36 @@ def get_current_occupancy(db: Session = Depends(get_db)) -> CurrentOccupancyResp
             """
             WITH latest_per_room AS (
                 SELECT DISTINCT ON (occupancy.room_id)
-                    occupancy.occupied_count,
-                    occupancy.observed_at
+                    occupancy.current_count,
+                    occupancy.recorded_at,
+                    occupancy.device_status
                 FROM occupancy_records AS occupancy
                 JOIN rooms ON rooms.id = occupancy.room_id
                 WHERE rooms.is_active IS TRUE
-                ORDER BY occupancy.room_id, occupancy.observed_at DESC, occupancy.id DESC
+                ORDER BY occupancy.room_id, occupancy.recorded_at DESC, occupancy.id DESC
             )
             SELECT
                 CASE
                     WHEN COUNT(*) = 0 THEN NULL
-                    ELSE SUM(occupied_count)::INTEGER
+                    ELSE SUM(current_count)::INTEGER
                 END AS current_count,
-                MAX(observed_at) AS updated_at,
-                'Thư viện UTH' AS location
+                MAX(recorded_at) AS updated_at,
+                'Thư viện UTH' AS location,
+                (SELECT device_status FROM latest_per_room ORDER BY recorded_at DESC LIMIT 1) AS device_status
             FROM latest_per_room
             """
         )
     ).mappings().one()
-    return CurrentOccupancyResponse(**result)
+
+    from app.services.occupancy_service import OccupancyService
+    data_status = OccupancyService.calculate_data_status(
+        result["updated_at"],
+        result.get("device_status")
+    )
+
+    return CurrentOccupancyResponse(
+        current_count=result["current_count"],
+        updated_at=result["updated_at"],
+        location=result["location"],
+        data_status=data_status
+    )
