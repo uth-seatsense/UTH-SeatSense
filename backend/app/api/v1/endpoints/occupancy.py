@@ -23,9 +23,9 @@ MAX_ROOM_ID = 2**63 - 1
     "/rooms/{room_id}/latest",
     response_model=LatestRoomOccupancy,
     responses={
-        404: {"model": ErrorEnvelope, "description": "Room/data not found"},
+        404: {"model": ErrorEnvelope, "description": "Room not found"},
         422: {"model": ErrorEnvelope, "description": "Invalid room ID"},
-        503: {"model": ErrorEnvelope, "description": "Database unavailable"},
+        503: {"model": ErrorEnvelope, "description": "Occupancy unavailable or database error"},
     },
 )
 def read_latest_occupancy(
@@ -38,8 +38,8 @@ def read_latest_occupancy(
         raise api_error(404, "room_not_found", "Room does not exist") from None
     except OccupancyNotFoundError:
         raise api_error(
-            404,
-            "occupancy_not_found",
+            503,
+            "occupancy_unavailable",
             "No live occupancy record is available for this room",
         ) from None
     except SQLAlchemyError:
