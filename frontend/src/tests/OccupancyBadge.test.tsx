@@ -10,7 +10,10 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { OccupancyBadge, getOccupancyLevel } from "../components/OccupancyBadge";
+import {
+  OccupancyBadge,
+  getOccupancyLevel,
+} from "../components/OccupancyBadge";
 
 // Helper
 function render(element: React.ReactElement): string {
@@ -113,7 +116,9 @@ describe("OccupancyBadge — showIcon=false", () => {
 describe("OccupancyBadge — Tái sử dụng nhiều kích thước", () => {
   for (const size of ["sm", "md", "lg"] as const) {
     it(`có class occupancy-badge--${size} khi size="${size}"`, () => {
-      const html = render(createElement(OccupancyBadge, { level: "empty", size }));
+      const html = render(
+        createElement(OccupancyBadge, { level: "empty", size }),
+      );
       expect(html).toContain(`occupancy-badge--${size}`);
     });
   }
@@ -136,25 +141,30 @@ describe("OccupancyBadge — Accessibility", () => {
 // ── getOccupancyLevel helper ───────────────────────────────────────────────
 
 describe("getOccupancyLevel — Phân loại mức từ tỉ lệ lấp đầy", () => {
-  it("trả về 'empty' khi tỉ lệ < 50%", () => {
+  it("trả về 'empty' khi tỉ lệ ≤ 50%", () => {
     expect(getOccupancyLevel(10, 100)).toBe("empty");
     expect(getOccupancyLevel(49, 100)).toBe("empty");
-    expect(getOccupancyLevel(0,  50)).toBe("empty");
+    expect(getOccupancyLevel(50, 100)).toBe("empty");
+    expect(getOccupancyLevel(0, 50)).toBe("empty");
   });
 
-  it("trả về 'moderate' khi tỉ lệ 50%–85%", () => {
-    expect(getOccupancyLevel(50,  100)).toBe("moderate");
-    expect(getOccupancyLevel(85,  100)).toBe("moderate");
-    expect(getOccupancyLevel(170, 200)).toBe("moderate");
+  it("trả về 'moderate' khi tỉ lệ > 50% và < 80%", () => {
+    expect(getOccupancyLevel(51, 100)).toBe("moderate");
+    expect(getOccupancyLevel(79, 100)).toBe("moderate");
+    expect(getOccupancyLevel(159, 200)).toBe("moderate");
   });
 
-  it("trả về 'crowded' khi tỉ lệ > 85%", () => {
-    expect(getOccupancyLevel(86,  100)).toBe("crowded");
+  it("trả về 'crowded' khi tỉ lệ ≥ 80%", () => {
+    expect(getOccupancyLevel(80, 100)).toBe("crowded");
     expect(getOccupancyLevel(100, 100)).toBe("crowded");
     expect(getOccupancyLevel(200, 100)).toBe("crowded");
   });
 
   it("trả về 'empty' khi số người = 0", () => {
     expect(getOccupancyLevel(0, 100)).toBe("empty");
+  });
+
+  it("từ chối sức chứa không hợp lệ", () => {
+    expect(() => getOccupancyLevel(0, 0)).toThrow(RangeError);
   });
 });

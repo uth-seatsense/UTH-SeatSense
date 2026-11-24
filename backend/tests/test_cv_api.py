@@ -8,7 +8,9 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
+from pydantic import SecretStr
 
+from app.core.config import settings
 from app.db.session import get_db
 from app.models.cv_count_record import CVCountRecord
 from app.models.room import Room
@@ -16,7 +18,7 @@ from main import app
 
 
 @pytest.fixture
-def client() -> Generator[TestClient, None, None]:
+def client(monkeypatch: pytest.MonkeyPatch) -> Generator[TestClient, None, None]:
     engine = create_engine(
         "sqlite+pysqlite://",
         connect_args={"check_same_thread": False},
@@ -55,8 +57,11 @@ def client() -> Generator[TestClient, None, None]:
 
     app.dependency_overrides[get_db] = override_get_db
     app.state.cv_test_session_factory = session_factory
+    monkeypatch.setattr(settings, "cv_ingest_api_key", SecretStr("test-ingest-key"))
     try:
-        with TestClient(app) as test_client:
+        with TestClient(
+            app, headers={"X-API-Key": "test-ingest-key"}
+        ) as test_client:
             yield test_client
     finally:
         app.dependency_overrides.clear()
@@ -110,6 +115,27 @@ def test_cv_batch_receipt_and_idempotent_retry(client: TestClient) -> None:
     assert retry.json()["created_count"] == 0
     assert retry.json()["duplicate_count"] == 2
     assert all(item["duplicate"] for item in retry.json()["records"])
+
+
+def test_cv_batch_requires_api_key(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/cv/count-records",
+        json={"records": [cv_record()]},
+        headers={"X-API-Key": "invalid"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "unauthorized"
+
+
+def test_cv_batch_rejects_unknown_room_code(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/cv/count-records",
+        json={"records": [cv_record(room_id="UNKNOWN")]},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "room_not_found"
 
 
 def test_conflicting_record_rolls_back_the_entire_batch(client: TestClient) -> None:

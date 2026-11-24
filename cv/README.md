@@ -51,7 +51,9 @@ Phiếu đối chiếu: [kết quả Sprint 4](tests/SPRINT4_RESULTS.md).
 
 Mở <http://127.0.0.1:8001>, chọn **USB Webcam → Start Test** rồi cấp quyền camera. Nếu có nhiều camera, chọn thiết bị trong cài đặt camera của trình duyệt. Bấm **Stop Test** để dừng và tải kết quả.
 
-**Cấu hình đang chờ tích hợp.** Mẫu `.env.example` ghi các biến dự kiến để chọn camera theo chỉ số hoặc RTSP, và gửi số đếm từ CV trên Windows tới Backend trong Docker bằng `BACKEND_URL` và API key. Ở bản hiện tại, CV lưu số đếm cục bộ. Xem [hướng dẫn chạy Backend trong Docker](../backend/README.md).
+**Đồng bộ occupancy live lên web.** Với Docker Compose, đặt cùng một khóa bí mật cục bộ vào `CV_API_KEY` và `CV_INGEST_API_KEY` trong `.env`; `BACKEND_URL` mặc định trỏ tới Backend trong mạng Compose. Nếu chạy CV trực tiếp trên Windows, đặt `BACKEND_URL=http://127.0.0.1:8000`. Không commit khóa thật.
+
+Mở CV Testing Lab, chọn **USB Webcam**, nhập mã phòng đúng như trên Backend, nhập số người ban đầu đã kiểm tra và giữ bật **Đếm IN/OUT**, rồi bấm **Start Test** và cấp quyền camera. CV gửi các bản ghi webcam theo lô 2 frame tới Backend; dashboard đang mở sẽ tự cập nhật theo chu kỳ polling. Phải dùng số người ban đầu thực tế để occupancy không bị sai. Video tải lên vẫn chỉ tạo kết quả cục bộ, không được giả làm webcam live. Xem [hướng dẫn chạy Backend trong Docker](../backend/README.md).
 
 **Lỗi thường gặp.** Kiểm tra `models/best.pt` và thư mục chạy nếu thiếu mô hình. Nếu camera không mở được, kiểm tra quyền trong trình duyệt và đóng ứng dụng đang dùng camera. Nếu cổng `8001` đang bận, đổi thành `8002` trong lệnh và mở <http://127.0.0.1:8002>. Nếu xử lý video chậm, thử `--image-size 416`.
 

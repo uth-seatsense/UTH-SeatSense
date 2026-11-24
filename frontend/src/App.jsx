@@ -8,6 +8,7 @@ import {
 import HomePage from "./pages/HomePage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import RoomsPage from "./pages/RoomsPage.jsx";
+import RoomDetailPage from "./pages/RoomDetailPage.tsx";
 import ReservationPage from "./pages/ReservationPage.jsx";
 import MyBookingsPage from "./pages/MyBookingsPage.jsx";
 import CheckinPage from "./pages/CheckinPage.jsx";
@@ -44,42 +45,44 @@ function Application() {
 
   return (
     <>
-      <nav
-        aria-label="Điều hướng chính"
-        className={`app-navigation${hasSidebar ? " app-navigation--dashboard" : ""}`}
-      >
-        <div className="app-navigation-links">
-          {navigation.map(([to, label]) => (
-            <NavLink key={to} to={to} end>
-              {label}
-            </NavLink>
-          ))}
-        </div>
-        {user ? (
-          <div className="app-navigation-account">
-            <span>{user.display_name || user.email}</span>
-            <button
-              className="button button--quiet"
-              onClick={async () => {
-                setNavigationError("");
-                try {
-                  await signOut();
-                  navigate("/login", { replace: true });
-                } catch (error) {
-                  setNavigationError(error.message);
-                }
-              }}
-              type="button"
-            >
-              Đăng xuất
-            </button>
+      {!hasSidebar && (
+        <nav
+          aria-label="Điều hướng chính"
+          className="app-navigation"
+        >
+          <div className="app-navigation-links">
+            {navigation.map(([to, label]) => (
+              <NavLink key={to} to={to} end>
+                {label}
+              </NavLink>
+            ))}
           </div>
-        ) : (
-          <NavLink className="app-navigation-login" to="/login" end>
-            Đăng nhập
-          </NavLink>
-        )}
-      </nav>
+          {user ? (
+            <div className="app-navigation-account">
+              <span>{user.display_name || user.email}</span>
+              <button
+                className="button button--quiet"
+                onClick={async () => {
+                  setNavigationError("");
+                  try {
+                    await signOut();
+                    navigate("/login", { replace: true });
+                  } catch (error) {
+                    setNavigationError(error.message);
+                  }
+                }}
+                type="button"
+              >
+                Đăng xuất
+              </button>
+            </div>
+          ) : (
+            <NavLink className="app-navigation-login" to="/login" end>
+              Đăng nhập
+            </NavLink>
+          )}
+        </nav>
+      )}
       {navigationError && (
         <p
           className="feedback feedback--error navigation-feedback"
@@ -97,6 +100,14 @@ function Application() {
           element={
             <RequireAuth>
               <RoomsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/rooms/:roomId"
+          element={
+            <RequireAuth>
+              <RoomDetailPage />
             </RequireAuth>
           }
         />

@@ -15,7 +15,8 @@ from app.schemas.cv_count import (
     ErrorEnvelope,
 )
 from app.services.cv_count_service import CVCountService
-from app.services.occupancy_service import OccupancyService, CountEventConflictError, RoomNotFoundError
+from app.services.cv_count_service import RoomNotFoundError
+from app.services.occupancy_service import OccupancyService, CountEventConflictError
 
 router = APIRouter()
 cv_count_service = CVCountService()
@@ -39,9 +40,11 @@ def receive_count_event(payload: CountEventCreate, db: Session = Depends(get_db)
     "/count-records",
     response_model=CVCountBatchResponse,
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_cv_api_key)],
     responses={
         400: {"model": ErrorEnvelope, "description": "Malformed JSON"},
         409: {"model": ErrorEnvelope, "description": "CV record conflict"},
+        404: {"model": ErrorEnvelope, "description": "Unknown room code"},
         422: {"model": ErrorEnvelope, "description": "Invalid request"},
         503: {"model": ErrorEnvelope, "description": "Database unavailable"},
     },
@@ -59,6 +62,12 @@ def receive_cv_count_records(
             409,
             "cv_record_conflict",
             "A session/frame key already exists with different CV content",
+        ) from None
+    except RoomNotFoundError:
+        raise api_error(
+            404,
+            "room_not_found",
+            "A room code in the CV batch does not exist",
         ) from None
     except SQLAlchemyError:
         raise api_error(

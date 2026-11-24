@@ -1,11 +1,16 @@
 import json
+import os
 from pathlib import Path
 from fastapi import APIRouter, Request, UploadFile, File, Form, HTTPException
 from fastapi.responses import Response, FileResponse
 from app.counting.line_counter import LineConfig
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
-from app.services.webcam import WebcamSession
+from app.services.backend_ingest import (
+    BackendIngestConfigurationError,
+    BackendIngestError,
+)
+from app.services.webcam import WebcamSession, WebcamSyncConfigurationError
 
 router = APIRouter()
 
@@ -28,7 +33,15 @@ class Options(BaseModel):
 @router.get("/api/config")
 def configuration(request: Request):
     jobs = request.app.state.jobs
-    return {"model_available": jobs.model.is_file(), "device": jobs.device, "max_upload_mb": 200}
+    backend_url = os.environ.get("BACKEND_URL", "").strip()
+    api_key = os.environ.get("CV_API_KEY", "").strip()
+    return {
+        "model_available": jobs.model.is_file(),
+        "device": jobs.device,
+        "max_upload_mb": 200,
+        "backend_sync_url_configured": bool(backend_url),
+        "backend_sync_enabled": bool(backend_url and api_key),
+    }
 
 
 def find_job(request, identity):
@@ -98,7 +111,12 @@ def stop_job(identity: str, request: Request):
     if job.get('live'):
         with job['live'].lock:
             if job['status'] not in {'completed','failed'}:
-                summary = job['live'].close()
+                try:
+                    summary = job['live'].close()
+                except BackendIngestError as exc:
+                    job.update(status='failed', error=str(exc))
+                    manager.slot.release()
+                    raise HTTPException(502, str(exc)) from exc
                 with manager.lock:
                     job.update(status='completed',summary=summary,output=job['directory'])
                 manager.slot.release()
@@ -127,6 +145,14 @@ def start_webcam(options: Options, request: Request):
         job['live'] = WebcamSession(manager,job)
         job['status'] = 'processing'
         return manager.snapshot(job['id'])
+    except WebcamSyncConfigurationError as exc:
+        job.update(status='failed', error=str(exc))
+        manager.slot.release()
+        raise HTTPException(422, str(exc)) from exc
+    except BackendIngestConfigurationError as exc:
+        job.update(status='failed', error=str(exc))
+        manager.slot.release()
+        raise HTTPException(503, str(exc)) from exc
     except Exception:
         job.update(status='failed',error='Khong tai duoc model')
         manager.slot.release()
@@ -156,6 +182,8 @@ async def webcam_frame(identity: str, request: Request):
                 record,events = live.process(content)
             except ValueError as exc:
                 raise HTTPException(422,str(exc))
+            except BackendIngestError as exc:
+                raise HTTPException(502,str(exc)) from exc
             with manager.lock:
                 job.update(latest=record,frames_processed=record['frame_index']+1)
                 job['events'] = (job['events']+[dict(e,timestamp_ms=record['timestamp_ms']) for e in events])[-100:]

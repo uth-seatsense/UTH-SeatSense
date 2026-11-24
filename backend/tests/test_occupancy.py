@@ -28,8 +28,15 @@ def test_current_occupancy_returns_latest_aggregated_count() -> None:
 
     class Database:
         def execute(self, query):
+            if "information_schema.columns" in str(query):
+                class SchemaResult:
+                    def scalars(self):
+                        return ["current_count", "recorded_at"]
+                return SchemaResult()
             assert "DISTINCT ON (occupancy.room_id)" in str(query)
             assert "rooms.is_active IS TRUE" in str(query)
+            assert "current_count" in str(query)
+            assert "estimated_occupancy" in str(query)
             return Result()
 
     response = get_current_occupancy(Database())
@@ -57,6 +64,11 @@ def test_current_occupancy_without_records_returns_null_count() -> None:
 
     class Database:
         def execute(self, query):
+            if "information_schema.columns" in str(query):
+                class SchemaResult:
+                    def scalars(self):
+                        return ["current_count", "recorded_at"]
+                return SchemaResult()
             return Result()
 
     response = get_current_occupancy(Database())

@@ -21,18 +21,18 @@ const LEVEL_CONFIG: Record<
   { label: string; icon: string; ariaLabel: string }
 > = {
   empty: {
-    label:     "Vắng",
-    icon:      "✓",   // dấu tích — còn nhiều chỗ
+    label: "Vắng",
+    icon: "✓", // dấu tích — còn nhiều chỗ
     ariaLabel: "Còn nhiều chỗ trống",
   },
   moderate: {
-    label:     "Vừa",
-    icon:      "~",   // dấu tilde — khoảng vừa
+    label: "Vừa",
+    icon: "~", // dấu tilde — khoảng vừa
     ariaLabel: "Lấp đầy vừa phải, nên cân nhắc",
   },
   crowded: {
-    label:     "Đông",
-    icon:      "!",   // dấu chấm than — đông, chú ý
+    label: "Đông",
+    icon: "!", // dấu chấm than — đông, chú ý
     ariaLabel: "Gần hết hoặc hết chỗ",
   },
 };
@@ -46,19 +46,28 @@ const LEVEL_CONFIG: Record<
  * @param capacity       Sức chứa tối đa của phòng
  * @returns OccupancyLevel
  *
- * Ngưỡng (theo SEAT-46):
- *   < 50%  → empty
- *   50–85% → moderate
- *   > 85%  → crowded
+ * Ngưỡng (theo SRS FR-OCC-04):
+ *   ≤ 50%             → empty
+ *   > 50% và < 80%    → moderate
+ *   ≥ 80%             → crowded
  */
 export function getOccupancyLevel(
   occupiedCount: number,
   capacity: number,
 ): OccupancyLevel {
-  if (capacity <= 0) return "insufficient" as never;
+  if (
+    !Number.isFinite(occupiedCount) ||
+    occupiedCount < 0 ||
+    !Number.isFinite(capacity) ||
+    capacity <= 0
+  ) {
+    throw new RangeError(
+      "Occupancy and capacity must be valid non-negative values.",
+    );
+  }
   const ratio = occupiedCount / capacity;
-  if (ratio < 0.5)  return "empty";
-  if (ratio <= 0.85) return "moderate";
+  if (ratio <= 0.5) return "empty";
+  if (ratio < 0.8) return "moderate";
   return "crowded";
 }
 
@@ -84,25 +93,28 @@ export interface OccupancyBadgeProps {
 
 const LEVEL_STYLES: Record<OccupancyLevel, React.CSSProperties> = {
   empty: {
-    color:           "#176444",
+    color: "#176444",
     backgroundColor: "#effaf4",
-    borderColor:     "#b8e3cc",
+    borderColor: "#b8e3cc",
   },
   moderate: {
-    color:           "#7a4100",
+    color: "#7a4100",
     backgroundColor: "#fff8e9",
-    borderColor:     "#efd29d",
+    borderColor: "#efd29d",
   },
   crowded: {
-    color:           "#93000a",
+    color: "#93000a",
     backgroundColor: "#fff2f0",
-    borderColor:     "#f0c2bd",
+    borderColor: "#f0c2bd",
   },
 };
 
-const SIZE_STYLES: Record<NonNullable<OccupancyBadgeProps["size"]>, React.CSSProperties> = {
+const SIZE_STYLES: Record<
+  NonNullable<OccupancyBadgeProps["size"]>,
+  React.CSSProperties
+> = {
   sm: { fontSize: "11px", padding: "3px 7px", gap: "4px" },
-  md: { fontSize: "13px", padding: "4px 9px",  gap: "5px" },
+  md: { fontSize: "13px", padding: "4px 9px", gap: "5px" },
   lg: { fontSize: "15px", padding: "5px 11px", gap: "6px" },
 };
 
@@ -128,20 +140,20 @@ export function OccupancyBadge({
   className = "",
 }: OccupancyBadgeProps) {
   const { label, icon, ariaLabel } = LEVEL_CONFIG[level];
-  const levelStyle  = LEVEL_STYLES[level];
-  const sizeStyle   = SIZE_STYLES[size];
+  const levelStyle = LEVEL_STYLES[level];
+  const sizeStyle = SIZE_STYLES[size];
 
   const baseStyle: React.CSSProperties = {
-    display:        "inline-flex",
-    alignItems:     "center",
-    gap:            sizeStyle.gap,
-    padding:        sizeStyle.padding,
-    borderRadius:   "99px",
-    border:         "1px solid",
-    fontWeight:     650,
-    whiteSpace:     "nowrap",
-    lineHeight:     1.2,
-    fontSize:       sizeStyle.fontSize,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: sizeStyle.gap,
+    padding: sizeStyle.padding,
+    borderRadius: "99px",
+    border: "1px solid",
+    fontWeight: 650,
+    whiteSpace: "nowrap",
+    lineHeight: 1.2,
+    fontSize: sizeStyle.fontSize,
     ...levelStyle,
   };
 

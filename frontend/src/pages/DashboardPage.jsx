@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { getCurrentOccupancy, isMockEnabled } from "../services/api.js";
+import { getCampusRooms } from "../services/roomApi.ts";
+import { useOccupancyPolling } from "../hooks/useOccupancyPolling.ts";
+import RoomCard from "../components/RoomCard.tsx";
+import { StaleWarning } from "../components/StaleWarning.tsx";
 
-const REFRESH_INTERVAL = 30_000;
 const CAMPUS_LABELS = {
   cs1: "Cơ sở 1 (Võ Oanh - B.301A)",
   cs3: "Cơ sở 3 (Tòa K - Lầu 2)",
@@ -13,21 +16,54 @@ const areas = [
     name: "B301A - Lầu 1",
     category: "Tự học & Máy tính",
     description: "Bàn rộng, có sẵn các tiện ích học tập",
+    current: "48",
+    total: "120",
+    percent: "40",
+    status: "Thoáng",
+    tone: "empty",
   },
   {
     name: "B301A - Lầu 2",
     category: "Đọc sách yên tĩnh",
     description: "Không gian nghiên cứu và đọc tài liệu",
+    current: "26",
+    total: "80",
+    percent: "32",
+    status: "Rất thoáng",
+    tone: "empty",
   },
   {
     name: "Phòng Chuyên Đề 1",
     category: "Học nhóm",
     description: "Không gian học tập theo nhóm",
+    current: "6",
+    total: "12",
+    percent: "50",
+    status: "Đang dùng",
+    tone: "medium",
   },
   {
     name: "Phòng Chuyên Đề 2",
     category: "Học nhóm",
     description: "Không gian học tập theo nhóm",
+    current: "0",
+    total: "10",
+    percent: "0",
+    status: "Trống",
+    tone: "empty",
+  },
+];
+
+const cs3Areas = [
+  {
+    name: "Toàn sàn tự học mở Tầng 1 (Tòa K)",
+    category: "Tòa K",
+    description: "Bàn tự học; khu vực mở, thoáng, không chia phòng.",
+    current: "48",
+    total: "120",
+    percent: "40",
+    status: "Thoáng",
+    tone: "empty",
   },
 ];
 
@@ -56,6 +92,9 @@ function Icon({ children, className = "" }) {
 }
 
 function Sidebar() {
+  const { pathname } = useLocation();
+  const path = pathname.replace(/\/+$/, "") || "/";
+
   return (
     <aside className="sidebar">
       <div>
@@ -69,13 +108,25 @@ function Sidebar() {
           </span>
         </a>
         <nav className="side-nav" aria-label="Điều hướng chính">
-          <a className="side-link active" href="#dashboard" aria-current="page">
+          <Link
+            className={`side-link ${path === "/" || path === "/dashboard" ? "active" : ""}`}
+            to="/dashboard"
+            aria-current={path === "/" || path === "/dashboard" ? "page" : undefined}
+          >
             <Icon>dashboard</Icon>
             Tổng quan
-          </a>
+          </Link>
           <Link className="side-link" to="/reservation">
             <Icon>meeting_room</Icon>
             Đặt phòng học
+          </Link>
+          <Link
+            className={`side-link ${path === "/my-bookings" ? "active" : ""}`}
+            to="/my-bookings"
+            aria-current={path === "/my-bookings" ? "page" : undefined}
+          >
+            <Icon>history</Icon>
+            Lịch đặt
           </Link>
         </nav>
       </div>
@@ -121,15 +172,15 @@ function AreaRow({ area, isLoading }) {
       </div>
       <div className="area-stat">
         <div className="area-count">
-          <strong>{isLoading ? "Đang tải" : "Chưa có dữ liệu"}</strong>
-          <span>—</span>
+          <strong>{isLoading ? "Đang tải" : `${area.current} / ${area.total}`}</strong>
+          <span>{area.percent}%</span>
         </div>
         <div className="area-track" aria-hidden="true">
-          <span />
+          <span className={`area-track-fill ${area.tone}`} style={{ width: `${area.percent}%` }} />
         </div>
       </div>
-      <span className="area-status">
-        {isLoading ? "Đang tải" : "Chờ cập nhật"}
+      <span className={`area-status ${area.tone}`}>
+        {isLoading ? "Đang tải" : area.status}
       </span>
     </article>
   );
@@ -155,53 +206,24 @@ export function getOccupancyConnectionStatus({ error, isLoading, occupancy }) {
 }
 
 export default function DashboardPage() {
-  const [occupancy, setOccupancy] = useState(null);
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [campus, setCampus] = useState("cs1");
-  const hasLoadedRef = useRef(false);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let active = true;
-    let timeoutId;
-
-    async function loadOccupancy() {
-      setError("");
-      setIsLoading(!hasLoadedRef.current);
-      setIsRefreshing(hasLoadedRef.current);
-
-      try {
-        const result = await getCurrentOccupancy({
-          signal: controller.signal,
-        });
-        if (active) {
-          setOccupancy(result);
-        }
-      } catch (requestError) {
-        if (active && requestError.name !== "AbortError") {
-          setError(requestError.message || "Không thể kết nối đến máy chủ.");
-        }
-      } finally {
-        if (active) {
-          hasLoadedRef.current = true;
-          setIsLoading(false);
-          setIsRefreshing(false);
-          timeoutId = window.setTimeout(loadOccupancy, REFRESH_INTERVAL);
-        }
-      }
-    }
-
-    loadOccupancy();
-
-    return () => {
-      active = false;
-      controller.abort();
-      window.clearTimeout(timeoutId);
-    };
+  const fetchSnapshot = useCallback(async (signal) => {
+    const campusCode = campus.toUpperCase();
+    const [occupancy, rooms] = await Promise.all([
+      getCurrentOccupancy({ signal, campus: campusCode }),
+      getCampusRooms(campusCode, { signal }),
+    ]);
+    return { occupancy, rooms };
   }, [campus, refreshKey]);
+  const {
+    data: snapshot,
+    isLoading,
+    isRefreshing,
+    error,
+  } = useOccupancyPolling(fetchSnapshot);
+  const occupancy = snapshot?.occupancy ?? null;
+  const rooms = snapshot?.rooms ?? [];
 
   const updatedAt = formatUpdatedAt(occupancy?.updatedAt);
   const connectionStatus = getOccupancyConnectionStatus({
@@ -209,12 +231,31 @@ export default function DashboardPage() {
     isLoading,
     occupancy,
   });
-  const displayCount = occupancy?.count != null
-    ? new Intl.NumberFormat("vi-VN").format(occupancy.count)
-    : "—";
-  const countValue = displayCount;
   const location = occupancy?.location || "Thư viện UTH";
   const campusLabel = CAMPUS_LABELS[campus];
+  const capacity = campus === "cs3" ? 120 : 222;
+  const presentCount = Number.isInteger(occupancy?.count) && occupancy.count >= 0
+    ? occupancy.count
+    : null;
+  const availableCount = presentCount === null
+    ? null
+    : Math.max(0, capacity - presentCount);
+  const densityPercent = presentCount === null
+    ? null
+    : Math.round((presentCount / capacity) * 100);
+  const campusMetrics = campus === "cs3"
+    ? {
+        present: presentCount === null ? "—" : String(presentCount),
+        available: availableCount === null ? "—" : String(availableCount),
+        capacity: String(capacity),
+        density: densityPercent === null ? "—" : `${densityPercent}%`,
+      }
+    : {
+        present: presentCount === null ? "—" : String(presentCount),
+        available: availableCount === null ? "—" : String(availableCount),
+        capacity: String(capacity),
+        density: densityPercent === null ? "—" : `${densityPercent}%`,
+      };
   const dataSourceNote = isRefreshing
     ? "Đang làm mới dữ liệu"
     : isMockEnabled()
@@ -238,6 +279,10 @@ export default function DashboardPage() {
             <Icon>map</Icon>
             <span>Sơ đồ trường</span>
           </button>
+          <button type="button" className="portal-button">
+            <Icon>open_in_new</Icon>
+            <span>Cổng Portal UTH</span>
+          </button>
         </div>
         <div className="topbar-actions">
           <button type="button" className="checkin-button" disabled>
@@ -255,11 +300,11 @@ export default function DashboardPage() {
           <span className="topbar-divider" />
           <div className="profile">
             <span className="profile-avatar">
-              <Icon>person</Icon>
+              <span className="avatar-fallback">N</span>
             </span>
             <span className="profile-copy">
-              <strong>Sinh viên UTH</strong>
-              <small>Tài khoản</small>
+              <strong>Nguyễn Văn An</strong>
+              <small>MSSV: 2151050</small>
             </span>
           </div>
         </div>
@@ -332,32 +377,34 @@ export default function DashboardPage() {
 
         <section className="metrics-grid" aria-label="Thống kê thư viện">
           <MetricCard
-            label="Sức chứa"
-            value="—"
-            unit="chỗ"
+            label={campus === "cs3" ? "Đang có mặt tại CS3" : "Sức chứa"}
+            value={campus === "cs3" ? campusMetrics.present : campusMetrics.capacity}
+            unit={campus === "cs3" ? "sinh viên" : "chỗ"}
             icon="chair_alt"
             variant="primary"
-            note="Chưa có dữ liệu sức chứa"
+            note={campus === "cs3"
+              ? "Thống kê số hiện có"
+              : "B301A Lầu 1, Lầu 2 & Chuyên đề"}
           />
           <MetricCard
-            label="Đang có mặt"
-            value={countValue}
-            unit="người"
+            label={campus === "cs3" ? "Chỗ còn trống" : "Đang có mặt"}
+            value={campus === "cs3" ? campusMetrics.available : campusMetrics.present}
+            unit={campus === "cs3" ? "chỗ sẵn sàng" : "người"}
             icon="group"
             variant="secondary"
             note={dataSourceNote}
           />
           <MetricCard
-            label="Còn trống"
-            value="—"
-            unit="chỗ trống"
+            label={campus === "cs3" ? "Sức chứa tối đa (Tòa K)" : "Còn trống"}
+            value={campus === "cs3" ? campusMetrics.capacity : campusMetrics.available}
+            unit={campus === "cs3" ? "tổng chỗ ngồi (Tầng 1)" : "chỗ trống"}
             icon="event_seat"
             variant="green"
-            note="Chưa có dữ liệu sức chứa"
+            note={campus === "cs3" ? "Tòa K - Tầng 1" : "Sẵn sàng đón tiếp"}
           />
           <MetricCard
             label="Mật độ trung bình"
-            value="—"
+            value={campusMetrics.density}
             unit=""
             icon="speed"
             variant="primary"
@@ -368,19 +415,68 @@ export default function DashboardPage() {
           </MetricCard>
         </section>
 
+        {presentCount !== null && presentCount > capacity && (
+          <div className="alert alert--warning" role="alert">
+            <Icon>warning</Icon>
+            <div className="alert-content">
+              <strong>⚠ Vượt sức chứa</strong>
+              <span>Thư viện hiện đang vượt quá sức chứa ({presentCount}/{capacity} người, {densityPercent}%). Vui lòng kiểm soát lưu lượng vào.</span>
+            </div>
+          </div>
+        )}
+
         <div className="content-grid">
           <section className="panel areas-panel">
             <div className="section-heading">
               <div>
                 <Icon>analytics</Icon>
-                <h2>Mật độ các khu vực — {campusLabel}</h2>
+                <h2>Tình trạng mật độ — {campusLabel}</h2>
               </div>
             </div>
             <div className="area-list">
-              {areas.map((area) => (
-                <AreaRow key={area.name} area={area} isLoading={isLoading} />
-              ))}
+              {isLoading ? (
+                <p className="data-unavailable">Đang tải dữ liệu...</p>
+              ) : !occupancy ? (
+                <p className="data-unavailable">Chưa có dữ liệu occupancy.</p>
+              ) : (
+                <div className="occupancy-summary">
+                  <div className="occupancy-stat">
+                    <strong>Số người hiện tại:</strong>
+                    <span className="occupancy-value">{occupancy.count ?? "—"} người</span>
+                  </div>
+                  <div className="occupancy-stat">
+                    <strong>Sức chứa:</strong>
+                    <span className="occupancy-value">{capacity} chỗ</span>
+                  </div>
+                  <div className="occupancy-stat">
+                    <strong>Mật độ:</strong>
+                    <span className={`occupancy-value ${densityPercent >= 100 ? "critical" : densityPercent >= 80 ? "high" : "normal"}`}>
+                      {densityPercent ?? "—"}%
+                    </span>
+                  </div>
+                  {presentCount !== null && presentCount > capacity && (
+                    <div className="occupancy-warning">
+                      🔴 Vượt sức chứa ({presentCount}/{capacity})
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
+            {error && (
+              <StaleWarning status="disconnected" lastUpdatedAt={occupancy?.updatedAt} />
+            )}
+            {!error && rooms.every((room) => room.is_stale) && rooms.length > 0 && (
+              <StaleWarning status="stale" lastUpdatedAt={occupancy?.updatedAt} />
+            )}
+            {!error && !isLoading && rooms.every((room) => room.count === null) && rooms.length > 0 && (
+              <StaleWarning status="insufficient" lastUpdatedAt={occupancy?.updatedAt} />
+            )}
+            {campus === "cs3" && (
+              <div className="cs3-note" role="note">
+                <Icon>info</Icon>
+                <span>Không gian mở dành riêng cho sinh viên Cơ sở 3. Không gian thoáng, gồm khu tự học và đọc tài liệu.</span>
+              </div>
+            )}
             {!isLoading && !error && (
               <p className="panel-footnote">
                 Chưa có dữ liệu phân khu từ Backend API. Số người hiện tại là
@@ -390,35 +486,67 @@ export default function DashboardPage() {
           </section>
 
           <aside className="right-column">
-            <section className="panel booking-panel">
+            {campus !== "cs3" && (
+              <section className="panel booking-panel">
               <div className="section-heading compact">
                 <div>
                   <Icon>event_available</Icon>
                   <h2>Lịch đặt phòng sắp tới</h2>
                 </div>
-                <span className="small-badge">Chưa kết nối</span>
+                <span className="small-badge">Đã xác nhận</span>
               </div>
-              <div className="booking-empty">
-                <Icon>event_busy</Icon>
-                <p>Lịch đặt phòng sẽ hiển thị khi có dữ liệu từ hệ thống.</p>
+              <div className="booking-detail">
+                <strong>Phòng Chuyên Đề 1 · CS1</strong>
+                <span><Icon>schedule</Icon> Hôm nay 14:00 - 16:00 (còn 2 giờ)</span>
               </div>
-              <button type="button" className="qr-button" disabled>
+              <div className="booking-qr">
+                <span className="qr-mini"><Icon>qr_code_2</Icon></span>
+                <div>
+                  <strong>Quét mã trước 14:15</strong>
+                  <small>Tự hủy nếu quá hạn 15 phút</small>
+                </div>
+              </div>
+              <button type="button" className="qr-button">
                 <Icon>qr_code_scanner</Icon>
                 Xem mã QR Check-in
               </button>
-            </section>
+              </section>
+            )}
 
             <section className="panel notice-panel">
               <div className="section-heading compact">
                 <div>
                   <Icon>campaign</Icon>
-                  <h2>Thông báo thư viện</h2>
+                  <h2>{campus === "cs3" ? "Thông báo Thư viện CS3 (Tòa K)" : "Thông báo thư viện"}</h2>
                 </div>
-                <span className="muted-label">Mới nhất</span>
               </div>
-              <div className="notice-empty">
-                Thông báo sẽ hiển thị tại đây khi được cung cấp bởi hệ thống.
-              </div>
+              {campus === "cs3" ? (
+                <>
+                  <div className="notice-item notice-info">
+                    <strong>Khung giờ phục vụ Tòa K - Tầng 1</strong>
+                    <span>Thứ 2 - Thứ 7: 07:30 - 21:00. Chủ nhật mở cửa theo lịch thi tập trung.</span>
+                  </div>
+                  <div className="notice-item notice-warning">
+                    <strong>Quy định giữ chỗ tại chỗ</strong>
+                    <span>Vui lòng đặt và di chuyển đến khu vực phòng học theo quy tắc.</span>
+                  </div>
+                  <div className="notice-item notice-info">
+                    <strong>Văn hóa giữ chỗ</strong>
+                    <span>Vui lòng không để lại đồ để giữ chỗ. Check-in bằng mã QR khi đến khu tự học.</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="notice-item notice-info">
+                    <strong>Giờ hạn mở cửa mùa thi 07:00 - 22:30</strong>
+                    <span>Áp dụng cả 2 cơ sở từ Thứ Hai đến Thứ Bảy.</span>
+                  </div>
+                  <div className="notice-item notice-warning">
+                    <strong>Quy định tự động hủy đặt phòng</strong>
+                    <span>Phòng hủy tự động nếu chưa check-in sau 15 phút.</span>
+                  </div>
+                </>
+              )}
             </section>
           </aside>
         </div>

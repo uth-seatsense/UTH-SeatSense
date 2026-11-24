@@ -51,6 +51,9 @@ class CVCountService:
     @staticmethod
     def _save_validated(session: Session, records: list[CVCountInput]):
         repository = CVCountRepository(session)
+        for record in records:
+            if record.room_id is not None and repository.get_room_by_code(record.room_id) is None:
+                raise RoomNotFoundError
         return [repository.save(record) for record in records]
 
     def history(self, **filters):
