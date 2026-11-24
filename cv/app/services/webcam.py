@@ -10,12 +10,7 @@ from app.detection.detector import PersonDetector
 from app.detection.tracker import PersonTracker
 from app.counting.line_counter import LineCounter
 from app.schemas.count_result import CountResult, CrossingEvent
-from app.services.backend_ingest import BackendCountSender
-
-
-class WebcamSyncConfigurationError(ValueError):
-    pass
-
+from app.services.backend_sender import send_count_record
 
 # //sửa dùng 416px và 5 FPS cho webcam
 class WebcamSession:
@@ -23,16 +18,6 @@ class WebcamSession:
         self.lock = Lock()
         self.job = job
         self.options = job['options']
-        self.backend_sender = BackendCountSender()
-        if self.backend_sender.enabled:
-            if not self.options['room_id']:
-                raise WebcamSyncConfigurationError(
-                    'Enter the room code to sync live occupancy'
-                )
-            if self.options['line_config'] is None or self.options['initial_occupancy'] is None:
-                raise WebcamSyncConfigurationError(
-                    'Enable line counting and enter the verified initial occupancy'
-                )
         self.detector = PersonDetector(manager.model, manager.device, self.options['confidence'], image_size=416)
         self.tracker = PersonTracker(5)
         self.counter = LineCounter(self.options['line_config']) if self.options['line_config'] else None
@@ -64,6 +49,7 @@ class WebcamSession:
         raw = None if initial is None else initial+self.counter.in_count-self.counter.out_count
         payload = CountResult(session_id=self.job['id'],camera_id=self.options['camera_id'],room_id=self.options['room_id'],source_type='webcam',frame_index=self.index,timestamp_ms=timestamp,recorded_at=datetime.now(timezone.utc),people_count=len(detections),tracked_count=sum(d['track_id'] is not None for d in detections),line_enabled=self.counter is not None,in_count=self.counter.in_count if self.counter else None,out_count=self.counter.out_count if self.counter else None,initial_occupancy=initial,estimated_occupancy=None if raw is None else max(0,raw),occupancy_underflow=raw is not None and raw<0).model_dump(mode='json')
         record = dict(payload,detections=detections,frame_width=frame.shape[1],frame_height=frame.shape[0],processing_ms=round((time.perf_counter()-start)*1000,3))
+        send_count_record(payload)
         self.csv.writerow(payload)
         self.streams['backend_counts.jsonl'].write(json.dumps(payload)+'\n')
         self.streams['results.jsonl'].write(json.dumps(record)+'\n')
@@ -72,15 +58,11 @@ class WebcamSession:
             self.streams['events.jsonl'].write(item.model_dump_json()+'\n')
         self.index += 1
         self.peak = max(self.peak,len(detections))
-        self.backend_sender.add(payload)
         return record, events
 
     def close(self):
-        try:
-            self.backend_sender.flush()
-        finally:
-            for stream in self.streams.values():
-                stream.close()
+        for stream in self.streams.values():
+            stream.close()
         summary = dict(session_id=self.job['id'],status='completed',source_type='webcam',frames_processed=self.index,peak_count=self.peak)
         summary.update(camera_id=self.options['camera_id'], room_id=self.options['room_id'],
                        in_count=self.counter.in_count if self.counter else None,

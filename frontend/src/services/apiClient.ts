@@ -176,7 +176,10 @@ export async function getCurrentOccupancy({
   signal,
   status,
   campus,
-}: RequestOptions & { status?: MockOccupancyState; campus?: "CS1" | "CS3" } = {}): Promise<
+}: RequestOptions & {
+  status?: MockOccupancyState;
+  campus?: "CS1" | "CS3";
+} = {}): Promise<
   OccupancyResult | NormalizedOccupancy | null
 > {
   if (isMockEnabled()) {
@@ -218,7 +221,7 @@ export async function getCurrentOccupancy({
   }
 
   const url = new URL(OCCUPANCY_ENDPOINT, window.location.origin);
-  if (campus) url.searchParams.set("campus_code", campus);
+  if (campus) url.searchParams.set("campus", campus);
   const response = await fetch(url, { signal });
   if (!response.ok) {
     throw new Error(`API trả về lỗi HTTP ${response.status}`);

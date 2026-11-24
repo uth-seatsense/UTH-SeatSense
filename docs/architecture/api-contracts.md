@@ -58,7 +58,7 @@ Quy ước đọc bảng dưới: body/response là JSON mẫu; `—` nghĩa kh�
 | `POST /api/v1/auth/login` IMPLEMENTED | Public | — | `{"email":"sv@example.edu.vn","otp":"123456"}` | `200 {"access_token":"<opaque-token>","token_type":"bearer","expires_at":"2026-11-12T03:00:00Z","user":{"id":123,"email":"sv@example.edu.vn","display_name":"Nguyễn An","role":"student"}}` | 401 OTP sai/hết hạn/đã dùng; 422 field sai; 503 auth chưa cấu hình |
 | `POST /api/v1/auth/logout` IMPLEMENTED | `authenticated` | Bearer token | `—` | `204` không body | 401 token thiếu/sai/hết hạn |
 | `GET /api/v1/auth/me` IMPLEMENTED | `authenticated` | Bearer token | `—` | `200 {"id":123,"email":"sv@example.edu.vn","display_name":"Nguyễn An","role":"student"}` | 401 token thiếu/sai/hết hạn |
-| `GET /api/v1/occupancy/current` IMPLEMENTED (response hiện tại khác contract mục tiêu) | Public hoặc user đã đăng nhập; role/scope chờ chốt | Hiện chưa nhận query | `—` | `200 {"current_count":23,"updated_at":"2026-11-11T10:25:30Z","location":"Thư viện UTH"}`; contract mục tiêu per-room/campus vẫn PROPOSED | OpenAPI hiện khai báo `200`; query campus và pagination chưa implement |
+| `GET /api/v1/occupancy/current` IMPLEMENTED (SEAT-57 đã bổ sung data_status) | Public hoặc user đã đăng nhập; role/scope chờ chốt | Hiện chưa nhận query | `—` | `200 {"current_count":23,"updated_at":"2026-11-11T10:25:30Z","location":"Thư viện UTH","data_status":"fresh"}`; `data_status` nhận `fresh|stale|disconnected|null` dựa trên `occupancy_stale_seconds` (30s) và `device_offline_seconds` (90s) | OpenAPI hiện khai báo `200`; query campus và pagination chưa implement |
 | `GET /api/v1/occupancy/rooms/{room_id}/latest` IMPLEMENTED legacy / target response PROPOSED | User xem occupancy; role/scope chờ chốt | `room_id`: integer >0 (ID DB) | `—` | `200 {"room_id":14,"room_code":"A101","capacity":40,"estimated_occupancy":23,"available_seats":17,"is_over_capacity":false,"density_level":"medium","device_status":"online","occupancy_status":"fresh","recorded_at":"2026-11-11T08:00:00Z","received_at":"2026-11-11T08:00:01Z"}` | 401/403 theo auth/scope; 404 `room_not_found`; 422 room_id sai; 503 `occupancy_unavailable` khi chưa có baseline/occupancy và `service_unavailable` khi DB/dịch vụ lỗi |
 | `GET /api/v1/rooms/{room_id}/occupancy/history` PROPOSED (SEAT-39) | `librarian`, `admin`; student access chờ chốt | `start_time`, `end_time` ISO 8601 UTC; `limit` 1..500 (default 100); `offset` ≥0 | `—` | `200 {"room_id":14,"room_code":"A101","start_time":"2026-11-11T09:00:00Z","end_time":"2026-11-11T10:00:00Z","records":[{"id":1001,"current_count":20,"available_seats":30,"recorded_at":"2026-11-11T09:00:00Z","source":"cv","device_status":"online"}],"limit":100,"offset":0,"total":1}` | 400 query sai; 401; 403 role/scope; 404 `room_not_found`; 409 không áp dụng; 422 datetime/range/limit/offset sai; 503 DB/service lỗi |
 | `GET /api/v1/rooms` IMPLEMENTED | `authenticated` | `limit` 1..100 (default 50), `offset` ≥0 (default 0), tùy chọn `campus_code` (`CS1`/`CS3`), `room_type` (`free_area`/`topic_room`) | `—` | `200 {"items":[{"id":14,"code":"A101","name":"Phòng A101","room_type":"free_area","capacity":40,"campus_code":"CS1","building":"Cơ sở 1","location":null,"is_active":true}],"limit":50,"offset":0,"total":1}` | 401 thiếu token; 422 filter/pagination sai |
@@ -188,8 +188,13 @@ Bộ tạo dữ liệu CV schema 1.0 hiện ghi bản ghi JSONL cục bộ. Back
 ## API tổng hợp số người cho bảng tổng quan
 
 - `GET /api/v1/occupancy/current` trả về tổng số người dựa trên bản ghi mới nhất
-  của từng phòng đang hoạt động, gồm `current_count`, `updated_at` và
-  `location`. Số người và thời điểm cập nhật là `null` khi chưa có bản ghi.
+  của từng phòng đang hoạt động, gồm `current_count`, `updated_at`, `location`
+  và `data_status` (SEAT-57). Số người và thời điểm cập nhật là `null` khi chưa có bản ghi.
+- `data_status` nhận giá trị: `fresh` (dữ liệu mới), `stale` (vượt ngưỡng
+  `occupancy_stale_seconds`, mặc định 30s), `disconnected` (vượt ngưỡng
+  `device_offline_seconds`, mặc định 90s, hoặc `device_status` là `offline|error`),
+  hoặc `null` (chưa có dữ liệu). Ngưỡng được cấu hình qua biến môi trường
+  `OCCUPANCY_STALE_SECONDS` và `DEVICE_OFFLINE_SECONDS`.
 - API tổng hợp tất cả phòng đang hoạt động vì mô hình phòng hiện tại
   chưa có mã cơ sở. Để lọc theo cơ sở, cần bổ sung ánh xạ này
   vào mô hình dữ liệu.

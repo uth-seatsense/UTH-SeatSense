@@ -6,7 +6,7 @@ Module CV phụ trách xử lý hình ảnh để đếm số người vào và 
 Module dùng YOLOv8n và ByteTrack để phát hiện, theo dõi chuyển động qua cửa.
 Số liệu phục vụ cập nhật tình trạng chỗ trống qua Backend và đối chiếu đếm tay.
 Theo Charter 1.2, cảm biến/IoT đã ngoài phạm vi. CV hiện xuất kết quả cục bộ;
-Backend SEAT-19 đã có API tiếp nhận, nhưng bộ gửi HTTP từ CV còn chờ tích hợp.
+Backend nhận sự kiện CV tại API `/api/v1/cv/events`.
 
 ## Chạy nhanh trên Windows
 
@@ -43,6 +43,75 @@ Trong YAML, `start` và `end` là hai đầu vạch theo tọa độ chuẩn hó
 
 Phiếu đối chiếu: [kết quả Sprint 4](tests/SPRINT4_RESULTS.md).
 
+### Gửi sự kiện lên Backend — SEAT-51
+
+Từ thư mục `cv`, đặt các cấu hình cục bộ dưới đây trong môi trường PowerShell.
+Backend mở port 8000 trên máy thì dùng `127.0.0.1`; `CV_ROOM_ID` phải là ID số
+của phòng đã có trong database. `CV_API_KEY` phải khớp với
+`CV_INGEST_API_KEY` ở Backend. Không đưa khóa thật vào repository.
+
+```powershell
+$env:BACKEND_URL = "http://127.0.0.1:8000"
+$env:CV_API_KEY = "<khoa-cv-cuc-bo>"
+$env:CV_ROOM_ID = "14"
+$env:CV_DEVICE_ID = "camera-01"
+$env:CV_EVENT_QUEUE_PATH = "outputs/event-queue.json"
+```
+
+Chạy nguồn trực tiếp. API gửi sự kiện khi bộ đếm xác nhận crossing IN/OUT.
+
+```powershell
+..\.venv\Scripts\python.exe -m app.counting --source webcam --room-id 14
+```
+
+Mỗi crossing gửi `POST /api/v1/cv/events` với `X-API-Key`. Payload theo SEAT-34
+và schema đang chạy ở Backend, gồm `event_id` UUID, `session_id` UUID,
+`room_id`, `device_id`, `direction` (`in`/`out`), `event_time` ISO 8601 UTC và
+`device_status`. Không gửi ảnh, bbox, confidence hoặc track ID.
+
+```json
+{
+  "event_id": "076ccfac-ea81-4213-9d9f-6b7bb4387010",
+  "session_id": "6f228318-ea31-46b3-a1a7-c562288ea97e",
+  "room_id": 14,
+  "device_id": "camera-01",
+  "direction": "in",
+  "event_time": "2026-11-22T07:00:00Z",
+  "device_status": "online"
+}
+```
+
+Queue JSON lưu bền vững trước khi gửi, mặc định giữ tối đa 10.000 sự kiện.
+Khi đầy, chương trình báo lỗi và giữ nguyên event đang chờ. Khi gặp lỗi mạng,
+client thử lại cùng payload sau 1, 2, 4 giây rồi giữ nguyên thứ tự trong queue.
+Chỉ xóa event đầu queue khi receipt HTTP 200/201 có cùng `event_id`; receipt
+duplicate của Backend được xử lý như ACK. Lỗi 4xx dừng retry và giữ event tại
+đầu queue để đối soát. Sau khi Backend hoạt động lại, gửi queue bằng lệnh:
+
+```powershell
+..\.venv\Scripts\python.exe -m app.event_client --room-id 14 --device-id camera-01
+```
+
+Heartbeat online/offline dùng API riêng
+`PUT /api/v1/cv/devices/{device_id}/status`, gồm `room_id`, `device_status` và
+`reported_at`. API status hiện được mô tả là PROPOSED trong API Contract. Khi
+camera mất nhưng tiến trình CV còn chạy, gọi `send_status_heartbeat("offline")`;
+trình đếm video mẫu/offline không gửi dữ liệu vào occupancy production.
+
+Thử POST một event bằng curl với payload mẫu, trong PowerShell từ thư mục `cv`:
+
+```powershell
+$payload = '{"event_id":"076ccfac-ea81-4213-9d9f-6b7bb4387010","session_id":"6f228318-ea31-46b3-a1a7-c562288ea97e","room_id":14,"device_id":"camera-01","direction":"in","event_time":"2026-11-22T07:00:00Z","device_status":"online"}'
+curl.exe -X POST "$env:BACKEND_URL/api/v1/cv/events" `
+  -H "Content-Type: application/json" -H "X-API-Key: $env:CV_API_KEY" `
+  --data-binary $payload
+```
+
+Endpoint trả 201 khi tạo event và trả receipt có `duplicate=true` nếu nhận lại
+cùng event ID/nội dung. Xem [API Contract](../docs/architecture/api-contracts.md)
+và [hướng dẫn Backend](../backend/README.md) để khởi động API và kiểm tra bảng
+`count_events` trong Adminer.
+
 **Webcam laptop hoặc USB.** Từ thư mục `cv`, chạy:
 
 ```powershell
@@ -51,9 +120,49 @@ Phiếu đối chiếu: [kết quả Sprint 4](tests/SPRINT4_RESULTS.md).
 
 Mở <http://127.0.0.1:8001>, chọn **USB Webcam → Start Test** rồi cấp quyền camera. Nếu có nhiều camera, chọn thiết bị trong cài đặt camera của trình duyệt. Bấm **Stop Test** để dừng và tải kết quả.
 
-**Đồng bộ occupancy live lên web.** Với Docker Compose, đặt cùng một khóa bí mật cục bộ vào `CV_API_KEY` và `CV_INGEST_API_KEY` trong `.env`; `BACKEND_URL` mặc định trỏ tới Backend trong mạng Compose. Nếu chạy CV trực tiếp trên Windows, đặt `BACKEND_URL=http://127.0.0.1:8000`. Không commit khóa thật.
+### Gửi sự kiện lên Backend — SEAT-51
 
-Mở CV Testing Lab, chọn **USB Webcam**, nhập mã phòng đúng như trên Backend, nhập số người ban đầu đã kiểm tra và giữ bật **Đếm IN/OUT**, rồi bấm **Start Test** và cấp quyền camera. CV gửi các bản ghi webcam theo lô 2 frame tới Backend; dashboard đang mở sẽ tự cập nhật theo chu kỳ polling. Phải dùng số người ban đầu thực tế để occupancy không bị sai. Video tải lên vẫn chỉ tạo kết quả cục bộ, không được giả làm webcam live. Xem [hướng dẫn chạy Backend trong Docker](../backend/README.md).
+Chế độ gửi sự kiện hiện hoạt động khi bộ đếm chạy nguồn webcam hoặc RTSP trực tiếp. Clip offline chỉ tạo đầu ra cục bộ, tránh làm dữ liệu thử thay đổi occupancy thật. Đặt các giá trị trong file `.env` ở thư mục gốc, và đặt `CV_API_KEY` bằng `CV_INGEST_API_KEY`:
+
+```dotenv
+BACKEND_URL=http://127.0.0.1:8000
+CV_API_KEY=<khoa-cv-cuc-bo>
+CV_ROOM_ID=14
+CV_DEVICE_ID=camera-01
+CV_EVENT_QUEUE_PATH=outputs/event-queue.json
+```
+
+`CV_ROOM_ID` phải là khóa số của phòng đã tồn tại ở Backend. Queue lưu event chưa được xác nhận vào file nguyên tử trên máy. Khi Backend mất kết nối, client thử lại cùng event ID sau 1, 2 và 4 giây rồi giữ event trong queue để lần chạy sau gửi tiếp. Queue mặc định tối đa 10.000 event. Nếu đầy, CV báo lỗi thay vì xóa event cũ.
+
+Từ thư mục `cv`, chạy nguồn trực tiếp đã khai báo trong YAML:
+
+```powershell
+..\.venv\Scripts\python.exe -m app.counting --source webcam --room-id 14 --device-id camera-01
+```
+
+Payload gửi `POST /api/v1/cv/events` kèm header `X-API-Key`. Mỗi crossing dùng event ID UUID duy nhất, `session_id` UUID, `room_id`, `device_id`, `direction` (`in` hoặc `out`), `event_time` UTC và snapshot `device_status`. Không gửi ảnh, bbox hay track ID. Heartbeat dùng endpoint riêng PUT `/api/v1/cv/devices/{device_id}/status`; endpoint này hiện PROPOSED trong API Contract, do đó chưa được gọi tự động từ pipeline đang có.
+
+Ví dụ payload JSON:
+
+```json
+{"event_id":"8ac8ef6a-9c82-4c14-906c-f8e4e8ab312f","session_id":"c4d15fe3-e120-4191-8520-8da076d8c774","room_id":14,"device_id":"camera-01","direction":"in","event_time":"2026-11-22T12:00:00+00:00","device_status":"online"}
+```
+
+Sau khi backend hoạt động lại, xả queue bền vững bằng lệnh:
+
+```powershell
+..\.venv\Scripts\python.exe -m app.event_client --room-id 14 --device-id camera-01
+```
+
+Có thể kiểm tra endpoint với cùng payload và khóa local:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/api/v1/cv/events `
+  -H "Content-Type: application/json" -H "X-API-Key: $env:CV_API_KEY" `
+  --data-binary '{"event_id":"8ac8ef6a-9c82-4c14-906c-f8e4e8ab312f","session_id":"c4d15fe3-e120-4191-8520-8da076d8c774","room_id":14,"device_id":"camera-01","direction":"in","event_time":"2026-11-22T12:00:00+00:00","device_status":"online"}'
+```
+
+Xem [hướng dẫn chạy Backend trong Docker](../backend/README.md). Nếu payload Backend thay đổi, cập nhật thêm [hợp đồng dữ liệu CV](../docs/architecture/cv-data-contract.md).
 
 **Lỗi thường gặp.** Kiểm tra `models/best.pt` và thư mục chạy nếu thiếu mô hình. Nếu camera không mở được, kiểm tra quyền trong trình duyệt và đóng ứng dụng đang dùng camera. Nếu cổng `8001` đang bận, đổi thành `8002` trong lệnh và mở <http://127.0.0.1:8002>. Nếu xử lý video chậm, thử `--image-size 416`.
 

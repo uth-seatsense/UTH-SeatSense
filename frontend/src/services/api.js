@@ -1,7 +1,4 @@
-import {
-  getRooms as getMockRoomsResponse,
-  isMockEnabled,
-} from "./apiClient.ts";
+import { getRooms as getMockRoomsResponse, isMockEnabled } from "./apiClient.ts";
 
 export {
   getApiHealth,
@@ -162,13 +159,19 @@ export function getRoomOccupancy(roomId, { signal } = {}) {
   return requestApi(`occupancy/rooms/${roomId}/latest`, { signal });
 }
 
-export function getRoomById(roomId, { signal } = {}) {
+export function getRoomOccupancyStatus({ signal, campus } = {}) {
   if (isMockEnabled()) {
-    return getMockRoomsResponse({ signal }).then((response) =>
-      response.items.find((room) => room.id === roomId),
-    );
+    return Promise.resolve({
+      rooms: [],
+      total_rooms: 0,
+      web_logged_in_count: 0,
+      total_people_in_rooms: null,
+      updated_at: null,
+    });
   }
-  return requestApi(`rooms/${roomId}`, { signal });
+  const params = new URLSearchParams();
+  if (campus) params.set("campus", campus);
+  return requestApi(`occupancy/rooms/status?${params.toString()}`, { signal });
 }
 
 export async function getBookings({ signal } = {}) {
