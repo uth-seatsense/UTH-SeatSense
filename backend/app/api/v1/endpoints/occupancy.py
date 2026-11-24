@@ -57,22 +57,55 @@ def read_latest_occupancy(
     room_id: int = Path(gt=0, le=MAX_ROOM_ID),
     db: Session = Depends(get_db),
 ) -> LatestRoomOccupancy:
+    record = None
     try:
         record = cv_count_service.latest_live_for_room(db, room_id)
     except RoomNotFoundError:
         raise api_error(404, "room_not_found", "Room does not exist") from None
     except OccupancyNotFoundError:
-        raise api_error(
-            503,
-            "occupancy_unavailable",
-            "No live occupancy record is available for this room",
-        ) from None
+        record = None
     except SQLAlchemyError:
         raise api_error(
             503,
             "database_unavailable",
             "The database is temporarily unavailable",
         ) from None
+
+    if record is None:
+        legacy = db.execute(
+            text(
+                """
+                SELECT rooms.code AS room_code,
+                       occupancy.current_count,
+                       occupancy.recorded_at
+                FROM occupancy_records AS occupancy
+                JOIN rooms ON rooms.id = occupancy.room_id
+                WHERE occupancy.room_id = :room_id
+                ORDER BY occupancy.recorded_at DESC, occupancy.id DESC
+                LIMIT 1
+                """
+            ),
+            {"room_id": room_id},
+        ).mappings().one_or_none()
+        if legacy is None:
+            raise api_error(
+                404,
+                "occupancy_not_found",
+                "No live occupancy record is available for this room",
+            ) from None
+        return LatestRoomOccupancy(
+            room_id=room_id,
+            room_code=legacy["room_code"],
+            camera_id="legacy-occupancy",
+            source_type="webcam",
+            people_count=legacy["current_count"],
+            tracked_count=legacy["current_count"],
+            estimated_occupancy=legacy["current_count"],
+            occupancy_underflow=False,
+            recorded_at=legacy["recorded_at"],
+            received_at=legacy["recorded_at"],
+            is_stale=is_stale(legacy["recorded_at"]),
+        )
 
     return LatestRoomOccupancy(
         room_id=record.room_id,
