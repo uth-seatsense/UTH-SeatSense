@@ -9,9 +9,19 @@
       "campus_code": "CS1",
       "building": "Cơ sở 1",
       "is_active": true
+    },
+    {
+      "id": 15,
+      "code": "DEMO-CS1-TOPIC-01",
+      "name": "Phòng Chuyên Đề CS1",
+      "capacity": 12,
+      "campus_id": 1,
+      "campus_code": "CS1",
+      "building": "Cơ sở 1",
+      "is_active": true
     }
   ],
   "limit": 50,
   "offset": 0,
-  "total": 1
+  "total": 2
 }

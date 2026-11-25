@@ -27,6 +27,9 @@ class CVCountRepository:
     def get_room(self, room_id: int) -> Room | None:
         return self.session.get(Room, room_id)
 
+    def get_room_by_code(self, room_code: str) -> Room | None:
+        return self.session.scalar(select(Room).where(Room.code == room_code))
+
     def save(self, payload: CVCountInput) -> tuple[CVCountRecord, bool]:
         values = payload.model_dump()
         values['room_code'] = values.pop('room_id')

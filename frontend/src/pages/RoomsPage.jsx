@@ -108,6 +108,7 @@ export default function RoomsPage() {
                 </span>
               </div>
               <p>Sức chứa: {room.capacity} người</p>
+              <Link to={`/rooms/${room.id}`}>Xem chi tiết tình trạng</Link>
               {occupancyError ? (
                 <p className="feedback feedback--error">
                   Không tải được số liệu: {occupancyError}
@@ -118,11 +119,11 @@ export default function RoomsPage() {
                 <div className="room-availability">
                   <strong>{available}</strong>
                   <span>chỗ trống ước tính</span>
-                  {count > room.capacity && (
+                  {count > room.capacity ? (
                     <span className="feedback feedback--warning">
-                      Số người đang vượt sức chứa.
+                      ⚠ Vượt sức chứa
                     </span>
-                  )}
+                  ) : null}
                   {occupancy.is_stale && (
                     <span className="feedback feedback--warning">
                       Dữ liệu đã cũ, hãy kiểm tra lại trước khi sử dụng.

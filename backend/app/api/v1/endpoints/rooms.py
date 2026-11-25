@@ -2,12 +2,10 @@ from fastapi import APIRouter, Depends, Path, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
 from app.api.errors import api_error
 from app.db.session import get_db
 from app.models.campus import Campus
 from app.models.room import Room
-from app.models.user import User
 from app.schemas.room import RoomListResponse, RoomRead
 
 router = APIRouter()
@@ -40,7 +38,6 @@ def list_rooms(
     offset: int = Query(default=0, ge=0),
     campus_code: str | None = Query(default=None, pattern=r"^(CS1|CS3)$"),
     room_type: str | None = Query(default=None, pattern=r"^(free_area|topic_room)$"),
-    _user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> RoomListResponse:
     query = (
@@ -80,7 +77,6 @@ def list_rooms(
 @router.get("/{room_id}", response_model=RoomRead)
 def get_room(
     room_id: int = Path(gt=0),
-    _user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> RoomRead:
     row = db.execute(
