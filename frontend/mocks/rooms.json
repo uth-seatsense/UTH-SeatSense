@@ -4,6 +4,7 @@
       "id": 14,
       "code": "A101",
       "name": "Phòng A101",
+      "room_type": "free_area",
       "capacity": 40,
       "campus_id": 1,
       "campus_code": "CS1",
@@ -14,14 +15,37 @@
       "id": 15,
       "code": "DEMO-CS1-TOPIC-01",
       "name": "Phòng Chuyên Đề CS1",
+      "room_type": "topic_room",
       "capacity": 12,
       "campus_id": 1,
       "campus_code": "CS1",
       "building": "Cơ sở 1",
       "is_active": true
+    },
+    {
+      "id": 16,
+      "code": "B201",
+      "name": "Phòng B201",
+      "room_type": "free_area",
+      "capacity": 50,
+      "campus_id": 3,
+      "campus_code": "CS3",
+      "building": "Cơ sở 3",
+      "is_active": true
+    },
+    {
+      "id": 17,
+      "code": "DEMO-CS3-TOPIC-01",
+      "name": "Phòng Chuyên Đề CS3",
+      "room_type": "topic_room",
+      "capacity": 15,
+      "campus_id": 3,
+      "campus_code": "CS3",
+      "building": "Cơ sở 3",
+      "is_active": true
     }
   ],
   "limit": 50,
   "offset": 0,
-  "total": 2
+  "total": 4
 }

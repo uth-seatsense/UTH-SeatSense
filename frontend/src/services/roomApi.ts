@@ -13,6 +13,7 @@ export interface RoomSnapshot {
   id: number;
   code: string;
   name: string;
+  room_type: string;
   capacity: number;
   campus_code: string | null;
   is_active: boolean;
@@ -48,6 +49,7 @@ function parseRoomSnapshot(value: unknown): RoomDetailSnapshot {
     !Number.isInteger(value.id) ||
     typeof value.code !== "string" ||
     typeof value.name !== "string" ||
+    typeof value.room_type !== "string" ||
     !Number.isInteger(value.capacity) ||
     typeof value.is_active !== "boolean" ||
     (value.campus_code !== null && typeof value.campus_code !== "string") ||
@@ -62,6 +64,7 @@ function parseRoomSnapshot(value: unknown): RoomDetailSnapshot {
     id: value.id as number,
     code: value.code,
     name: value.name,
+    room_type: value.room_type,
     capacity: value.capacity as number,
     campus_code: value.campus_code,
     building: value.building,

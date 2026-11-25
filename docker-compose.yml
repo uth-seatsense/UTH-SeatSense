@@ -95,6 +95,9 @@ services:
       VITE_POLL_INTERVAL_MS: ${VITE_POLL_INTERVAL_MS:-3000}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
       backend:
         condition: service_healthy
