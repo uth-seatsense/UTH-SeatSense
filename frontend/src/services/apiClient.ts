@@ -31,6 +31,7 @@ type Room = {
   id: number;
   code: string;
   name: string;
+  room_type: string;
   capacity: number;
   campus_id: number | null;
   campus_code: string | null;

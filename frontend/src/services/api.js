@@ -155,6 +155,10 @@ export async function getRooms({ signal } = {}) {
   });
 }
 
+export function getRoomById(roomId, { signal } = {}) {
+  return requestApi(`rooms/${roomId}`, { signal });
+}
+
 export function getRoomOccupancy(roomId, { signal } = {}) {
   return requestApi(`occupancy/rooms/${roomId}/latest`, { signal });
 }

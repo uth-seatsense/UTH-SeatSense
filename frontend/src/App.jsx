@@ -11,6 +11,7 @@ import RoomsPage from "./pages/RoomsPage.jsx";
 import RoomDetailPage from "./pages/RoomDetailPage.tsx";
 import ReservationPage from "./pages/ReservationPage.jsx";
 import MyBookingsPage from "./pages/MyBookingsPage.jsx";
+import ProfilePage from "./pages/ProfilePage.jsx";
 import CheckinPage from "./pages/CheckinPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import HealthPage from "./pages/HealthPage.jsx";
@@ -23,6 +24,7 @@ const navigation = [
   ["/rooms", "Danh sách phòng"],
   ["/reservation", "Đặt phòng"],
   ["/my-bookings", "Lịch đặt của tôi"],
+  ["/profile", "Hồ sơ của tôi"],
   ["/checkin", "Xác nhận có mặt"],
   ["/dashboard", "Tổng quan"],
 ];
@@ -124,6 +126,14 @@ function Application() {
           element={
             <RequireAuth>
               <MyBookingsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <RequireAuth>
+              <ProfilePage />
             </RequireAuth>
           }
         />
