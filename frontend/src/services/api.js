@@ -196,7 +196,11 @@ export async function getRooms({ signal } = {}) {
   });
 }
 
-export function getRoomById(roomId, { signal } = {}) {
+export async function getRoomById(roomId, { signal } = {}) {
+  if (isMockEnabled()) {
+    const rooms = await getMockRoomsResponse({ signal });
+    return rooms.items.find((room) => room.id === roomId);
+  }
   return requestApi(`rooms/${roomId}`, { signal });
 }
 

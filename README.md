@@ -10,13 +10,14 @@
 6. [Cài đặt nhanh](#cài-đặt-nhanh-15-phút)
 7. [Kiểm tra hệ thống](#kiểm-tra-hệ-thống)
 8. [Cổng truy cập](#cổng-truy-cập)
-9. [Chạy Computer Vision](#chạy-computer-vision)
-10. [Chạy kiểm thử](#chạy-kiểm-thử)
-11. [Cấu trúc thư mục](#cấu-trúc-thư-mục)
-12. [Dừng và khởi động lại](#dừng-và-khởi-động-lại)
-13. [Xử lý lỗi thường gặp](#xử-lý-lỗi-thường-gặp)
-14. [Quy ước và tài liệu dự án](#quy-ước-làm-việc-nhóm)
-15. [Liên hệ và hỗ trợ](#liên-hệ-và-hỗ-trợ)
+9. [⚠️ Quy tắc phát triển](#️-quy-tắc-phát-triển)
+10. [Chạy Computer Vision](#chạy-computer-vision)
+11. [Chạy kiểm thử](#chạy-kiểm-thử)
+12. [Cấu trúc thư mục](#cấu-trúc-thư-mục)
+13. [Dừng và khởi động lại](#dừng-và-khởi-động-lại)
+14. [Xử lý lỗi thường gặp](#xử-lý-lỗi-thường-gặp)
+15. [Quy ước và tài liệu dự án](#quy-ước-làm-việc-nhóm)
+16. [Liên hệ và hỗ trợ](#liên-hệ-và-hỗ-trợ)
 
 ---
 
@@ -276,6 +277,95 @@ thật bằng `-PseatsenseApiBaseUrl=http://<DIA_CHI_MAY>:8000/api/v1/`. Chỉ b
 cho phép HTTP; bản phát hành cần HTTPS. Xem [hướng dẫn Android](android/README.md).
 
 ### Đăng nhập Adminer (quản lý database)
+
+Mở http://localhost:8080 và điền:
+
+- **System:** PostgreSQL
+- **Server:** db
+- **Username:** seatsense (hoặc giá trị `POSTGRES_USER` trong `.env`)
+- **Password:** mật khẩu bạn đã đặt trong `.env`
+- **Database:** seatsense (hoặc giá trị `POSTGRES_DB`)
+
+---
+
+## ⚠️ Quy tắc phát triển
+
+### 🚨 BẮT BUỘC: Docker Only - Port 3000
+
+**TẤT CẢ THÀNH VIÊN TEAM PHẢI TUÂN THỦ:**
+
+```bash
+# ✅ ĐÚNG - Chạy trên Docker
+docker-compose up -d
+
+# ❌ SAI - Không chạy local
+npm run dev
+```
+
+**Quy tắc:**
+- ✅ **BẮT BUỘC** chạy frontend trên Docker port 3000
+- ✅ **BẮT BUỘC** sử dụng `docker-compose` để khởi động
+- ❌ **CẤM** chạy `npm run dev` local (port 5173)
+- ❌ **CẤM** sử dụng bất kỳ port nào khác 3000
+
+**Lý do:**
+- Đảm bảo môi trường đồng nhất cho toàn team
+- Backend, Database, CV service đã tích hợp sẵn
+- Tránh lỗi "works on my machine"
+- Code được mount real-time vào container
+
+### Workflow Phát Triển Hàng Ngày
+
+```bash
+# 1. Khởi động containers (một lần mỗi ngày)
+docker-compose up -d
+
+# 2. Mở editor và sửa code
+# (VSCode, IntelliJ, bất kỳ editor nào)
+
+# 3. Sau khi sửa code, restart container frontend
+docker-compose restart frontend
+
+# 4. Refresh browser (F5) để xem thay đổi
+# → Container restart chỉ mất ~3 giây
+
+# 5. Lặp lại bước 2-4
+```
+
+### Quick Scripts
+
+```bash
+# Windows
+.\start-dev.bat
+
+# Linux/Mac
+./start-dev.sh
+```
+
+### Khi Nào Cần Rebuild?
+
+```bash
+# Thêm package mới trong package.json
+docker-compose build frontend
+docker-compose up -d frontend
+
+# Thay đổi .env hoặc Dockerfile
+docker-compose up --build
+
+# Reset toàn bộ (khi gặp vấn đề)
+docker-compose down
+docker-compose up --build
+```
+
+### Tài Liệu Chi Tiết
+
+📖 **Xem hướng dẫn đầy đủ:**
+- **[DEVELOPMENT.md](DEVELOPMENT.md)** - Hướng dẫn phát triển chi tiết với troubleshooting
+- **[frontend/.dev-rules.md](frontend/.dev-rules.md)** - Quick reference ngắn gọn
+
+---
+
+## Chạy Computer Vision
 
 1. Mở http://localhost:8080
 2. Điền thông tin (lấy từ file `.env`):

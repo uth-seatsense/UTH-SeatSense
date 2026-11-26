@@ -8,8 +8,10 @@ import {
 import HomePage from "./pages/HomePage.jsx";
 import LoginPage from "./pages/LoginPage.tsx";
 import RoomsPage from "./pages/RoomsPage.jsx";
+import RoomDetailPage from "./pages/RoomDetailPage.tsx";
 import ReservationPage from "./pages/ReservationPage.jsx";
 import MyBookingsPage from "./pages/MyBookingsPage.jsx";
+import ProfilePage from "./pages/ProfilePage.jsx";
 import CheckinPage from "./pages/CheckinPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import BookingPage from "./pages/BookingPage.tsx";
@@ -104,6 +106,13 @@ function Application() {
           }
         />
         <Route
+          path="/rooms/:roomId"
+          element={
+            <RequireAuth>
+              <RoomDetailPage />
+            </RequireAuth>
+          }
+        />        <Route
           path="/reservation"
           element={
             <RequireAuth>
@@ -120,6 +129,13 @@ function Application() {
           }
         />
         <Route
+          path="/profile"
+          element={
+            <RequireAuth>
+              <ProfilePage />
+            </RequireAuth>
+          }
+        />        <Route
           path="/checkin"
           element={
             <RequireAuth>

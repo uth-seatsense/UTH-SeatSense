@@ -29,7 +29,7 @@ services:
       DATABASE_USER: ${POSTGRES_USER:-seatsense}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       CV_SERVICE_URL: http://cv:8001
-      CV_INGEST_API_KEY: ${CV_INGEST_API_KEY:-}
+      CV_INGEST_API_KEY: ${CV_INGEST_API_KEY:-${CV_API_KEY:-}}
       OCCUPANCY_CROWDED_THRESHOLD: ${OCCUPANCY_CROWDED_THRESHOLD:-0.8}
       OCCUPANCY_STALE_SECONDS: ${OCCUPANCY_STALE_SECONDS:-30}
       DEVICE_OFFLINE_SECONDS: ${DEVICE_OFFLINE_SECONDS:-90}
@@ -91,8 +91,13 @@ services:
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
       VITE_BACKEND_PROXY_TARGET: ${VITE_BACKEND_PROXY_TARGET:-http://backend:8000}
+      VITE_USE_MOCK: ${VITE_USE_MOCK:-true}
+      VITE_POLL_INTERVAL_MS: ${VITE_POLL_INTERVAL_MS:-3000}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
       backend:
         condition: service_healthy

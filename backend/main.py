@@ -4,12 +4,24 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.db.session import get_session_factory
 
 app = FastAPI(title=settings.app_name, version="0.1.0")
+
+
+class UTF8JSONMiddleware(BaseHTTPMiddleware):
+  async def dispatch(self, request: Request, call_next):
+    response = await call_next(request)
+    if "application/json" in response.headers.get("content-type", ""):
+      response.headers["content-type"] = "application/json; charset=utf-8"
+    return response
+
+
+app.add_middleware(UTF8JSONMiddleware)
 app.include_router(api_router, prefix="/api/v1")
 
 

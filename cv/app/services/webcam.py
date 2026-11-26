@@ -10,6 +10,7 @@ from app.detection.detector import PersonDetector
 from app.detection.tracker import PersonTracker
 from app.counting.line_counter import LineCounter
 from app.schemas.count_result import CountResult, CrossingEvent
+from app.services.backend_sender import send_count_record
 
 # //sửa dùng 416px và 5 FPS cho webcam
 class WebcamSession:
@@ -48,6 +49,7 @@ class WebcamSession:
         raw = None if initial is None else initial+self.counter.in_count-self.counter.out_count
         payload = CountResult(session_id=self.job['id'],camera_id=self.options['camera_id'],room_id=self.options['room_id'],source_type='webcam',frame_index=self.index,timestamp_ms=timestamp,recorded_at=datetime.now(timezone.utc),people_count=len(detections),tracked_count=sum(d['track_id'] is not None for d in detections),line_enabled=self.counter is not None,in_count=self.counter.in_count if self.counter else None,out_count=self.counter.out_count if self.counter else None,initial_occupancy=initial,estimated_occupancy=None if raw is None else max(0,raw),occupancy_underflow=raw is not None and raw<0).model_dump(mode='json')
         record = dict(payload,detections=detections,frame_width=frame.shape[1],frame_height=frame.shape[0],processing_ms=round((time.perf_counter()-start)*1000,3))
+        send_count_record(payload)
         self.csv.writerow(payload)
         self.streams['backend_counts.jsonl'].write(json.dumps(payload)+'\n')
         self.streams['results.jsonl'].write(json.dumps(record)+'\n')

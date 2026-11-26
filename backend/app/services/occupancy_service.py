@@ -1,13 +1,19 @@
+﻿from datetime import datetime, timezone
 from app.core.config import settings
 from app.models.occupancy_record import OccupancyRecord
 from app.models.count_event import CountEvent
 from app.models.room import Room
-from app.services.cv_count_service import RoomNotFoundError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy import select
+from uuid import uuid4
 
 
 class CountEventConflictError(Exception):
+    pass
+
+
+class RoomNotFoundError(Exception):
     pass
 
 
@@ -68,7 +74,8 @@ class OccupancyService:
 
     @staticmethod
     def receive_count_event(db: Session, incoming) -> tuple:
-        if db.get(Room, incoming.room_id) is None:
+        room = db.get(Room, incoming.room_id)
+        if room is None:
             raise RoomNotFoundError
         existing = db.get(CountEvent, incoming.event_id)
         if existing is not None:
@@ -97,6 +104,7 @@ class OccupancyService:
         try:
             db.commit()
             db.refresh(event)
+            OccupancyService._apply_count_event(db, room, incoming)
             return event, True
         except IntegrityError:
             db.rollback()
@@ -119,6 +127,76 @@ class OccupancyService:
         if self.occupancy_repo:
             return self.occupancy_repo.get_latest_by_room(room_id)
         return None
+
+    @staticmethod
+    def _apply_count_event(db: Session, room: Room, incoming) -> OccupancyRecord:
+        latest = db.scalar(
+            select(OccupancyRecord)
+            .where(OccupancyRecord.room_id == incoming.room_id)
+            .order_by(OccupancyRecord.recorded_at.desc(), OccupancyRecord.id.desc())
+            .limit(1)
+        )
+        previous_count = latest.current_count if latest is not None else 0
+        current_count = max(
+            previous_count + (1 if incoming.direction == "in" else -1),
+            0,
+        )
+        available_seats = max(room.capacity - current_count, 0)
+        ratio = current_count / room.capacity if room.capacity else 0
+        occupancy_level = (
+            "vang"
+            if ratio <= settings.occupancy_low_threshold
+            else "vua"
+            if ratio <= settings.occupancy_high_threshold
+            else "dong"
+        )
+        record = OccupancyRecord(
+            observation_id=uuid4(),
+            room_id=incoming.room_id,
+            current_count=current_count,
+            available_seats=available_seats,
+            recorded_at=incoming.event_time,
+            source="cv",
+            device_status=incoming.device_status,
+            over_capacity=current_count > room.capacity,
+            occupancy_level=occupancy_level,
+        )
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        return record
+
+    @staticmethod
+    def calculate_data_status(
+        recorded_at: datetime | None,
+        device_status: str | None = None
+    ) -> str | None:
+        """
+        Calculate data freshness status based on recorded_at timestamp and device_status.
+
+        Returns:
+            - "fresh": data is recent and device is online
+            - "stale": data exceeds stale threshold
+            - "disconnected": data exceeds disconnected threshold or device is offline/error
+            - None: no data available
+        """
+        if recorded_at is None:
+            return None
+
+        now = datetime.now(timezone.utc)
+        age_seconds = (now - recorded_at).total_seconds()
+
+        # Device explicitly offline or error -> disconnected
+        if device_status in ("offline", "error"):
+            return "disconnected"
+
+        # Check time-based thresholds
+        if age_seconds >= settings.device_offline_seconds:
+            return "disconnected"
+        elif age_seconds >= settings.occupancy_stale_seconds:
+            return "stale"
+        else:
+            return "fresh"
 
 
 def _as_utc(value):

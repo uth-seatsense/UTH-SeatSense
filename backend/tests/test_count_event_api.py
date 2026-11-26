@@ -13,6 +13,7 @@ from sqlalchemy import create_engine
 from app.db.session import get_db
 from app.core.config import settings
 from app.models.count_event import CountEvent
+from app.models.occupancy_record import OccupancyRecord
 from app.models.room import Room
 from main import app
 
@@ -22,6 +23,7 @@ def client() -> Generator[TestClient, None, None]:
     engine = create_engine("sqlite+pysqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Room.__table__.create(engine)
     CountEvent.__table__.create(engine)
+    OccupancyRecord.__table__.create(engine)
     factory = sessionmaker(bind=engine, expire_on_commit=False)
     def override_db():
         with factory() as db:
@@ -62,6 +64,22 @@ def test_event_created_and_same_event_is_idempotent(client):
     assert duplicate.status_code == 201 and duplicate.json()["duplicate"] is True
     with app.state.count_event_test_factory() as db:
         assert db.scalar(select(func.count()).select_from(CountEvent)) == 1
+
+
+def test_event_updates_occupancy_once_and_retry_does_not_double_apply(client):
+    body = payload(direction="in")
+    created = client.post("/api/v1/cv/events", json=body, headers=cv_headers())
+    duplicate = client.post("/api/v1/cv/events", json=body, headers=cv_headers())
+
+    assert created.status_code == 201
+    assert duplicate.status_code == 201
+    assert duplicate.json()["duplicate"] is True
+    with app.state.count_event_test_factory() as db:
+        record = db.scalar(
+            select(OccupancyRecord).order_by(OccupancyRecord.id.desc()).limit(1)
+        )
+        assert record is not None
+        assert record.current_count == 1
 
 
 def test_different_payload_with_existing_event_id_conflicts(client):

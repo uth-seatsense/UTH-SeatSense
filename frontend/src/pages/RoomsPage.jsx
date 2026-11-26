@@ -1,24 +1,30 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { ApiError, getRoomOccupancy, getRooms } from "../services/api.js";
+import { RoomCard } from "../components/RoomCard.tsx";
 
 function occupancyForRoom(room, signal) {
   return getRoomOccupancy(room.id, { signal })
-    .then((occupancy) => ({ room, occupancy, error: "" }))
+    .then((occupancy) => ({
+      ...room,
+      count: occupancy.estimated_occupancy,
+      is_stale: occupancy.is_stale,
+      updated_at: occupancy.recorded_at,
+      error: ""
+    }))
     .catch((error) => {
       if (error.name === "AbortError") throw error;
       if (error instanceof ApiError && error.status === 404) {
-        return { room, occupancy: null, error: "" };
+        return { ...room, count: null, is_stale: false, updated_at: null, error: "" };
       }
-      return { room, occupancy: null, error: error.message };
+      return { ...room, count: null, is_stale: false, updated_at: null, error: error.message };
     });
 }
 
 export default function RoomsPage() {
+  const [selectedCampus, setSelectedCampus] = useState("CS1");
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -28,9 +34,14 @@ export default function RoomsPage() {
       setLoading(true);
       setError("");
       try {
-        const activeRooms = await getRooms({ signal: controller.signal });
+        const allRooms = await getRooms({ signal: controller.signal });
+        const filteredRooms = allRooms.filter(
+          (room) =>
+            room.room_type === "free_area" &&
+            room.campus_code === selectedCampus
+        );
         const results = await Promise.all(
-          activeRooms.map((room) => occupancyForRoom(room, controller.signal)),
+          filteredRooms.map((room) => occupancyForRoom(room, controller.signal)),
         );
         if (active) setRooms(results);
       } catch (loadError) {
@@ -47,101 +58,64 @@ export default function RoomsPage() {
       active = false;
       controller.abort();
     };
-  }, [reloadKey]);
+  }, [selectedCampus]);
 
   return (
     <main className="feature-page">
       <header className="feature-heading">
         <p className="eyebrow">Không gian thư viện</p>
-        <h1>Tình trạng phòng</h1>
+        <h1>Tình trạng khu tự học</h1>
         <p>
-          Số chỗ trống được tính từ sức chứa và số người ước tính gần nhất.
-          Phòng chưa có dữ liệu sẽ không hiển thị như phòng còn trống.
+          Số người và chỗ trống được cập nhật gần thời gian thực từ hệ thống đếm.
         </p>
       </header>
 
-      <div className="feature-toolbar">
-        <span aria-live="polite">
-          {loading
-            ? "Đang tải danh sách phòng..."
-            : `${rooms.length} phòng đang hoạt động`}
-        </span>
+      <div className="campus-filter">
         <button
-          className="button button--secondary"
-          disabled={loading}
-          onClick={() => setReloadKey((value) => value + 1)}
+          className={`campus-tab ${selectedCampus === "CS1" ? "campus-tab--active" : ""}`}
+          onClick={() => setSelectedCampus("CS1")}
           type="button"
         >
-          Làm mới
+          Cơ sở 1
+        </button>
+        <button
+          className={`campus-tab ${selectedCampus === "CS3" ? "campus-tab--active" : ""}`}
+          onClick={() => setSelectedCampus("CS3")}
+          type="button"
+        >
+          Cơ sở 3
         </button>
       </div>
 
+      {loading && (
+        <p className="loading-message" aria-live="polite">
+          Đang tải dữ liệu mật độ...
+        </p>
+      )}
+
       {error && (
         <div className="feedback feedback--error" role="alert">
-          {error}
+          Không thể tải dữ liệu: {error}
         </div>
       )}
+
       {!loading && !error && rooms.length === 0 && (
-        <p className="empty-panel">Hiện chưa có phòng đang hoạt động.</p>
+        <p className="empty-panel">
+          Hiện chưa có khu tự học nào tại cơ sở này.
+        </p>
       )}
-      <section aria-label="Danh sách phòng" className="room-grid">
-        {rooms.map(({ room, occupancy, error: occupancyError }) => {
-          const count = occupancy?.estimated_occupancy;
-          const available =
-            Number.isInteger(count) && count >= 0
-              ? Math.max(0, room.capacity - count)
-              : null;
-          return (
-            <article className="feature-panel room-card" key={room.id}>
-              <div className="room-card__heading">
-                <div>
-                  <h2>{room.name}</h2>
-                  <p>
-                    {room.code}
-                    {room.campus_code ? ` · ${room.campus_code}` : ""}
-                  </p>
-                </div>
-                <span className="room-type">
-                  {room.room_type === "topic_room"
-                    ? "Phòng chuyên đề"
-                    : "Khu tự học"}
-                </span>
-              </div>
-              <p>Sức chứa: {room.capacity} người</p>
-              {occupancyError ? (
-                <p className="feedback feedback--error">
-                  Không tải được số liệu: {occupancyError}
-                </p>
-              ) : available === null ? (
-                <p className="data-unavailable">Chưa có dữ liệu chỗ trống.</p>
-              ) : (
-                <div className="room-availability">
-                  <strong>{available}</strong>
-                  <span>chỗ trống ước tính</span>
-                  {count > room.capacity && (
-                    <span className="feedback feedback--warning">
-                      Số người đang vượt sức chứa.
-                    </span>
-                  )}
-                  {occupancy.is_stale && (
-                    <span className="feedback feedback--warning">
-                      Dữ liệu đã cũ, hãy kiểm tra lại trước khi sử dụng.
-                    </span>
-                  )}
-                </div>
-              )}
-              {room.room_type === "topic_room" && (
-                <Link
-                  className="button button--primary"
-                  to={`/reservation?room=${room.id}`}
-                >
-                  Đặt phòng
-                </Link>
-              )}
-            </article>
-          );
-        })}
-      </section>
+
+      {!loading && !error && rooms.length > 0 && (
+        <div className="room-grid">
+          {rooms.map((room) => (
+            <RoomCard
+              key={room.id}
+              room={room}
+              capacity={room.capacity}
+            />
+          ))}
+        </div>
+      )}
     </main>
   );
 }
