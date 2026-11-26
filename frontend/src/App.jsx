@@ -45,9 +45,10 @@ function Application() {
 
   return (
     <>
+      {!hasSidebar && (
       <nav
         aria-label="Điều hướng chính"
-        className={`app-navigation${hasSidebar ? " app-navigation--dashboard" : ""}`}
+        className="app-navigation"
       >
         <div className="app-navigation-links">
           {navigation.map(([to, label]) => (
@@ -81,6 +82,7 @@ function Application() {
           </NavLink>
         )}
       </nav>
+      )}
       {navigationError && (
         <p
           className="feedback feedback--error navigation-feedback"

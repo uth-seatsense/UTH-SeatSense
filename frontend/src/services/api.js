@@ -1,4 +1,4 @@
-import { getRooms as getMockRoomsResponse, isMockEnabled } from "./apiClient.ts";
+import { getCurrentOccupancy as getCurrentOccupancyData, getRooms as getMockRoomsResponse, isMockEnabled } from "./apiClient.ts";
 
 export {
   getApiHealth,
@@ -7,6 +7,22 @@ export {
   USE_MOCK,
 } from "./apiClient.ts";
 export { isMockEnabled };
+export async function getRoomOccupancyStatus({ signal, campus } = {}) {
+  const result = await getCurrentOccupancyData({ signal });
+  if (!result || !Array.isArray(result.rooms)) return null;
+
+  const rooms = campus && result.campus?.toUpperCase() !== campus.toUpperCase()
+    ? []
+    : result.rooms;
+  const updatedAt = result.last_updated ?? result.updatedAt ?? null;
+  return {
+    ...result,
+    rooms,
+    total_rooms: rooms.length,
+    last_updated: updatedAt,
+    updated_at: updatedAt,
+  };
+}
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "/api/v1").replace(
   /\/$/,

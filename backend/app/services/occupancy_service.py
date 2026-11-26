@@ -1,6 +1,8 @@
-﻿from app.core.config import settings
+from app.core.config import settings
 from app.models.occupancy_record import OccupancyRecord
 from app.models.count_event import CountEvent
+from app.models.room import Room
+from app.services.cv_count_service import RoomNotFoundError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -66,6 +68,8 @@ class OccupancyService:
 
     @staticmethod
     def receive_count_event(db: Session, incoming) -> tuple:
+        if db.get(Room, incoming.room_id) is None:
+            raise RoomNotFoundError
         existing = db.get(CountEvent, incoming.event_id)
         if existing is not None:
             same = (
