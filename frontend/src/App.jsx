@@ -6,12 +6,13 @@ import {
   useNavigate,
 } from "react-router-dom";
 import HomePage from "./pages/HomePage.jsx";
-import LoginPage from "./pages/LoginPage.jsx";
+import LoginPage from "./pages/LoginPage.tsx";
 import RoomsPage from "./pages/RoomsPage.jsx";
 import ReservationPage from "./pages/ReservationPage.jsx";
 import MyBookingsPage from "./pages/MyBookingsPage.jsx";
 import CheckinPage from "./pages/CheckinPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
+import BookingPage from "./pages/BookingPage.tsx";
 import HealthPage from "./pages/HealthPage.jsx";
 import { AuthProvider, useAuth } from "./auth/AuthContext.jsx";
 import RequireAuth from "./auth/RequireAuth.jsx";
@@ -40,7 +41,7 @@ function Application() {
   const { user, signOut } = useAuth();
   const [navigationError, setNavigationError] = useState("");
   const path = pathname.replace(/\/+$/, "") || "/";
-  const hasSidebar = path === "/" || path === "/dashboard";
+  const hasSidebar = path === "/" || path === "/dashboard" || path === "/booking";
 
   return (
     <>
@@ -125,6 +126,7 @@ function Application() {
           }
         />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/booking" element={<BookingPage />} />
         <Route path="/health" element={<HealthPage />} />
         <Route
           path="*"
@@ -140,3 +142,4 @@ function Application() {
     </>
   );
 }
+

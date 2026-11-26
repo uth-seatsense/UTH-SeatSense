@@ -1,7 +1,7 @@
-import occupancyFresh from "../../mocks/occupancy.fresh.json";
-import occupancyOffline from "../../mocks/occupancy.offline.json";
-import occupancyStale from "../../mocks/occupancy.stale.json";
-import roomsMock from "../../mocks/rooms.json";
+﻿import occupancyFresh from "../../../mocks/occupancy.fresh.json";
+import occupancyOffline from "../../../mocks/occupancy.offline.json";
+import occupancyStale from "../../../mocks/occupancy.stale.json";
+import roomsMock from "../../../mocks/rooms.json";
 
 type MockOccupancyState = "fresh" | "stale" | "offline";
 
@@ -49,6 +49,7 @@ type NormalizedOccupancy = {
   count: number;
   updatedAt: string | null;
   location: string | null;
+  dataStatus: "fresh" | "stale" | "disconnected" | null;
 };
 
 type OccupancyResult = OccupancyResponse & {
@@ -149,7 +150,7 @@ function parseRoomsResponse(payload: unknown): RoomsResponse {
         typeof room.is_active === "boolean",
     )
   ) {
-    throw new Error("Dữ liệu danh sách phòng không đúng định dạng");
+    throw new Error("Dá»¯ liá»‡u danh sÃ¡ch phÃ²ng khÃ´ng Ä‘Ãºng Ä‘á»‹nh dáº¡ng");
   }
 
   return payload as RoomsResponse;
@@ -205,25 +206,25 @@ export async function getCurrentOccupancy({
           )
         : null,
       updated_at: snapshot.last_updated,
-      location: `Cơ sở ${snapshot.campus}`,
+      location: `CÆ¡ sá»Ÿ ${snapshot.campus}`,
     });
 
     return {
       ...snapshot,
       count: summary?.count ?? null,
       updatedAt: summary?.updatedAt ?? null,
-      location: summary?.location ?? `Cơ sở ${snapshot.campus}`,
+      location: summary?.location ?? `CÆ¡ sá»Ÿ ${snapshot.campus}`,
     };
   }
 
   const url = new URL(OCCUPANCY_ENDPOINT, window.location.origin);
   const response = await fetch(url, { signal });
   if (!response.ok) {
-    throw new Error(`API trả về lỗi HTTP ${response.status}`);
+    throw new Error(`API tráº£ vá» lá»—i HTTP ${response.status}`);
   }
 
   return normalizeOccupancy(
-    await readJson(response, "API không trả về JSON hợp lệ"),
+    await readJson(response, "API khÃ´ng tráº£ vá» JSON há»£p lá»‡"),
   );
 }
 
@@ -234,7 +235,7 @@ export function normalizeOccupancy(
     return null;
   }
   if (typeof payload !== "object" || Array.isArray(payload)) {
-    throw new Error("Dữ liệu API không đúng định dạng");
+    throw new Error("Dá»¯ liá»‡u API khÃ´ng Ä‘Ãºng Ä‘á»‹nh dáº¡ng");
   }
 
   const wrapper = payload as Record<string, unknown>;
@@ -257,7 +258,7 @@ export function normalizeOccupancy(
 
   const count = record[countField];
   if (!Number.isInteger(count) || (count as number) < 0) {
-    throw new Error("API trả về số người không hợp lệ");
+    throw new Error("API tráº£ vá» sá»‘ ngÆ°á»i khÃ´ng há»£p lá»‡");
   }
 
   const updatedAt =
@@ -276,5 +277,9 @@ export function normalizeOccupancy(
         : typeof record.location_name === "string"
           ? record.location_name
           : null,
+    dataStatus: ["fresh", "stale", "disconnected"].includes(String(record.data_status ?? record.dataStatus))
+      ? (record.data_status ?? record.dataStatus) as NormalizedOccupancy["dataStatus"]
+      : null,
   };
 }
+

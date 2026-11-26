@@ -1,0 +1,63 @@
+{
+  "campus": "CS1",
+  "rooms": [
+    {
+      "room_id": 1,
+      "room_code": "B301A-L1",
+      "room_name": "B301A - Lầu 1",
+      "room_type": "study",
+      "capacity": 50,
+      "current_count": 32,
+      "available_seats": 18,
+      "occupancy_level": "medium",
+      "recorded_at": "2026-11-25T17:50:00Z",
+      "updated_at": "2026-11-25T17:50:00Z",
+      "is_stale": false,
+      "device_status": "online"
+    },
+    {
+      "room_id": 2,
+      "room_code": "B301A-L2",
+      "room_name": "B301A - Lầu 2",
+      "room_type": "quiet",
+      "capacity": 40,
+      "current_count": 28,
+      "available_seats": 12,
+      "occupancy_level": "medium",
+      "recorded_at": "2026-11-25T17:50:00Z",
+      "updated_at": "2026-11-25T17:50:00Z",
+      "is_stale": false,
+      "device_status": "online"
+    },
+    {
+      "room_id": 3,
+      "room_code": "PCD1",
+      "room_name": "Phòng Chuyên Đề 1",
+      "room_type": "group",
+      "capacity": 20,
+      "current_count": 18,
+      "available_seats": 2,
+      "occupancy_level": "high",
+      "recorded_at": "2026-11-25T17:50:00Z",
+      "updated_at": "2026-11-25T17:50:00Z",
+      "is_stale": false,
+      "device_status": "online"
+    },
+    {
+      "room_id": 4,
+      "room_code": "PCD2",
+      "room_name": "Phòng Chuyên Đề 2",
+      "room_type": "group",
+      "capacity": 20,
+      "current_count": 5,
+      "available_seats": 15,
+      "occupancy_level": "low",
+      "recorded_at": "2026-11-25T17:50:00Z",
+      "updated_at": "2026-11-25T17:50:00Z",
+      "is_stale": false,
+      "device_status": "online"
+    }
+  ],
+  "total_rooms": 4,
+  "last_updated": "2026-11-25T17:50:00Z"
+}
