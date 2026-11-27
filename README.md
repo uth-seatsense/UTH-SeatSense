@@ -264,6 +264,60 @@ Sau khi khởi động thành công, truy cập các địa chỉ sau:
 | **CV API Docs** | http://localhost:8001/docs | API tài liệu CV service |
 | **Adminer** | http://localhost:8080 | Web UI quản lý PostgreSQL |
 
+---
+
+### Cấu hình và sử dụng OTP qua Gmail trường
+
+OTP được gửi đến địa chỉ `@ut.edu.vn` người dùng nhập tại màn hình đăng nhập. Các biến `SMTP_USERNAME`, `SMTP_PASSWORD` và `SMTP_FROM_EMAIL` cấu hình **tài khoản gửi**; chúng không phải địa chỉ nhận OTP.
+
+#### 1. Chuẩn bị tài khoản gửi
+
+Dùng tài khoản Gmail/Google Workspace được phép gửi email bằng SMTP. Với tài khoản trường, hãy xác nhận với quản trị viên CNTT rằng SMTP được bật. Gmail dùng `smtp.gmail.com`, cổng `587` và STARTTLS; tài khoản Workspace có thể cần cấu hình riêng của trường ([hướng dẫn Gmail](https://support.google.com/mail/answer/7104828)).
+
+#### 2. Tạo Google App Password
+
+1. Đăng nhập tài khoản Gmail sẽ gửi OTP.
+2. Bật **Xác minh 2 bước** trong Google Account → **Security** → **2-Step Verification**.
+3. Mở trang [Google App Passwords](https://myaccount.google.com/apppasswords), xác minh tài khoản nếu được hỏi, rồi tạo App Password.
+4. Lưu mật khẩu ứng dụng 16 ký tự; Google chỉ hiển thị để sao chép lúc tạo. Không dùng mật khẩu Gmail thông thường hay mã 6 số đang hiện trong Google Authenticator. [Hướng dẫn chính thức](https://support.google.com/accounts/answer/185833).
+
+Nếu không có mục **App Passwords**, tài khoản có thể bị chính sách của trường hoặc Advanced Protection giới hạn. Hãy hỏi quản trị viên CNTT trường về quyền SMTP và phương thức gửi được phê duyệt. Không tắt bảo mật tài khoản để né giới hạn.
+
+#### 3. Điền `.env`
+
+Mở `.env` cục bộ, đặt địa chỉ gửi giống nhau ở `SMTP_USERNAME` và `SMTP_FROM_EMAIL`, rồi điền App Password vào `SMTP_PASSWORD`:
+
+```env
+ALLOWED_EMAIL_DOMAINS=ut.edu.vn
+VITE_USE_MOCK=false
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_STARTTLS=true
+SMTP_USERNAME=ten-tai-khoan@ut.edu.vn
+SMTP_PASSWORD=GOOGLE_APP_PASSWORD_16_KY_TU
+SMTP_FROM_EMAIL=ten-tai-khoan@ut.edu.vn
+```
+
+`SMTP_USERNAME` là tài khoản xác thực với Gmail; `SMTP_FROM_EMAIL` là địa chỉ người dùng nhìn thấy ở trường From và nên trùng tài khoản gửi. Người nhận OTP được lấy từ ô email trên trang đăng nhập. `OTP_HASH_SECRET` trong `.env` cũng phải là khóa ngẫu nhiên tối thiểu 32 ký tự.
+
+#### 4. Khởi động lại và gửi thử
+
+Sau khi lưu `.env`, khởi động lại backend để nạp cấu hình mới:
+
+```powershell
+docker compose up -d --force-recreate backend
+docker compose logs --tail=50 backend
+```
+
+Mở `http://localhost:3000/login`, nhập email trường đang dùng được, chọn **Gửi mã OTP**, rồi kiểm tra Inbox và Spam. Mã có 6 chữ số, dùng một lần và hết hạn sau 5 phút. Không gửi App Password hoặc OTP vào Git/chat; `.env` không được commit.
+
+#### Lỗi thường gặp
+
+- `email_auth_unavailable`: thiếu `OTP_HASH_SECRET`, miền cho phép hoặc một trong các biến SMTP.
+- `otp_delivery_failed` / Gmail `535`: kiểm tra App Password, địa chỉ tài khoản gửi và quyền SMTP; không thay bằng mật khẩu đăng nhập Gmail.
+- Gmail nhận thư nhưng không thấy trong Inbox: kiểm tra Spam và xác nhận tài khoản trường cho phép gửi/relay SMTP.
+- Thư bị từ chối theo chính sách Workspace hoặc không có App Password: nhờ quản trị viên trường cấp cấu hình SMTP/relay được phép. Mã lỗi SMTP của Gmail có thể tra tại [trang hỗ trợ Gmail](https://support.google.com/mail/answer/3726730).
+
 ### Build ứng dụng Android
 
 Với Android SDK Platform 35 đã cài, chạy từ thư mục gốc:
@@ -668,6 +722,19 @@ docker compose logs cv
 # Restart service
 docker compose restart backend
 ```
+
+Nếu `cv` thoát ngay khi khởi động hoặc báo `dependency cv failed to start`,
+xem `docker compose logs cv` để tìm exception đầu tiên. Sau khi sửa code CV,
+build và khởi động lại dịch vụ để cập nhật image:
+
+```bash
+docker compose up -d --build cv
+docker compose ps
+docker compose logs --tail 50 cv
+```
+
+Chỉ khởi động lại `backend` sau khi CV đã `Up (healthy)`, vì Backend khai báo
+CV là dependency healthcheck.
 
 ### Lỗi: Cannot connect to Docker daemon
 

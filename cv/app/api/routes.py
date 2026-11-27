@@ -10,7 +10,7 @@ from app.services.backend_ingest import (
     BackendIngestConfigurationError,
     BackendIngestError,
 )
-from app.services.webcam import WebcamSession, WebcamSyncConfigurationError
+from app.services.webcam import WebcamSession
 
 router = APIRouter()
 
@@ -145,10 +145,6 @@ def start_webcam(options: Options, request: Request):
         job['live'] = WebcamSession(manager,job)
         job['status'] = 'processing'
         return manager.snapshot(job['id'])
-    except WebcamSyncConfigurationError as exc:
-        job.update(status='failed', error=str(exc))
-        manager.slot.release()
-        raise HTTPException(422, str(exc)) from exc
     except BackendIngestConfigurationError as exc:
         job.update(status='failed', error=str(exc))
         manager.slot.release()

@@ -78,6 +78,7 @@ class AuthService:
         latest = db.scalar(
             select(LoginCode)
             .where(LoginCode.email == normalized_email)
+            .where(LoginCode.consumed_at.is_(None))
             .order_by(LoginCode.created_at.desc())
             .limit(1)
         )
