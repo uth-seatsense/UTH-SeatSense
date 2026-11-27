@@ -48,6 +48,13 @@ Ngoài ra, trên màn hình đăng nhập có nút cấu hình nhỏ ở góc tr
 
 ## 5. Cách build APK và chạy unit test
 
+### Cách A: Tải APK build tự động từ GitHub Actions (không cần cài Android Studio)
+1. Mở tab **Actions** trên repo GitHub → chọn workflow **Android Build & Test**.
+2. Chọn lần chạy mới nhất của nhánh `feat/SEAT-78-android-otp-login` (hoặc bấm **Run workflow** nếu muốn truyền sẵn `-PseatsenseApiBaseUrl` / `api_base_url`).
+3. Cuộn xuống mục **Artifacts** và tải `seatsense-debug-apk` → giải nén lấy `app-debug.apk`.
+4. Khi mở app trên điện thoại thật cùng Wi-Fi với máy chạy Docker, bấm nút tròn ở góc trên bên phải màn hình đăng nhập để đổi `API Base URL` sang `http://<IP_MAY_TINH>:8000/api/v1/`.
+
+### Cách B: Build trực tiếp bằng Android Studio / dòng lệnh
 Mở terminal tại thư mục gốc repository (`UTH-SeatSense/`):
 
 ### Chạy unit test + build APK cho Emulator:
