@@ -1,22 +1,21 @@
 from datetime import datetime, timedelta, timezone
-from email.message import EmailMessage
 import hashlib
 import hmac
 import secrets
-import smtplib
-import ssl
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.models.auth_session import AuthSession
-from app.models.email_otp_challenge import EmailOtpChallenge
+from app.models.login_code import LoginCode
 from app.models.user import User
-
-
-class AuthenticationUnavailable(Exception):
-    pass
+from app.services.email_service import (
+    AuthenticationUnavailable,
+    OtpDeliveryFailed,
+    _configuration_ready,
+    send_otp_email,
+)
 
 
 class EmailNotAllowed(Exception):
@@ -28,10 +27,6 @@ class OtpRateLimited(Exception):
 
 
 class InvalidOtp(Exception):
-    pass
-
-
-class OtpDeliveryFailed(Exception):
     pass
 
 
@@ -50,47 +45,6 @@ def _otp_digest(settings: Settings, email: str, otp: str) -> str:
         message,
         hashlib.sha256,
     ).hexdigest()
-
-
-def _configuration_ready(settings: Settings) -> bool:
-    return bool(
-        settings.email_domain_allowlist()
-        and settings.otp_hash_secret
-        and len(settings.otp_hash_secret.get_secret_value()) >= 32
-        and settings.smtp_host
-        and settings.smtp_from_email
-        and bool(settings.smtp_username)
-        == bool(settings.smtp_password and settings.smtp_password.get_secret_value())
-    )
-
-
-def send_otp_email(settings: Settings, email: str, otp: str) -> None:
-    if not _configuration_ready(settings):
-        raise AuthenticationUnavailable
-
-    message = EmailMessage()
-    message["Subject"] = "Mã xác minh UTH-SeatSense"
-    message["From"] = settings.smtp_from_email
-    message["To"] = email
-    message.set_content(
-        f"Mã xác minh của bạn là {otp}. Mã có hiệu lực trong "
-        f"{settings.otp_ttl_minutes} phút và chỉ sử dụng được một lần."
-    )
-
-    try:
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
-            if settings.smtp_starttls:
-                smtp.starttls(context=ssl.create_default_context())
-            if settings.smtp_username:
-                if settings.smtp_password is None:
-                    raise AuthenticationUnavailable
-                smtp.login(
-                    settings.smtp_username,
-                    settings.smtp_password.get_secret_value(),
-                )
-            smtp.send_message(message)
-    except (OSError, smtplib.SMTPException) as exc:
-        raise OtpDeliveryFailed from exc
 
 
 class AuthService:
@@ -112,11 +66,19 @@ class AuthService:
         if domain not in self.settings.email_domain_allowlist():
             raise EmailNotAllowed
 
+        # Serialize requests across workers, including emails without a challenge yet.
+        if db.get_bind().dialect.name == "postgresql":
+            lock_key = int.from_bytes(
+                hashlib.sha256(normalized_email.encode("utf-8")).digest()[:8],
+                "big", signed=True,
+            )
+            db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": lock_key})
+
         current_time = now or datetime.now(timezone.utc)
         latest = db.scalar(
-            select(EmailOtpChallenge)
-            .where(EmailOtpChallenge.email == normalized_email)
-            .order_by(EmailOtpChallenge.created_at.desc())
+            select(LoginCode)
+            .where(LoginCode.email == normalized_email)
+            .order_by(LoginCode.created_at.desc())
             .limit(1)
         )
         if latest and (
@@ -125,7 +87,7 @@ class AuthService:
             raise OtpRateLimited
 
         otp = f"{secrets.randbelow(1_000_000):06d}"
-        challenge = EmailOtpChallenge(
+        challenge = LoginCode(
             email=normalized_email,
             otp_hash=_otp_digest(self.settings, normalized_email, otp),
             created_at=current_time,
@@ -157,9 +119,9 @@ class AuthService:
 
         current_time = now or datetime.now(timezone.utc)
         challenge = db.scalar(
-            select(EmailOtpChallenge)
-            .where(EmailOtpChallenge.email == normalized_email)
-            .order_by(EmailOtpChallenge.created_at.desc())
+            select(LoginCode)
+            .where(LoginCode.email == normalized_email)
+            .order_by(LoginCode.created_at.desc())
             .limit(1)
             .with_for_update()
         )

@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
+from app.api import auth
 from app.api.v1.endpoints import (
-    auth,
     bookings,
     checkin,
     cv,
