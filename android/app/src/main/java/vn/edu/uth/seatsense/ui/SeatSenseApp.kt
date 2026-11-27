@@ -19,6 +19,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -27,10 +28,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +40,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
@@ -47,17 +50,27 @@ import com.google.zxing.qrcode.QRCodeWriter
 import kotlinx.coroutines.launch
 import org.json.JSONException
 import org.json.JSONObject
+import vn.edu.uth.seatsense.data.ApiClient
 import vn.edu.uth.seatsense.data.ApiFailure
 import vn.edu.uth.seatsense.data.Booking
 import vn.edu.uth.seatsense.data.Room
 import vn.edu.uth.seatsense.data.RoomOccupancy
-import vn.edu.uth.seatsense.data.SeatSenseApi
+import vn.edu.uth.seatsense.data.SessionTokenStore
 import vn.edu.uth.seatsense.data.UserProfile
-import vn.edu.uth.seatsense.security.TokenStore
 import java.io.IOException
 import java.security.GeneralSecurityException
 import java.time.DateTimeException
 import java.time.OffsetDateTime
+
+private val UthColorScheme = lightColorScheme(
+    primary = Color(0xFF006B5D),
+    onPrimary = Color.White,
+    background = Color(0xFFF5FBF8),
+    surface = Color.White,
+    onBackground = Color(0xFF171D1B),
+    onSurface = Color(0xFF171D1B),
+    error = Color(0xFFBA1A1A),
+)
 
 private enum class HomeTab(val label: String) {
     Occupancy("Chỗ trống"),
@@ -68,8 +81,27 @@ private enum class HomeTab(val label: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SeatSenseApp(
-    api: SeatSenseApi,
-    tokenStore: TokenStore,
+    api: ApiClient,
+    tokenStore: SessionTokenStore,
+    onSaveApiBaseUrl: (String) -> Unit = {},
+    onScanQr: ((String) -> Unit) -> Unit,
+) {
+    MaterialTheme(colorScheme = UthColorScheme) {
+        SeatSenseContent(
+            api = api,
+            tokenStore = tokenStore,
+            onSaveApiBaseUrl = onSaveApiBaseUrl,
+            onScanQr = onScanQr,
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SeatSenseContent(
+    api: ApiClient,
+    tokenStore: SessionTokenStore,
+    onSaveApiBaseUrl: (String) -> Unit,
     onScanQr: ((String) -> Unit) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -77,6 +109,9 @@ fun SeatSenseApp(
     var email by remember { mutableStateOf("") }
     var otp by remember { mutableStateOf("") }
     var otpRequested by remember { mutableStateOf(false) }
+    var resendNonce by remember { mutableIntStateOf(0) }
+    var rememberDevice by remember { mutableStateOf(true) }
+    var apiBaseUrl by remember { mutableStateOf(api.currentBaseUrl()) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
@@ -112,17 +147,17 @@ fun SeatSenseApp(
                 action()
             } catch (failure: ApiFailure) {
                 error = failure.message
-                if (failure.statusCode == 401) {
+                if (failure.statusCode == 401 && user != null) {
                     tokenStore.clear()
                     user = null
                 }
-            } catch (failure: IOException) {
-                error = "Không kết nối được máy chủ. Hãy kiểm tra địa chỉ API và mạng."
-            } catch (failure: GeneralSecurityException) {
-                error = "Không thể đọc phiên đăng nhập an toàn trên thiết bị."
-            } catch (failure: JSONException) {
+            } catch (_: IOException) {
+                error = "Không kết nối được máy chủ (${api.currentBaseUrl()}). Hãy kiểm tra địa chỉ API và mạng."
+            } catch (_: GeneralSecurityException) {
+                error = "Không thể đọc hoặc lưu phiên đăng nhập an toàn trên thiết bị."
+            } catch (_: JSONException) {
                 error = "Dữ liệu QR hoặc phản hồi API không hợp lệ."
-            } catch (failure: DateTimeException) {
+            } catch (_: DateTimeException) {
                 error = "Ngày giờ không đúng định dạng ISO 8601 có múi giờ."
             } finally {
                 busy = false
@@ -142,40 +177,89 @@ fun SeatSenseApp(
             } else {
                 error = failure.message
             }
-        } catch (failure: IOException) {
-            error = "Không kết nối được máy chủ. Hãy kiểm tra địa chỉ API và mạng."
-        } catch (failure: GeneralSecurityException) {
+        } catch (_: IOException) {
+            error = "Không kết nối được máy chủ (${api.currentBaseUrl()}). Hãy kiểm tra địa chỉ API và mạng."
+        } catch (_: GeneralSecurityException) {
             error = "Không thể đọc phiên đăng nhập an toàn trên thiết bị."
-        } catch (failure: JSONException) {
+        } catch (_: JSONException) {
             error = "Máy chủ trả về dữ liệu không hợp lệ."
         }
     }
 
     if (user == null) {
-        LoginPanel(
+        LoginScreen(
             email = email,
             otp = otp,
             otpRequested = otpRequested,
+            resendNonce = resendNonce,
+            rememberDevice = rememberDevice,
             busy = busy,
             error = error,
             notice = notice,
+            apiBaseUrl = apiBaseUrl,
             onEmailChange = { email = it },
             onOtpChange = { otp = it },
+            onRememberDeviceChange = { rememberDevice = it },
             onRequestOtp = {
+                val normalized = email.trim().lowercase()
+                if (!OtpLoginHelper.isValidEmail(normalized)) {
+                    notice = null
+                    error = "Vui lòng nhập địa chỉ email hợp lệ (VD: 2151050123@ut.edu.vn)."
+                    return@LoginScreen
+                }
+                email = normalized
                 execute {
-                    api.requestOtp(email.trim())
+                    api.requestOtp(normalized)
                     otpRequested = true
-                    notice = "Nếu email thuộc danh sách cho phép, mã xác minh sẽ được gửi."
+                    otp = ""
+                    resendNonce += 1
+                    notice = "Đã gửi yêu cầu OTP tới $normalized. Vui lòng kiểm tra hộp thư (kể cả Spam)."
                 }
             },
-            onLogin = {
+            onResendOtp = {
+                val normalized = email.trim().lowercase()
+                execute {
+                    api.requestOtp(normalized)
+                    resendNonce += 1
+                    notice = "Đã gửi lại mã OTP mới tới $normalized."
+                }
+            },
+            onChangeEmail = {
+                otpRequested = false
+                otp = ""
+                error = null
+                notice = null
+            },
+            onLogin = { otpExpired ->
+                if (otpExpired) {
+                    notice = null
+                    error = "Mã OTP đã hết hạn. Vui lòng bấm \"Gửi lại mã\" để nhận mã mới."
+                    return@LoginScreen
+                }
                 execute {
                     val result = api.login(email.trim(), otp.trim())
-                    tokenStore.write(result.accessToken)
+                    tokenStore.write(result.accessToken, persist = rememberDevice)
                     user = result.user
                     otpRequested = false
                     otp = ""
                     refresh()
+                }
+            },
+            onSsoClick = {
+                error = null
+                notice = "Đăng nhập qua UTH Single Sign-On sẽ được kích hoạt khi có kết nối chính thức từ nhà trường. Hiện vui lòng dùng OTP email."
+            },
+            onUpdateApiBaseUrl = { updated ->
+                try {
+                    api.updateBaseUrl(updated)
+                    val normalized = api.currentBaseUrl()
+                    apiBaseUrl = normalized
+                    onSaveApiBaseUrl(normalized)
+                    error = null
+                    notice = "Đã cập nhật địa chỉ máy chủ API: $normalized"
+                } catch (invalid: IllegalArgumentException) {
+                    notice = null
+                    error = invalid.message ?: "Địa chỉ API không hợp lệ."
                 }
             },
         )
@@ -190,12 +274,15 @@ fun SeatSenseApp(
                     OutlinedButton(
                         onClick = {
                             execute {
-                                api.logout()
-                                tokenStore.clear()
-                                user = null
-                                bookings = emptyList()
-                                rooms = emptyList()
-                                occupancies.clear()
+                                try {
+                                    api.logout()
+                                } finally {
+                                    tokenStore.clear()
+                                    user = null
+                                    bookings = emptyList()
+                                    rooms = emptyList()
+                                    occupancies.clear()
+                                }
                             }
                         },
                         enabled = !busy,
@@ -298,71 +385,6 @@ fun SeatSenseApp(
             payload = payload,
             onDismiss = { qrPayload = null },
         )
-    }
-}
-
-@Composable
-private fun LoginPanel(
-    email: String,
-    otp: String,
-    otpRequested: Boolean,
-    busy: Boolean,
-    error: String?,
-    notice: String?,
-    onEmailChange: (String) -> Unit,
-    onOtpChange: (String) -> Unit,
-    onRequestOtp: () -> Unit,
-    onLogin: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text("Đăng nhập bằng email", style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(12.dp))
-        Text("Mã OTP chỉ có hiệu lực trong thời gian giới hạn và chỉ dùng một lần.")
-        Spacer(Modifier.height(16.dp))
-        OutlinedTextField(
-            value = email,
-            onValueChange = onEmailChange,
-            label = { Text("Email được cấp quyền") },
-            enabled = !busy,
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        if (otpRequested) {
-            Spacer(Modifier.height(12.dp))
-            OutlinedTextField(
-                value = otp,
-                onValueChange = { value -> onOtpChange(value.filter(Char::isDigit).take(6)) },
-                label = { Text("Mã OTP 6 chữ số") },
-                enabled = !busy,
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        StatusMessages(error = error, notice = notice)
-        Spacer(Modifier.height(16.dp))
-        Button(
-            onClick = if (otpRequested) onLogin else onRequestOtp,
-            enabled = !busy && email.isNotBlank() && (!otpRequested || otp.length == 6),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(if (otpRequested) "Xác minh và đăng nhập" else "Gửi mã OTP")
-        }
-        if (otpRequested) {
-            OutlinedButton(
-                onClick = onRequestOtp,
-                enabled = !busy,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Gửi lại mã")
-            }
-        }
     }
 }
 

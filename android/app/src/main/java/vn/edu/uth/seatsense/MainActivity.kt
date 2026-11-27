@@ -5,8 +5,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
-import vn.edu.uth.seatsense.data.SeatSenseApi
-import vn.edu.uth.seatsense.security.TokenStore
+import vn.edu.uth.seatsense.data.ApiClient
+import vn.edu.uth.seatsense.data.ApiConfig
+import vn.edu.uth.seatsense.data.TokenStore
 import vn.edu.uth.seatsense.ui.SeatSenseApp
 
 class MainActivity : ComponentActivity() {
@@ -19,11 +20,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val tokenStore = TokenStore(applicationContext)
-        val api = SeatSenseApi(tokenStore)
+        val initialBaseUrl = tokenStore.readApiBaseUrl() ?: ApiConfig.defaultBaseUrl()
+        val api = ApiClient(tokenStore, initialBaseUrl)
         setContent {
             SeatSenseApp(
                 api = api,
                 tokenStore = tokenStore,
+                onSaveApiBaseUrl = { updated -> tokenStore.writeApiBaseUrl(updated) },
                 onScanQr = { callback ->
                     scanCallback = callback
                     scanLauncher.launch(
