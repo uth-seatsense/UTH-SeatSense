@@ -49,7 +49,9 @@ def send_otp_email(settings: Settings, email: str, otp: str) -> None:
                     settings.smtp_username,
                     settings.smtp_password.get_secret_value(),
                 )
-            smtp.send_message(message)
+            refused = smtp.send_message(message)
+            if refused:
+                raise OtpDeliveryFailed("SMTP server refused the recipient")
     except (OSError, smtplib.SMTPException) as exc:
         raise OtpDeliveryFailed from exc
 

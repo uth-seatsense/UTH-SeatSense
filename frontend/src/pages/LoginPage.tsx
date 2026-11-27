@@ -1,10 +1,8 @@
 ﻿import { useState, useEffect, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
-import { requestLoginOtp, verifyLoginOtp } from "../services/api.js";
+import { requestLoginOtp } from "../services/api.js";
 
-/* ─── mock OTP gửi đi — xóa khi nối API thật ─────────────────────────────── */
-const MOCK_OTP = "482910";
 const MOCK_EMAIL_HINT = "21510509213@ut.edu.vn";
 
 const OTP_TTL_SECONDS = 300; // 5 phút
@@ -21,9 +19,9 @@ function formatCountdown(secs: number) {
 }
 
 export default function LoginPage() {
-  const { user, loginMock } = useAuth() as {
+  const { user, login } = useAuth() as {
     user: unknown;
-    loginMock: (email: string) => void;
+    login: (email: string, otp: string) => Promise<void>;
   };
   const location = useLocation();
   const navigate = useNavigate();
@@ -82,12 +80,12 @@ export default function LoginPage() {
     setBusy(true);
     setError("");
     try {
-      await new Promise((resolve) => setTimeout(resolve, 350));
+      await requestLoginOtp(normalizedEmail);
       setEmail(normalizedEmail);
       setOtp("");
       setStep("otp");
-    } catch {
-      setError("Kh\u00f4ng th\u1ec3 t\u1ea1o m\u00e3 OTP demo. Vui l\u00f2ng th\u1eed l\u1ea1i.");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Không gửi được mã OTP. Hãy kiểm tra cấu hình gửi thư rồi thử lại.");
     } finally {
       setBusy(false);
     }
@@ -98,14 +96,10 @@ export default function LoginPage() {
     setBusy(true);
     setError("");
     try {
-      await new Promise((resolve) => setTimeout(resolve, 250));
       if (otpTtl <= 0) {
         throw new Error("M\u00e3 OTP \u0111\u00e3 h\u1ebft h\u1ea1n. H\u00e3y g\u1eedi l\u1ea1i m\u00e3 m\u1edbi.");
       }
-      if (otp !== MOCK_OTP) {
-        throw new Error("M\u00e3 OTP \u0111\u00e3 h\u1ebft h\u1ea1n. H\u00e3y g\u1eedi l\u1ea1i m\u00e3 m\u1edbi.");
-      }
-      loginMock(email.trim());
+      await login(email.trim(), otp);
       const destination =
         (location.state as { from?: { pathname: string } })?.from?.pathname ??
         "/dashboard";
@@ -121,7 +115,7 @@ export default function LoginPage() {
     setBusy(true);
     setError("");
     try {
-      await new Promise((r) => setTimeout(r, 400));
+      await requestLoginOtp(email.trim());
       setOtpTtl(OTP_TTL_SECONDS);
       setResendCooldown(RESEND_COOLDOWN);
       if (resendTimerRef.current) clearInterval(resendTimerRef.current);
@@ -134,6 +128,8 @@ export default function LoginPage() {
           return c - 1;
         });
       }, 1000);
+    } catch (err: unknown) {
+      setError((err as Error).message || "Không gửi lại được mã OTP. Vui lòng thử lại sau.");
     } finally {
       setBusy(false);
     }
@@ -248,9 +244,6 @@ export default function LoginPage() {
                   </button>
                 )}
               </div>
-              {step === "email" && (
-                <p className="lp-helper">{"M\u00e3 OTP demo: 482910 (ch\u01b0a g\u1eedi email, ch\u01b0a g\u1ecdi API)."}</p>
-              )}
             </div>
 
             {/* OTP field — only shown after email submitted */}

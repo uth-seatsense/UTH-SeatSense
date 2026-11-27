@@ -383,6 +383,12 @@ Adminer là công cụ quản lý database qua web, cho phép xem, tìm kiếm, 
 - Không expose Adminer ra internet vì lý do bảo mật
 - Thao tác cẩn thận khi xóa hoặc sửa dữ liệu trực tiếp
 
+
+
+### Gmail SMTP for OTP
+
+Set SMTP_HOST=smtp.gmail.com, SMTP_PORT=587, SMTP_STARTTLS=true. Set SMTP_USERNAME and SMTP_FROM_EMAIL to the Gmail account that sends mail, and SMTP_PASSWORD to its Google App Password. The app sends the OTP to the student email entered in the login screen. Workspace administrators may need to enable SMTP access.
+
 ## 11. Trạng thái chức năng
 
 Đây là hướng dẫn chạy, không phải nguồn trạng thái Jira. Bảng dưới chỉ ghi
