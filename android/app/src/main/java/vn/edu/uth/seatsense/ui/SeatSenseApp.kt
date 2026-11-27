@@ -205,15 +205,15 @@ private fun SeatSenseContent(
                 if (!OtpLoginHelper.isValidEmail(normalized)) {
                     notice = null
                     error = "Vui lòng nhập địa chỉ email hợp lệ (VD: 2151050123@ut.edu.vn)."
-                    return@LoginScreen
-                }
-                email = normalized
-                execute {
-                    api.requestOtp(normalized)
-                    otpRequested = true
-                    otp = ""
-                    resendNonce += 1
-                    notice = "Đã gửi yêu cầu OTP tới $normalized. Vui lòng kiểm tra hộp thư (kể cả Spam)."
+                } else {
+                    email = normalized
+                    execute {
+                        api.requestOtp(normalized)
+                        otpRequested = true
+                        otp = ""
+                        resendNonce += 1
+                        notice = "Đã gửi yêu cầu OTP tới $normalized. Vui lòng kiểm tra hộp thư (kể cả Spam)."
+                    }
                 }
             },
             onResendOtp = {
@@ -234,15 +234,15 @@ private fun SeatSenseContent(
                 if (otpExpired) {
                     notice = null
                     error = "Mã OTP đã hết hạn. Vui lòng bấm \"Gửi lại mã\" để nhận mã mới."
-                    return@LoginScreen
-                }
-                execute {
-                    val result = api.login(email.trim(), otp.trim())
-                    tokenStore.write(result.accessToken, persist = rememberDevice)
-                    user = result.user
-                    otpRequested = false
-                    otp = ""
-                    refresh()
+                } else {
+                    execute {
+                        val result = api.login(email.trim(), otp.trim())
+                        tokenStore.write(result.accessToken, persist = rememberDevice)
+                        user = result.user
+                        otpRequested = false
+                        otp = ""
+                        refresh()
+                    }
                 }
             },
             onSsoClick = {
