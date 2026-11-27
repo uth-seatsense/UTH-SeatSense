@@ -1,0 +1,37 @@
+{
+  "facilities": [
+    {
+      "id": "cs1",
+      "name": "Phòng Chuyên đề 1",
+      "code": "CS1 - Võ Oanh",
+      "rooms": [
+        { "id": "room-1-1", "name": "Phòng Chuyên đề 1", "capacity": 8, "equipment": ["SmartTV 65\"", "Bảng kính"] },
+        { "id": "room-1-2", "name": "Phòng Chuyên đề 2", "capacity": 6, "equipment": ["SmartTV 55\"", "Bảng kính"] }
+      ]
+    },
+    {
+      "id": "cs2",
+      "name": "Phòng Chuyên đề 3",
+      "code": "CS2 - Nối Hòa",
+      "rooms": [
+        { "id": "room-2-1", "name": "Phòng Chuyên đề 3", "capacity": 10, "equipment": ["SmartTV 75\"", "Bảng kính", "Cách âm"] },
+        { "id": "room-2-2", "name": "Phòng Chuyên đề 4", "capacity": 8, "equipment": ["SmartTV 65\"", "Bảng kính"] }
+      ]
+    }
+  ],
+  "dates": [
+    { "id": "date-24", "day": "24", "label": "Hôm nay" },
+    { "id": "date-25", "day": "25", "label": "Ngày mai" },
+    { "id": "date-26", "day": "26", "label": "Cuối tuần" },
+    { "id": "date-27", "day": "27", "label": "Chủ nhật" },
+    { "id": "date-28", "day": "28", "label": "Tuần sau" }
+  ],
+  "timeSlots": [
+    { "id": "slot-1", "startTime": "07:30", "endTime": "09:30", "status": "unavailable" },
+    { "id": "slot-2", "startTime": "09:30", "endTime": "11:30", "status": "unavailable" },
+    { "id": "slot-3", "startTime": "11:30", "endTime": "13:30", "status": "available" },
+    { "id": "slot-4", "startTime": "13:30", "endTime": "15:30", "status": "available" },
+    { "id": "slot-5", "startTime": "15:30", "endTime": "17:30", "status": "available" },
+    { "id": "slot-6", "startTime": "17:30", "endTime": "19:30", "status": "available" }
+  ]
+}

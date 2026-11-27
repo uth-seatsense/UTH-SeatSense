@@ -1,51 +1,67 @@
 {
   "items": [
     {
-      "id": 14,
-      "code": "A101",
-      "name": "Phòng A101",
-      "room_type": "free_area",
+      "id": 1,
+      "code": "B301A-L1",
+      "name": "B301A - Lầu 1",
+      "capacity": 50,
+      "campus_id": 1,
+      "campus_code": "CS1",
+      "building": "B301A",
+      "is_active": true
+    },
+    {
+      "id": 2,
+      "code": "B301A-L2",
+      "name": "B301A - Lầu 2",
       "capacity": 40,
       "campus_id": 1,
       "campus_code": "CS1",
-      "building": "Cơ sở 1",
+      "building": "B301A",
       "is_active": true
     },
     {
-      "id": 15,
-      "code": "DEMO-CS1-TOPIC-01",
-      "name": "Phòng Chuyên Đề CS1",
-      "room_type": "topic_room",
-      "capacity": 12,
+      "id": 3,
+      "code": "PCD1",
+      "name": "Phòng Chuyên Đề 1",
+      "capacity": 20,
       "campus_id": 1,
       "campus_code": "CS1",
-      "building": "Cơ sở 1",
+      "building": "K",
       "is_active": true
     },
     {
-      "id": 16,
-      "code": "B201",
-      "name": "Phòng B201",
-      "room_type": "free_area",
-      "capacity": 50,
-      "campus_id": 3,
-      "campus_code": "CS3",
-      "building": "Cơ sở 3",
+      "id": 4,
+      "code": "PCD2",
+      "name": "Phòng Chuyên Đề 2",
+      "capacity": 20,
+      "campus_id": 1,
+      "campus_code": "CS1",
+      "building": "K",
       "is_active": true
     },
     {
-      "id": 17,
-      "code": "DEMO-CS3-TOPIC-01",
-      "name": "Phòng Chuyên Đề CS3",
-      "room_type": "topic_room",
-      "capacity": 15,
-      "campus_id": 3,
+      "id": 5,
+      "code": "PCD3",
+      "name": "Phòng Chuyên Đề 3",
+      "capacity": 25,
+      "campus_id": 2,
       "campus_code": "CS3",
-      "building": "Cơ sở 3",
+      "building": "K",
+      "is_active": true
+    },
+    {
+      "id": 6,
+      "code": "PCD4",
+      "name": "Phòng Chuyên Đề 4",
+      "capacity": 20,
+      "campus_id": 2,
+      "campus_code": "CS3",
+      "building": "K",
       "is_active": true
     }
   ],
-  "limit": 50,
+  "limit": 100,
   "offset": 0,
-  "total": 4
+  "total": 6
 }

@@ -6,7 +6,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import HomePage from "./pages/HomePage.jsx";
-import LoginPage from "./pages/LoginPage.jsx";
+import LoginPage from "./pages/LoginPage.tsx";
 import RoomsPage from "./pages/RoomsPage.jsx";
 import RoomDetailPage from "./pages/RoomDetailPage.tsx";
 import ReservationPage from "./pages/ReservationPage.jsx";
@@ -14,6 +14,7 @@ import MyBookingsPage from "./pages/MyBookingsPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import CheckinPage from "./pages/CheckinPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
+import BookingPage from "./pages/BookingPage.tsx";
 import HealthPage from "./pages/HealthPage.jsx";
 import { AuthProvider, useAuth } from "./auth/AuthContext.jsx";
 import RequireAuth from "./auth/RequireAuth.jsx";
@@ -24,7 +25,6 @@ const navigation = [
   ["/rooms", "Danh sách phòng"],
   ["/reservation", "Đặt phòng"],
   ["/my-bookings", "Lịch đặt của tôi"],
-  ["/profile", "Hồ sơ của tôi"],
   ["/checkin", "Xác nhận có mặt"],
   ["/dashboard", "Tổng quan"],
 ];
@@ -43,47 +43,47 @@ function Application() {
   const { user, signOut } = useAuth();
   const [navigationError, setNavigationError] = useState("");
   const path = pathname.replace(/\/+$/, "") || "/";
-  const hasSidebar = path === "/" || path === "/dashboard";
+  const hasSidebar = path === "/" || path === "/dashboard" || path === "/booking";
 
   return (
     <>
       {!hasSidebar && (
-        <nav
-          aria-label="Điều hướng chính"
-          className="app-navigation"
-        >
-          <div className="app-navigation-links">
-            {navigation.map(([to, label]) => (
-              <NavLink key={to} to={to} end>
-                {label}
-              </NavLink>
-            ))}
-          </div>
-          {user ? (
-            <div className="app-navigation-account">
-              <span>{user.display_name || user.email}</span>
-              <button
-                className="button button--quiet"
-                onClick={async () => {
-                  setNavigationError("");
-                  try {
-                    await signOut();
-                    navigate("/login", { replace: true });
-                  } catch (error) {
-                    setNavigationError(error.message);
-                  }
-                }}
-                type="button"
-              >
-                Đăng xuất
-              </button>
-            </div>
-          ) : (
-            <NavLink className="app-navigation-login" to="/login" end>
-              Đăng nhập
+      <nav
+        aria-label="Điều hướng chính"
+        className="app-navigation"
+      >
+        <div className="app-navigation-links">
+          {navigation.map(([to, label]) => (
+            <NavLink key={to} to={to} end>
+              {label}
             </NavLink>
-          )}
-        </nav>
+          ))}
+        </div>
+        {user ? (
+          <div className="app-navigation-account">
+            <span>{user.display_name || user.email}</span>
+            <button
+              className="button button--quiet"
+              onClick={async () => {
+                setNavigationError("");
+                try {
+                  await signOut();
+                  navigate("/login", { replace: true });
+                } catch (error) {
+                  setNavigationError(error.message);
+                }
+              }}
+              type="button"
+            >
+              Đăng xuất
+            </button>
+          </div>
+        ) : (
+          <NavLink className="app-navigation-login" to="/login" end>
+            Đăng nhập
+          </NavLink>
+        )}
+      </nav>
       )}
       {navigationError && (
         <p
@@ -112,8 +112,7 @@ function Application() {
               <RoomDetailPage />
             </RequireAuth>
           }
-        />
-        <Route
+        />        <Route
           path="/reservation"
           element={
             <RequireAuth>
@@ -136,8 +135,7 @@ function Application() {
               <ProfilePage />
             </RequireAuth>
           }
-        />
-        <Route
+        />        <Route
           path="/checkin"
           element={
             <RequireAuth>
@@ -146,6 +144,7 @@ function Application() {
           }
         />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/booking" element={<BookingPage />} />
         <Route path="/health" element={<HealthPage />} />
         <Route
           path="*"
@@ -161,3 +160,4 @@ function Application() {
     </>
   );
 }
+

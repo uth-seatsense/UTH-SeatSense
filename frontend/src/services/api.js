@@ -1,4 +1,4 @@
-import { getRooms as getMockRoomsResponse, isMockEnabled } from "./apiClient.ts";
+import { getCurrentOccupancy as getCurrentOccupancyData, getRooms as getMockRoomsResponse, isMockEnabled } from "./apiClient.ts";
 
 export {
   getApiHealth,
@@ -7,13 +7,27 @@ export {
   USE_MOCK,
 } from "./apiClient.ts";
 export { isMockEnabled };
+export async function getRoomOccupancyStatus({ signal, campus } = {}) {
+  const result = await getCurrentOccupancyData({ signal });
+  if (!result || !Array.isArray(result.rooms)) return null;
+
+  const rooms = campus && result.campus?.toUpperCase() !== campus.toUpperCase()
+    ? []
+    : result.rooms;
+  const updatedAt = result.last_updated ?? result.updatedAt ?? null;
+  return {
+    ...result,
+    rooms,
+    total_rooms: rooms.length,
+    last_updated: updatedAt,
+    updated_at: updatedAt,
+  };
+}
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "/api/v1").replace(
   /\/$/,
   "",
 );
-const OCCUPANCY_ENDPOINT =
-  import.meta.env.VITE_OCCUPANCY_API_URL ?? `${API_BASE_URL}/occupancy/current`;
 const AUTH_TOKEN_KEY = "seatsense_access_token";
 const API_ERROR_MESSAGES = {
   email_not_allowed: "Email này chưa nằm trong danh sách được phép.",
@@ -65,12 +79,15 @@ export async function requestApi(
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (authenticated && token) headers.Authorization = `Bearer ${token}`;
 
-  const response = await fetch(`${API_BASE_URL}/${path.replace(/^\/+/, "")}`, {
+  const fetchOptions = {
     method,
     headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
     signal,
-  });
+  };
+  if (body !== undefined) {
+    fetchOptions.body = JSON.stringify(body);
+  }
+  const response = await fetch(`${API_BASE_URL}/${path.replace(/^\/+/, "")}`, fetchOptions);
 
   if (response.status === 204) {
     if (!response.ok) {
@@ -124,6 +141,17 @@ export function requestLoginOtp(email) {
 }
 
 export async function verifyLoginOtp(email, otp) {
+  if (isMockEnabled()) {
+    // Mock: accept bất kỳ email/OTP nào
+    const mockToken = "mock_token_" + Date.now();
+    saveAccessToken(mockToken);
+    return {
+      id: 1,
+      email: email,
+      display_name: email.split("@")[0],
+      created_at: new Date().toISOString(),
+    };
+  }
   const result = await requestApi("auth/login", {
     method: "POST",
     body: { email, otp },
@@ -134,6 +162,19 @@ export async function verifyLoginOtp(email, otp) {
 }
 
 export function getCurrentUser() {
+  const mockEnabled = isMockEnabled();
+  console.log("🔍 getCurrentUser - isMockEnabled:", mockEnabled, "VITE_USE_MOCK:", import.meta.env.VITE_USE_MOCK);
+
+  if (mockEnabled) {
+    // Mock: trả về mock user
+    return Promise.resolve({
+      id: 1,
+      email: "test@ut.edu.vn",
+      display_name: "Test User",
+      created_at: new Date().toISOString(),
+    });
+  }
+  console.log("⚠️  Making real API call to auth/me");
   return requestApi("auth/me");
 }
 
@@ -165,21 +206,6 @@ export async function getRoomById(roomId, { signal } = {}) {
 
 export function getRoomOccupancy(roomId, { signal } = {}) {
   return requestApi(`occupancy/rooms/${roomId}/latest`, { signal });
-}
-
-export function getRoomOccupancyStatus({ signal, campus } = {}) {
-  if (isMockEnabled()) {
-    return Promise.resolve({
-      rooms: [],
-      total_rooms: 0,
-      web_logged_in_count: 0,
-      total_people_in_rooms: null,
-      updated_at: null,
-    });
-  }
-  const params = new URLSearchParams();
-  if (campus) params.set("campus", campus);
-  return requestApi(`occupancy/rooms/status?${params.toString()}`, { signal });
 }
 
 export async function getBookings({ signal } = {}) {

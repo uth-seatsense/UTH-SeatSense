@@ -50,6 +50,7 @@ type NormalizedOccupancy = {
   count: number;
   updatedAt: string | null;
   location: string | null;
+  dataStatus: "fresh" | "stale" | "disconnected" | null;
 };
 
 type OccupancyResult = OccupancyResponse & {
@@ -282,5 +283,9 @@ export function normalizeOccupancy(
         : typeof record.location_name === "string"
           ? record.location_name
           : null,
+    dataStatus: ["fresh", "stale", "disconnected"].includes(String(record.data_status ?? record.dataStatus))
+      ? (record.data_status ?? record.dataStatus) as NormalizedOccupancy["dataStatus"]
+      : null,
   };
 }
+
