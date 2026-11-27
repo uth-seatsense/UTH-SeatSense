@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -9,6 +11,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.db.session import get_session_factory
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title=settings.app_name, version="0.1.0")
 
@@ -118,6 +122,9 @@ async def database_error_handler(
 async def unexpected_error_handler(
     _request: Request, _exc: Exception
 ) -> JSONResponse:
+    logger.exception(
+        "Unhandled error on %s %s", _request.method, _request.url.path, exc_info=_exc
+    )
     return _error_response(500, "internal_error", "An unexpected error occurred")
 
 

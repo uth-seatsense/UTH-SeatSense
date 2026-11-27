@@ -102,7 +102,7 @@ SRS 1.9, FR-OPT-01 xếp dự báo mật độ 1–2 giờ hoặc thông báo ch
 
 ### Auth
 
-`POST /auth/register` chỉ yêu cầu gửi OTP, không tạo mật khẩu hoặc hồ sơ riêng → `202 {"status":"otp_sent"}`. Email phải thuộc danh sách cho phép; OTP 6 số được lưu dạng hash, dùng một lần, hết hạn sau 5 phút, tối đa 5 lần nhập sai và chỉ gửi lại sau 60 giây. Lần xác minh thành công đầu tiên tự tạo hồ sơ. `POST /auth/login` body `{"email":"sv@example.edu.vn","otp":"123456"}` → `200 {"access_token":"<jwt>","token_type":"bearer","user":{"id":"usr_123","email":"sv@example.edu.vn","display_name":"Nguyễn An","role":"student"}}`. `POST /auth/logout` → `204`; `GET /auth/me` trả cùng hồ sơ gồm `display_name`. Trả lỗi chung để không tiết lộ email tồn tại; trả `429` khi vượt giới hạn. Claim, thời hạn access token, refresh flow và revoke/logout behavior vẫn chờ chốt.
+`POST /auth/register` chỉ yêu cầu gửi OTP, không tạo mật khẩu hoặc hồ sơ riêng → `202 {"status":"otp_sent"}`. Email phải thuộc danh sách cho phép; OTP 6 số được lưu dạng hash, dùng một lần, hết hạn sau 5 phút, tối đa 5 lần nhập sai và chỉ gửi lại sau 60 giây. Lần xác minh thành công đầu tiên tự tạo hồ sơ. `POST /auth/login` body `{"email":"sv@example.edu.vn","otp":"123456"}` → `200 {"access_token":"<opaque-token>","token_type":"bearer","expires_at":"2026-11-27T06:00:00Z","user":{"id":123,"email":"sv@example.edu.vn","display_name":"Nguyễn An","role":"student"}}`. `POST /auth/logout` → `204`; `GET /auth/me` trả cùng hồ sơ gồm `display_name`. Trả lỗi chung để không tiết lộ email tồn tại; trả `429` khi vượt giới hạn. Token opaque có thời hạn cấu hình bằng ACCESS_TOKEN_TTL_MINUTES (mặc định 60 phút); logout thu hồi phiên hiện tại. Chưa triển khai refresh token.
 
 ### Rooms
 

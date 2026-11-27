@@ -1,24 +1,4 @@
-from datetime import datetime
+"""Compatibility name for the existing OTP challenge model."""
+from app.models.login_code import LoginCode
 
-from sqlalchemy import DateTime, Integer, String, text
-from sqlalchemy.orm import Mapped, mapped_column
-
-from app.db.base import Base
-
-
-class EmailOtpChallenge(Base):
-    __tablename__ = "email_otp_challenges"
-
-    challenge_id: Mapped[int] = mapped_column(
-        Integer, primary_key=True, autoincrement=True
-    )
-    email: Mapped[str] = mapped_column(String(255), nullable=False)
-    otp_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=text("now()")
-    )
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    attempts: Mapped[int] = mapped_column(
-        Integer, nullable=False, server_default=text("0")
-    )
-    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+EmailOtpChallenge = LoginCode
