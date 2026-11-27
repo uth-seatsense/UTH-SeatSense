@@ -1,28 +1,48 @@
-from fastapi import APIRouter, Depends, Path
-from datetime import datetime, timezone, timedelta
-from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
-from pydantic import BaseModel, ConfigDict
+from datetime import datetime, timezone
+from typing import Literal
 
+from fastapi import APIRouter, Depends, Path, status
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_user
 from app.api.errors import api_error
 from app.db.session import get_db
-from app.schemas.cv_count import ErrorEnvelope, LatestRoomOccupancy
-from app.schemas.occupancy import CurrentOccupancyResponse
-from app.services.cv_count_service import (
-    CVCountService,
-    OccupancyNotFoundError,
-    RoomNotFoundError,
-    is_stale,
+from app.models.auth_session import AuthSession
+from app.models.user import User
+from app.schemas.cv_count import ErrorEnvelope
+from app.schemas.occupancy import (
+    MAX_CURRENT_COUNT,
+    MAX_ROOM_ID,
+    CurrentOccupancyResponse,
 )
+from app.services.cv_count_service import CVCountService, OccupancyNotFoundError
+from app.services.occupancy_service import OccupancyService, RoomNotFoundError
+
 
 router = APIRouter()
 cv_count_service = CVCountService()
-MAX_ROOM_ID = 2**63 - 1
+RoomDataStatus = Literal["fresh", "stale", "offline", "insufficient"]
+
+
+class CountingSessionStart(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    initial_count: StrictInt = Field(ge=0, le=MAX_CURRENT_COUNT)
+
+
+class CountingSessionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    room_id: int
+    initial_count: int
+    started_at: AwareDatetime
+    started_by: int
 
 
 class RoomOccupancyStatus(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
     room_id: int
     room_code: str
     room_name: str
@@ -32,143 +52,147 @@ class RoomOccupancyStatus(BaseModel):
     capacity_confirmed: bool
     current_count: int | None
     available_seats: int | None
+    over_capacity: bool | None
     updated_at: datetime | None
     is_stale: bool
+    occupancy_status: RoomDataStatus
 
 
 class RoomOccupancyStatusResponse(BaseModel):
     rooms: list[RoomOccupancyStatus]
     total_rooms: int
     web_logged_in_count: int
-    total_people_in_rooms: int
+    total_people_in_rooms: int | None
     updated_at: datetime | None
+
+
+class RoomOccupancyDetail(BaseModel):
+    room_id: int
+    room_code: str
+    camera_id: str | None
+    source_type: Literal["webcam"]
+    people_count: int | None
+    tracked_count: int | None
+    estimated_occupancy: int | None
+    available_seats: int | None
+    over_capacity: bool | None
+    occupancy_underflow: bool | None
+    recorded_at: AwareDatetime | None
+    received_at: AwareDatetime | None
+    is_stale: bool
+    occupancy_status: RoomDataStatus
+
+
+class CurrentSessionOccupancy(CurrentOccupancyResponse):
+    data_status: Literal["fresh", "stale", "disconnected", "insufficient"] | None = None
+
+
+@router.post(
+    "/rooms/{room_id}/counting-sessions",
+    response_model=CountingSessionRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Start a counting session with a manual headcount",
+)
+#seat 73
+def start_counting_session(
+    payload: CountingSessionStart,
+    room_id: int = Path(gt=0, le=MAX_ROOM_ID),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CountingSessionRead:
+    if user.role not in {"librarian", "admin"}:
+        raise api_error(403, "forbidden", "Only library operators can start a counting session")
+    try:
+        session = OccupancyService.start_counting_session(
+            db, room_id, payload.initial_count, user.user_id
+        )
+    except RoomNotFoundError:
+        raise api_error(404, "room_not_found", "Active room does not exist") from None
+    return CountingSessionRead.model_validate(session)
+
+
+def _room_data_status(updated_at: datetime | None) -> RoomDataStatus:
+    data_status = OccupancyService.calculate_data_status(updated_at)
+    if data_status is None:
+        return "insufficient"
+    if data_status == "disconnected":
+        return "offline"
+    return data_status
 
 
 @router.get(
     "/rooms/{room_id}/latest",
-    response_model=LatestRoomOccupancy,
+    response_model=RoomOccupancyDetail,
     responses={
         404: {"model": ErrorEnvelope, "description": "Room not found"},
         422: {"model": ErrorEnvelope, "description": "Invalid room ID"},
-        503: {"model": ErrorEnvelope, "description": "Occupancy unavailable or database error"},
+        503: {"model": ErrorEnvelope, "description": "Database unavailable"},
     },
 )
 def read_latest_occupancy(
     room_id: int = Path(gt=0, le=MAX_ROOM_ID),
     db: Session = Depends(get_db),
-) -> LatestRoomOccupancy:
-    record = None
-    try:
-        record = cv_count_service.latest_live_for_room(db, room_id)
-    except RoomNotFoundError:
-        raise api_error(404, "room_not_found", "Room does not exist") from None
-    except OccupancyNotFoundError:
-        record = None
-    except SQLAlchemyError:
-        raise api_error(
-            503,
-            "database_unavailable",
-            "The database is temporarily unavailable",
-        ) from None
+) -> RoomOccupancyDetail:
+    rooms = OccupancyService.current_room_counts(db, room_id=room_id)
+    if not rooms:
+        raise api_error(404, "room_not_found", "Active room does not exist")
 
-    if record is None:
-        legacy = db.execute(
-            text(
-                """
-                SELECT rooms.code AS room_code,
-                       occupancy.current_count,
-                       occupancy.recorded_at
-                FROM occupancy_records AS occupancy
-                JOIN rooms ON rooms.id = occupancy.room_id
-                WHERE occupancy.room_id = :room_id
-                ORDER BY occupancy.recorded_at DESC, occupancy.id DESC
-                LIMIT 1
-                """
-            ),
-            {"room_id": room_id},
-        ).mappings().one_or_none()
-        if legacy is None:
-            raise api_error(
-                404,
-                "occupancy_not_found",
-                "No live occupancy record is available for this room",
-            ) from None
-        return LatestRoomOccupancy(
-            room_id=room_id,
-            room_code=legacy["room_code"],
-            camera_id="legacy-occupancy",
-            source_type="webcam",
-            people_count=legacy["current_count"],
-            tracked_count=legacy["current_count"],
-            estimated_occupancy=legacy["current_count"],
-            occupancy_underflow=False,
-            recorded_at=legacy["recorded_at"],
-            received_at=legacy["recorded_at"],
-            is_stale=is_stale(legacy["recorded_at"]),
-        )
+    room = rooms[0]
+    data_status = _room_data_status(room["updated_at"])
+    snapshot = None
+    if room["current_count"] is not None:
+        try:
+            snapshot = cv_count_service.latest_live_for_room(db, room_id)
+        except OccupancyNotFoundError:
+            pass
 
-    return LatestRoomOccupancy(
-        room_id=record.room_id,
-        room_code=record.room_code,
-        camera_id=record.camera_id,
+    return RoomOccupancyDetail(
+        room_id=room_id,
+        room_code=room["room_code"],
+        camera_id=snapshot.camera_id if snapshot else None,
         source_type="webcam",
-        people_count=record.people_count,
-        tracked_count=record.tracked_count,
-        estimated_occupancy=record.estimated_occupancy,
-        occupancy_underflow=record.occupancy_underflow,
-        recorded_at=record.recorded_at,
-        received_at=record.received_at,
-        is_stale=is_stale(record.received_at),
+        people_count=snapshot.people_count if snapshot else None,
+        tracked_count=snapshot.tracked_count if snapshot else None,
+        estimated_occupancy=room["current_count"],
+        available_seats=room["available_seats"],
+        over_capacity=room["over_capacity"],
+        occupancy_underflow=room["underflow"],
+        recorded_at=room["observed_at"],
+        received_at=room["updated_at"],
+        is_stale=data_status in {"stale", "offline"},
+        occupancy_status=data_status,
     )
 
 
-@router.get("/current", response_model=CurrentOccupancyResponse)
+def _web_logged_in_count(db: Session) -> int:
+    return db.scalar(
+        select(func.count(func.distinct(AuthSession.user_id))).where(
+            AuthSession.revoked_at.is_(None),
+            AuthSession.expires_at > datetime.now(timezone.utc),
+        )
+    )
+
+
+@router.get("/current", response_model=CurrentSessionOccupancy)
 def get_current_occupancy(
     db: Session = Depends(get_db),
     campus: str | None = None,
-) -> CurrentOccupancyResponse:
-    query = text(
-        """
-        WITH latest_per_room AS (
-            SELECT DISTINCT ON (occupancy.room_id)
-                occupancy.room_id,
-                occupancy.current_count,
-                occupancy.recorded_at,
-                occupancy.device_status,
-                campus.name AS campus_name
-            FROM occupancy_records AS occupancy
-            JOIN rooms ON rooms.id = occupancy.room_id
-            JOIN campuses campus ON campus.campus_id = rooms.campus_id
-            WHERE rooms.is_active IS TRUE
-              AND (:campus IS NULL OR campus.code = :campus)
-            ORDER BY occupancy.room_id, occupancy.recorded_at DESC, occupancy.id DESC
+) -> CurrentSessionOccupancy:
+    rooms = get_room_occupancy_status(db, campus)
+    location = "Thư viện UTH"
+    if campus is not None:
+        location = next(
+            (room.campus_name for room in rooms.rooms if room.campus_name), location
         )
-        SELECT
-            CASE WHEN COUNT(*) = 0 THEN NULL ELSE SUM(current_count)::INTEGER END AS current_count,
-            MAX(recorded_at) AS updated_at,
-            COALESCE(MAX(campus_name), 'Thư viện UTH') AS location,
-            (SELECT COUNT(DISTINCT user_id)
-               FROM auth_sessions
-              WHERE revoked_at IS NULL
-                AND expires_at > NOW()) AS web_logged_in_count,
-            COUNT(*) AS active_room_count,
-            (SELECT device_status FROM latest_per_room ORDER BY recorded_at DESC LIMIT 1) AS device_status
-        FROM latest_per_room
-        """
-    ).bindparams(campus=campus)
-    result = db.execute(query).mappings().one()
-
-    from app.services.occupancy_service import OccupancyService
-    data_status = OccupancyService.calculate_data_status(
-        result["updated_at"],
-        result.get("device_status"),
-    )
-    return CurrentOccupancyResponse(
-        current_count=result["current_count"],
-        updated_at=result["updated_at"],
-        location=result["location"],
-        web_logged_in_count=result.get("web_logged_in_count", 0),
-        active_room_count=result.get("active_room_count", 0),
+    data_status = "insufficient"
+    if rooms.total_people_in_rooms is not None:
+        data_status = OccupancyService.calculate_data_status(rooms.updated_at)
+    return CurrentSessionOccupancy(
+        current_count=rooms.total_people_in_rooms,
+        updated_at=rooms.updated_at,
+        location=location,
+        web_logged_in_count=rooms.web_logged_in_count,
+        active_room_count=sum(room.current_count is not None for room in rooms.rooms),
         data_status=data_status,
     )
 
@@ -178,58 +202,23 @@ def get_room_occupancy_status(
     db: Session = Depends(get_db),
     campus: str | None = None,
 ) -> RoomOccupancyStatusResponse:
-    query = text(
-        """
-        SELECT room_id, room_code, room_name, campus_code, campus_name,
-               capacity, capacity_confirmed, current_count,
-               available_seats, updated_at
-        FROM room_occupancy_status
-        WHERE (:campus IS NULL OR campus_code = :campus)
-        ORDER BY room_id
-        """
-    ).bindparams(campus=campus)
-    rows = db.execute(query).mappings().all()
-
-    web_count = db.execute(
-        text(
-            """
-            SELECT COUNT(DISTINCT user_id) AS web_logged_in_count
-            FROM auth_sessions
-            WHERE revoked_at IS NULL AND expires_at > NOW()
-            """
-        )
-    ).mappings().one()["web_logged_in_count"]
-
-    now = datetime.now(timezone.utc)
     rooms = []
-    for row in rows:
-        updated_at = row["updated_at"]
-        if updated_at is not None and updated_at.tzinfo is None:
-            updated_at = updated_at.replace(tzinfo=timezone.utc)
-        is_stale = updated_at is None or now - updated_at > timedelta(seconds=30)
+    for row in OccupancyService.current_room_counts(db, campus=campus):
+        data_status = _room_data_status(row["updated_at"])
         rooms.append(
             RoomOccupancyStatus(
-                room_id=row["room_id"],
-                room_code=row["room_code"],
-                room_name=row["room_name"],
-                campus_code=row["campus_code"],
-                campus_name=row["campus_name"],
-                capacity=row["capacity"],
-                capacity_confirmed=row["capacity_confirmed"],
-                current_count=row["current_count"],
-                available_seats=row["available_seats"],
-                updated_at=updated_at,
-                is_stale=is_stale,
+                **row,
+                is_stale=data_status in {"stale", "offline"},
+                occupancy_status=data_status,
             )
         )
 
+    counts = [room.current_count for room in rooms if room.current_count is not None]
     return RoomOccupancyStatusResponse(
         rooms=rooms,
         total_rooms=len(rooms),
-        web_logged_in_count=int(web_count),
-        total_people_in_rooms=sum(
-            room.current_count or 0 for room in rooms
-        ),
+        web_logged_in_count=_web_logged_in_count(db),
+        total_people_in_rooms=sum(counts) if rooms and len(counts) == len(rooms) else None,
         updated_at=max(
             (room.updated_at for room in rooms if room.updated_at is not None),
             default=None,

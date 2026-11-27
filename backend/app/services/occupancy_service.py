@@ -1,12 +1,16 @@
-﻿from datetime import datetime, timezone
-from app.core.config import settings
-from app.models.occupancy_record import OccupancyRecord
-from app.models.count_event import CountEvent
-from app.models.room import Room
+from datetime import datetime, timezone
+
+from sqlalchemy import Boolean, and_, case, func, literal_column, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from sqlalchemy import select
-from uuid import uuid4
+
+from app.core.config import settings
+from app.models.campus import Campus
+from app.models.count_event import CountEvent
+from app.models.counting_session import CountingSession
+from app.models.cv_count_record import CVCountRecord
+from app.models.occupancy_record import OccupancyRecord
+from app.models.room import Room
 
 
 class CountEventConflictError(Exception):
@@ -30,8 +34,6 @@ class OccupancyService:
         exits: int,
         record_time=None,
     ) -> dict:
-        from datetime import datetime, timezone
-
         raw_count = entries - exits
         warning = False
         if raw_count < 0:
@@ -73,9 +75,150 @@ class OccupancyService:
         }
 
     @staticmethod
-    def receive_count_event(db: Session, incoming) -> tuple:
-        room = db.get(Room, incoming.room_id)
+    def start_counting_session(
+        db: Session, room_id: int, initial_count: int, user_id: int
+    ) -> CountingSession:
+        # Serialize transitions for this room while closing the previous session.
+        room = db.scalar(
+            select(Room.id)
+            .where(Room.id == room_id, Room.is_active.is_(True))
+            .with_for_update()
+        )
         if room is None:
+            raise RoomNotFoundError
+
+        started_at = datetime.now(timezone.utc)
+        previous = db.scalar(
+            select(CountingSession).where(
+                CountingSession.room_id == room_id,
+                CountingSession.ended_at.is_(None),
+            )
+        )
+        if previous is not None:
+            previous.ended_at = started_at
+            db.flush()
+
+        session = CountingSession(
+            room_id=room_id,
+            initial_count=initial_count,
+            started_by=user_id,
+            started_at=started_at,
+        )
+        db.add(session)
+        db.commit()
+        return session
+
+    @staticmethod
+    def current_room_counts(
+        db: Session, *, room_id: int | None = None, campus: str | None = None
+    ) -> list[dict]:
+        now = datetime.now(timezone.utc)
+        # The capacity fixture migration manages this column separately from the Room ORM.
+        capacity_confirmed = literal_column("rooms.capacity_confirmed", Boolean)
+        delta = case(
+            (CountEvent.direction == "in", 1),
+            (CountEvent.direction == "out", -1),
+            else_=0,
+        )
+        last_cv_seen = (
+            select(func.max(CVCountRecord.received_at))
+            .where(
+                CVCountRecord.room_id == Room.id,
+                CVCountRecord.source_type == "webcam",
+                CVCountRecord.received_at >= CountingSession.started_at,
+            )
+            .correlate(Room, CountingSession)
+            .scalar_subquery()
+        )
+        # The CV session_id identifies the sender, which can restart mid-session.
+        # Assign events to the operator's room session using the occurrence time.
+        query = (
+            select(
+                Room.id.label("room_id"),
+                Room.code.label("room_code"),
+                Room.name.label("room_name"),
+                Campus.code.label("campus_code"),
+                Campus.name.label("campus_name"),
+                Room.capacity,
+                capacity_confirmed.label("capacity_confirmed"),
+                CountingSession.initial_count,
+                CountingSession.started_at,
+                func.sum(delta).label("net_count"),
+                func.max(CountEvent.event_time).label("last_event_at"),
+                last_cv_seen.label("last_cv_seen_at"),
+            )
+            .outerjoin(Campus, Campus.campus_id == Room.campus_id)
+            .outerjoin(
+                CountingSession,
+                and_(
+                    CountingSession.room_id == Room.id,
+                    CountingSession.ended_at.is_(None),
+                ),
+            )
+            .outerjoin(
+                CountEvent,
+                and_(
+                    CountEvent.room_id == Room.id,
+                    CountEvent.event_time >= CountingSession.started_at,
+                    CountEvent.event_time <= now,
+                    CountEvent.device_status == "online",
+                ),
+            )
+            .where(Room.is_active.is_(True))
+            .group_by(
+                Room.id,
+                Room.code,
+                Room.name,
+                Campus.code,
+                Campus.name,
+                Room.capacity,
+                capacity_confirmed,
+                CountingSession.initial_count,
+                CountingSession.started_at,
+            )
+            .order_by(Room.id)
+        )
+        if room_id is not None:
+            query = query.where(Room.id == room_id)
+        if campus is not None:
+            query = query.where(Campus.code == campus)
+
+        rooms = []
+        for row in db.execute(query).mappings():
+            current_count = available_seats = None
+            over_capacity = underflow = None
+            observed_at = updated_at = None
+            #seat 93
+            if row.initial_count is not None and row.capacity_confirmed:
+                total = row.initial_count + row.net_count
+                current_count = max(0, total)
+                available_seats = max(0, row.capacity - current_count)
+                over_capacity = current_count > row.capacity
+                underflow = total < 0
+                observed_at = _as_utc(row.last_event_at or row.started_at)
+                updated_at = max(observed_at, _as_utc(row.last_cv_seen_at or row.started_at))
+            rooms.append(
+                {
+                    "room_id": row.room_id,
+                    "room_code": row.room_code,
+                    "room_name": row.room_name,
+                    "campus_code": row.campus_code,
+                    "campus_name": row.campus_name,
+                    "capacity": row.capacity,
+                    "capacity_confirmed": row.capacity_confirmed,
+                    "current_count": current_count,
+                    "available_seats": available_seats,
+                    "over_capacity": over_capacity,
+                    "underflow": underflow,
+                    "observed_at": observed_at,
+                    "updated_at": updated_at,
+                }
+            )
+        return rooms
+
+    @staticmethod
+    def receive_count_event(db: Session, incoming) -> tuple:
+        if db.get(Room, incoming.room_id) is None:
             raise RoomNotFoundError
         existing = db.get(CountEvent, incoming.event_id)
         if existing is not None:
@@ -104,7 +247,6 @@ class OccupancyService:
         try:
             db.commit()
             db.refresh(event)
-            OccupancyService._apply_count_event(db, room, incoming)
             return event, True
         except IntegrityError:
             db.rollback()
@@ -127,44 +269,6 @@ class OccupancyService:
         if self.occupancy_repo:
             return self.occupancy_repo.get_latest_by_room(room_id)
         return None
-
-    @staticmethod
-    def _apply_count_event(db: Session, room: Room, incoming) -> OccupancyRecord:
-        latest = db.scalar(
-            select(OccupancyRecord)
-            .where(OccupancyRecord.room_id == incoming.room_id)
-            .order_by(OccupancyRecord.recorded_at.desc(), OccupancyRecord.id.desc())
-            .limit(1)
-        )
-        previous_count = latest.current_count if latest is not None else 0
-        current_count = max(
-            previous_count + (1 if incoming.direction == "in" else -1),
-            0,
-        )
-        available_seats = max(room.capacity - current_count, 0)
-        ratio = current_count / room.capacity if room.capacity else 0
-        occupancy_level = (
-            "vang"
-            if ratio <= settings.occupancy_low_threshold
-            else "vua"
-            if ratio <= settings.occupancy_high_threshold
-            else "dong"
-        )
-        record = OccupancyRecord(
-            observation_id=uuid4(),
-            room_id=incoming.room_id,
-            current_count=current_count,
-            available_seats=available_seats,
-            recorded_at=incoming.event_time,
-            source="cv",
-            device_status=incoming.device_status,
-            over_capacity=current_count > room.capacity,
-            occupancy_level=occupancy_level,
-        )
-        db.add(record)
-        db.commit()
-        db.refresh(record)
-        return record
 
     @staticmethod
     def calculate_data_status(
@@ -199,8 +303,7 @@ class OccupancyService:
             return "fresh"
 
 
-def _as_utc(value):
-    from datetime import timezone
+def _as_utc(value: datetime) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         return value.replace(tzinfo=timezone.utc)
     return value.astimezone(timezone.utc)
