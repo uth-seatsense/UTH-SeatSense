@@ -78,7 +78,29 @@ Quy ước đọc bảng dưới: body/response là JSON mẫu; `—` nghĩa kh�
 | `DELETE /api/v1/notifications/subscriptions/{subscription_id}` PROPOSED / OPTIONAL (FR-OPT-01) | Chủ subscription; admin | Bearer token; `subscription_id` string | `—` | `204` không body | 400 không áp dụng; 401; 403 không phải owner; 404 subscription không tồn tại; 409 đã bị xử lý/xóa; 422 id sai |
 | `GET /health`, `GET /api/v1/health`, `GET /health/db` IMPLEMENTED | Public/monitor | — | `—` | `200 {"status":"ok","service":"backend"}` với hai route service health; `/health/db` trả trạng thái kết nối DB | 400/401/403/404/409/422 không áp dụng |
 
-Role labels là bản đề xuất cho contract; nguồn hiện hành chưa có enum role hoặc access-control implementation. Thời hạn token, rule ownership, room fields, booking status transitions, cửa sổ check-in và metric definitions cần được chốt trước khi xem các response/error này là ổn định.
+Các endpoint đã triển khai dùng phiên Bearer opaque của SEAT-65. Dependency `get_current_user` kiểm tra phiên và tài khoản; `require_roles(...)` kiểm tra vai trò từ User trong database, không lấy vai trò do client gửi. Các endpoint còn đánh dấu PROPOSED chưa có handler và chưa được xem là đã bảo vệ.
+
+### Bảng quyền SEAT-66
+
+| Endpoint | Quyền hiện tại | Điều kiện bổ sung |
+| --- | --- | --- |
+| `POST /api/v1/auth/register`, `POST /api/v1/auth/login` | Public | Quy tắc email/OTP theo SEAT-65 |
+| `GET /api/v1/auth/me`, `POST /api/v1/auth/logout` | Tài khoản đã đăng nhập và đang hoạt động | Phiên chưa hết hạn, chưa bị thu hồi |
+| `GET /api/v1/bookings` | Tài khoản đã đăng nhập và đang hoạt động | Chỉ liệt kê booking của người gọi |
+| `POST /api/v1/bookings` | Tài khoản đã đăng nhập và đang hoạt động | Chủ booking lấy từ token, không lấy user ID từ client |
+| `GET /api/v1/bookings/{booking_id}` | Chủ booking đã đăng nhập | Booking người khác trả 404 để không lộ thông tin |
+| `DELETE /api/v1/bookings/{booking_id}` | Chủ booking đã đăng nhập | Không phải chủ trả 403; vẫn kiểm tra thời hạn hủy |
+| `POST /api/v1/bookings/{booking_id}/check-in-token` | Chủ booking đã đăng nhập | Không phải chủ trả 403; kiểm tra trạng thái booking |
+| `POST /api/v1/check-in` | Chủ booking đã đăng nhập | Không phải chủ trả 403; kiểm tra QR và cửa sổ check-in |
+| `POST /api/v1/occupancy/rooms/{room_id}/counting-sessions` | `librarian`, `admin` | `student` và vai trò khác trả 403 |
+| `GET /api/v1/dashboard/summary` | PROPOSED: `librarian`, `admin` | Chưa có handler; không tạo endpoint giả để chứng minh phân quyền |
+
+- Thiếu token, sai scheme, token không hợp lệ, hết hạn hoặc đã logout: `401 unauthorized`.
+- Tài khoản không hoạt động: `403 account_inactive`. Sai vai trò: `403 forbidden`.
+- `librarian`/`admin` không tự động được truy cập booking của người khác qua các route dành cho chủ booking. Quyền quản lý mở rộng cần được thiết kế riêng.
+- Booking/check-in đã có dependency đăng nhập và kiểm tra ownership; SEAT-66 giữ nguyên các quy tắc đó, không mặc định cấm thủ thư đặt phòng.
+- Test: `python -m pytest tests/test_authz.py tests/test_auth_otp.py tests/test_mobile_api.py tests/test_counting_session.py -q` từ thư mục backend.
+- Bằng chứng Swagger cần có response thực tế: gọi `GET /api/v1/bookings` không token để nhận 401; gọi endpoint counting-sessions bằng token sinh viên với body `{"initial_count":3}` để nhận 403. Che token trước khi chia sẻ ảnh.
 
 ## Option thông báo bổ sung theo SRS
 

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from collections.abc import Callable
 import hashlib
 
 from fastapi import Depends
@@ -57,4 +58,18 @@ def get_auth_context(
 def get_current_user(context: AuthContext = Depends(get_auth_context)) -> User:
     return context.user
 
-__all__ = ["get_db"]
+
+def require_roles(*roles: str) -> Callable[..., User]:
+    allowed_roles = frozenset(roles)
+    if not allowed_roles:
+        raise ValueError("At least one allowed role is required")
+
+    def check_role(user: User = Depends(get_current_user)) -> User:
+        if user.role not in allowed_roles:
+            raise api_error(403, "forbidden", "This role cannot access this endpoint")
+        return user
+
+    return check_role
+
+
+__all__ = ["get_db", "get_auth_context", "get_current_user", "require_roles"]

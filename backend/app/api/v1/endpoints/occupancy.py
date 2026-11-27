@@ -6,7 +6,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import require_roles
 from app.api.errors import api_error
 from app.db.session import get_db
 from app.models.auth_session import AuthSession
@@ -97,11 +97,9 @@ class CurrentSessionOccupancy(CurrentOccupancyResponse):
 def start_counting_session(
     payload: CountingSessionStart,
     room_id: int = Path(gt=0, le=MAX_ROOM_ID),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("librarian", "admin")),
     db: Session = Depends(get_db),
 ) -> CountingSessionRead:
-    if user.role not in {"librarian", "admin"}:
-        raise api_error(403, "forbidden", "Only library operators can start a counting session")
     try:
         session = OccupancyService.start_counting_session(
             db, room_id, payload.initial_count, user.user_id
