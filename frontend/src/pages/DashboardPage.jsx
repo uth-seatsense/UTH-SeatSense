@@ -51,7 +51,7 @@ function RoomRow({ room, onSelect }) {
 }
 
 export default function DashboardPage() {
-  const { user, loginMock, signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const [campus, setCampus] = useState("cs1");
   const [occupancy, setOccupancy] = useState(null);
   const [roomStatus, setRoomStatus] = useState(null);

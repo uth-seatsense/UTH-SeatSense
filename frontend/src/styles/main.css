@@ -2999,6 +2999,25 @@ button:disabled {
   background-repeat: no-repeat;
 }
 
+.lp-mock-inbox {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 14px;
+  margin: 0 0 16px;
+  border: 1px solid #b7dfd6;
+  border-radius: 10px;
+  background: #effaf7;
+  color: #164d43;
+  font-size: 14px;
+}
+
+.lp-mock-inbox b {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
+}
+
 .lp-main {
   min-height: calc(100vh - clamp(42px, 4vw, 64px));
   min-height: calc(100svh - clamp(42px, 4vw, 64px));
@@ -3035,3 +3054,10 @@ button:disabled {
 .dash-notice-popover{position:fixed;z-index:25;top:88px;right:clamp(16px,3vw,52px);width:min(370px,calc(100vw - 24px));padding:14px;border:1px solid #d5d8e1;border-radius:13px;background:#fff;box-shadow:0 12px 36px #12294a24}.dash-notice-popover>header{display:flex;align-items:center;justify-content:space-between;color:#062c5c}.dash-notice-popover>header button{width:30px;height:30px;border:0;border-radius:50%;background:#f0f3f9;color:#39475c;font-size:20px;cursor:pointer}
 @media(max-width:700px){.dash-notice-popover{top:138px;right:12px}}
 .dash-update{white-space:normal;line-height:1.35}.dash-alert.dash-warning{border-color:#ecd391;background:#fff9e7;color:#76500b}
+
+/* Quiet login backdrop that scales cleanly without stretching the campus photo. */
+.lp-bg {
+  background:
+    linear-gradient(138deg, rgba(232, 243, 241, 0.42), rgba(246, 248, 251, 0.34) 52%, rgba(234, 240, 248, 0.40)),
+    url('/login-background.jpg') center / cover no-repeat;
+}

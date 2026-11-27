@@ -11,9 +11,8 @@ import {
   clearAccessToken,
   getAccessToken,
   getCurrentUser,
-  logout as logoutRequest,
-  verifyLoginOtp,
 } from "../services/api.js";
+import { logout as logoutRequest, verifyLoginOtp } from "../services/authApi.ts";
 
 const AuthContext = createContext(null);
 const MOCK_USER_KEY = "seatsense_mock_user";
@@ -76,13 +75,6 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, otp) => {
     const profile = await verifyLoginOtp(email, otp);
-    setUser(profile);
-    setAuthError("");
-    setStatus("authenticated");
-  }, []);
-
-  const loginMock = useCallback((email) => {
-    const profile = { id: "mock-student", email, display_name: email.split("@")[0], created_at: new Date().toISOString() };
     globalThis.sessionStorage?.setItem(MOCK_USER_KEY, JSON.stringify(profile));
     setUser(profile);
     setAuthError("");
@@ -101,8 +93,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, status, authError, login, loginMock, signOut }),
-    [user, status, authError, login, loginMock, signOut],
+    () => ({ user, status, authError, login, signOut }),
+    [user, status, authError, login, signOut],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
