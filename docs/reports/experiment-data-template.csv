@@ -1,0 +1,2 @@
+session_id,segment_id,observed_at_utc,elapsed_seconds,camera_id,frame_index,initial_occupancy_n0,ground_truth_in_total,cv_in_total,ground_truth_out_total,cv_out_total,ground_truth_occupancy,cv_estimated_occupancy,capacity_confirmed,event_id,cv_recorded_at_utc,web_displayed_at_utc,latency_seconds,device_status,notes
+,,,,,,,,,,,,,,,,,,,

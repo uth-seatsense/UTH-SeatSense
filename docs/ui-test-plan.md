@@ -1,17 +1,31 @@
 # Test case UI
 
-Các ca dưới đây phục vụ kế hoạch trong [test-plan.md](test-plan.md). Mỗi màn có
-ít nhất hai ca: hiển thị/thao tác chính và lỗi/empty/stale. Cột cuối dùng mã TC
-chuẩn trong [SRS](requirements/srs.md).
+Các test case dưới đây cung cấp chi tiết thực thi cho
+[mục Kiểm thử giao diện responsive trong test-plan.md](test-plan.md#7-kiểm-thử-giao-diện-responsive).
+Mã TC dùng theo SRS 1.9; không tạo mã TC mới. Mỗi UI-01–UI-08 có ít nhất hai
+case (happy path và lỗi/empty/stale). Cả hai case phải được chạy trên ma trận
+viewport tương ứng ở test plan, trừ UI-08 native có ma trận thiết bị riêng.
 
-| Màn hình | Ca 1 — hiển thị và thao tác chính | Ca 2 — lỗi / trạng thái cần chạy | Mã TC SRS |
+| Screen | Test case A — hiển thị/thao tác chính | Test case B — lỗi / trạng thái | Mã TC SRS |
 | --- | --- | --- | --- |
-| Trang chủ / điều hướng sinh viên | Mở trang, chọn xem chỗ trống và mở đặt phòng; các lựa chọn điều hướng phải còn thấy và thao tác được ở mọi viewport. | API lỗi hoặc mất mạng: hiện thông báo/trạng thái lỗi, có đường quay lại/thử lại; nội dung không tràn ngang trên điện thoại. | TC-11, TC-03 |
-| Đăng nhập OTP (UI-01) | Nhập email hợp lệ, yêu cầu OTP, nhập mã hợp lệ và tiếp tục luồng đặt phòng. | Email không được phép, OTP sai/hết hạn hoặc gửi lại quá sớm: hiển thị lỗi, cho sửa/nhập lại; không làm mất nút xác nhận. | TC-15, TC-11 |
-| Danh sách phòng / tình trạng khu tự học (UI-02, UI-06) | Hiển thị phòng, sức chứa, số người, chỗ trống và thời điểm cập nhật; chọn phòng/cơ sở hoặc làm mới. | Rỗng, chưa đủ dữ liệu, dữ liệu cũ hoặc mất mạng: hiện đúng empty/stale/error; không hiển thị số chỗ trống âm hay số liệu chính thức giả. | TC-01, TC-02, TC-03, TC-20, TC-23, TC-11 |
-| Đặt phòng chuyên đề (UI-03) | Chọn phòng, ngày/giờ và số người hợp lệ; gửi đặt phòng và xác nhận kết quả. | Thời gian/đầu vào sai, phòng bảo trì hoặc trùng lịch: chỉ rõ lỗi và giữ form có thể sửa; booking không hợp lệ không được tạo. | TC-05, TC-06, TC-07, TC-16, TC-11 |
-| Lịch đặt / xem QR (UI-04) | Mở danh sách có booking, xem chi tiết và QR; kiểm tra empty state khi chưa có lượt đặt. | API lỗi, booking đã hủy/hết hạn hoặc QR không còn hợp lệ: hiển thị lỗi/trạng thái, không cho thao tác check-in sai. | TC-08, TC-09, TC-11 |
-| Check-in QR (UI-04, UI-08) | Quét QR hợp lệ bằng luồng Android; xác nhận kết quả check-in. | QR sai, hết hạn, đã dùng hoặc không có quyền: hiện lỗi; trạng thái booking không bị chuyển thành check-in. | TC-08, TC-17, TC-11 |
-| Dashboard / báo cáo thủ thư (UI-05, UI-06) | Người có quyền chọn bộ lọc thời gian/phòng và xem dashboard/báo cáo có dữ liệu. | Không đủ quyền, dữ liệu rỗng/cũ hoặc API lỗi: hiện trạng thái tương ứng và thao tác thử lại/đổi bộ lọc. | TC-10, TC-03, TC-11 |
-| Quản lý phòng / khởi tạo phiên đếm | Vai trò được cấp quyền xem/sửa cấu hình thử nghiệm; nhập số ban đầu hợp lệ để bắt đầu phiên. | Người không đủ quyền hoặc thiếu số ban đầu/sức chứa đã xác nhận: chặn thao tác và không công bố số chỗ trống/mức đông chính thức. | TC-10, TC-19, TC-20, TC-23, TC-11 |
-| Ứng dụng native (nếu triển khai) | Trên Android, thử đăng nhập OTP, xem chỗ trống, đặt phòng và check-in theo phạm vi SRS. | Thử OTP/API lỗi và quyền camera bị từ chối; thông báo có thể khôi phục, không mất dữ liệu/booking. | TC-15, TC-17 |
+| UI-01 — Đăng nhập OTP | Mở form, gửi email hợp lệ, nhập OTP hợp lệ và tiếp tục; form có label, focus và nút thao tác hiển thị. | Email không hợp lệ, OTP sai/hết hạn hoặc API lỗi; lỗi có hướng khắc phục, dữ liệu nhập còn sửa được và không lộ email tồn tại hay không. | TC-15, TC-11 |
+| UI-02 — Khu tự học tự do | Hiển thị phòng, cơ sở, sức chứa, occupancy, chỗ trống và lần cập nhật; lọc CS1/CS3; không có nút đặt chỗ cho free_area. | Danh sách rỗng, occupancy chưa có N0, dữ liệu stale hoặc API lỗi; hiện đúng empty/insufficient/stale/error, không thay bằng số 0 giả. | TC-01, TC-02, TC-03, TC-16, TC-18, TC-20 |
+| UI-03 — Đặt phòng chuyên đề | Chọn cơ sở, phòng, ngày/giờ và số người hợp lệ; gửi form mock và thấy kết quả xác nhận mock. | Thiếu/sai trường, thời lượng không hợp lệ, phòng bảo trì hoặc booking trùng; chỉ rõ lỗi và không tạo booking không hợp lệ. | TC-05, TC-06, TC-07, TC-11, TC-16 |
+| UI-04 — Lịch đặt / QR | Mở lịch có booking, xem chi tiết và mã QR; kiểm tra trạng thái booking. | Chưa có booking, API lỗi hoặc QR sai/hết hạn/đã dùng; hiện trạng thái phù hợp và không xác nhận check-in sai. | TC-08, TC-09, TC-11 |
+| UI-05 — Dashboard thủ thư | Người có quyền chọn bộ lọc thời gian/cơ sở/phòng và xem số liệu/biểu đồ khi có dữ liệu. | Không đủ quyền, dữ liệu rỗng/cũ hoặc API lỗi; cảnh báo rõ, không hiển thị dữ liệu lỗi như mới. | TC-03, TC-10, TC-11 |
+| UI-06 — Trạng thái dữ liệu | Kiểm tra trạng thái fresh; hiện thời điểm cập nhật và số liệu chỉ khi đủ N0/sức chứa đã xác nhận. | Dùng fixture stale, offline, insufficient-data và lỗi API; thông báo đúng trạng thái, không công bố số chỗ trống/mức đông chính thức khi thiếu dữ liệu. | TC-02, TC-03, TC-20, TC-23 |
+| UI-07 — Responsive xuyên màn | Chạy xem phòng/đặt phòng/check-in ở 360, 390, 768, 1024 và 1440 px; thao tác touch/keyboard còn dùng được. | Ở 360 và 390 px kiểm tra thông báo lỗi, empty/stale; không có cuộn ngang toàn trang, nút chính không che nội dung. | TC-11 |
+| UI-08 — Android native | Sau khi có APK, đăng nhập OTP, xem chỗ trống, đặt phòng và check-in QR trên thiết bị đã chốt. | Từ chối camera/OTP/API lỗi; thông báo khôi phục được và không tạo booking/check-in sai. | TC-17 |
+
+## Ghi kết quả
+
+Với mỗi lượt chạy, ghi mã case, ngày, tester, commit, OS, thiết bị, viewport
+CSS, tên/phiên bản trình duyệt hoặc Android API level, fixture, kết quả
+Pass/Fail/Blocked và đường dẫn ảnh chụp màn hình. Ảnh phải thể hiện đúng
+viewport và trạng thái đang kiểm tra; không chứa OTP, secret, email thật hay
+hình ảnh nhận diện cá nhân.
+
+Liên kết các tác vụ được usability test với TC-14/SUS, nhưng báo cáo SUS riêng
+với kết quả chức năng/responsive. TC-17 giữ Blocked cho đến khi Q-17 được bổ
+sung thiết bị Android và phiên bản/API level tối thiểu; không tự đoán phiên
+bản hệ điều hành.

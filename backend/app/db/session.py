@@ -3,6 +3,7 @@ from functools import lru_cache
 from sqlalchemy import create_engine
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
+from fastapi import HTTPException
 from app.core.config import settings
 
 
@@ -27,5 +28,17 @@ def get_session_factory():
 
 def get_db():
     """Read/use a session; services own explicit transaction boundaries."""
-    with get_session_factory()() as session:
+    try:
+        factory = get_session_factory()
+    except ValueError as exc:
+        # Misconfigured DATABASE_URL/DATABASE_* must not surface as an opaque
+        # 500; report it as a 503 with the real reason instead.
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "database_unavailable",
+                "message": f"Database is not configured correctly: {exc}",
+            },
+        ) from exc
+    with factory() as session:
         yield session

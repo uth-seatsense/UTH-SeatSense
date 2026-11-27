@@ -84,4 +84,3 @@ docker compose up -d --build
 
 ---
 
-Generated with [Claude Code](https://claude.com/claude-code)

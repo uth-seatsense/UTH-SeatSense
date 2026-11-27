@@ -4,17 +4,20 @@ import os
 from pathlib import Path
 import tempfile
 import time
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from main import app
+from app.counting.line_counter import LineConfig
+from app.services.webcam import WebcamSession
 
 
 class ApiTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.environment = patch.dict(os.environ, {"CV_OUTPUT_DIR": self.temp.name, "CV_MODEL_PATH": str(Path(self.temp.name) / "missing.pt")})
+        self.environment = patch.dict(os.environ, {"CV_OUTPUT_DIR": self.temp.name, "CV_MODEL_PATH": str(Path(self.temp.name) / "missing.pt"), "BACKEND_URL": "", "CV_API_KEY": ""})
         self.environment.start()
         self.context = TestClient(app)
         self.client = self.context.__enter__()
@@ -28,7 +31,9 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.client.get('/health').status_code, 200)
         self.assertIn('CV Testing Lab', self.client.get('/').text)
         self.assertEqual(self.client.get('/static/app.js').status_code, 200)
-        self.assertFalse(self.client.get('/api/config').json()['model_available'])
+        config = self.client.get('/api/config').json()
+        self.assertFalse(config['model_available'])
+        self.assertFalse(config['backend_sync_enabled'])
         self.assertEqual(self.client.get('/api/jobs/unknown').status_code, 404)
         for options in [dict(confidence=0), dict(line=[0,0,0,0]), dict(initial_occupancy=0), dict(camera_id='')]:
             response=self.client.post('/api/jobs', files={'file':('test.mp4', b'x')}, data={'options':json.dumps(options)})
@@ -61,6 +66,47 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(self.client.get(f'/api/jobs/{identity}/files/csv').status_code,200)
             self.assertEqual(self.client.get(f'/api/jobs/{identity}/files/unknown').status_code,404)
         self.assertFalse(any(Path(self.temp.name).glob('*/input.*')))
+
+    def test_webcam_session_sends_occupancy_records(self):
+        import cv2
+        import numpy as np
+
+        job = {
+            "id": "test-session",
+            "directory": Path(self.temp.name),
+            "options": {
+                "confidence": 0.32,
+                "camera_id": "camera-01",
+                "room_id": "A101",
+                "line_config": LineConfig((0.5, 0), (0.5, 1)),
+                "initial_occupancy": 3,
+            },
+        }
+        boxes = SimpleNamespace(xyxy=np.empty((0, 4)), conf=np.empty(0))
+        with patch("app.services.webcam.BackendCountSender") as sender_type, patch(
+            "app.services.webcam.PersonDetector"
+        ) as detector_type, patch("app.services.webcam.PersonTracker") as tracker_type:
+            sender = sender_type.return_value
+            sender.enabled = True
+            detector_type.return_value.detect.return_value = boxes
+            detector_type.return_value.confidence = 0.32
+            tracker_type.return_value.update.return_value = {}
+
+            session = WebcamSession(
+                SimpleNamespace(model=Path(self.temp.name), device="cpu"), job
+            )
+            ok, jpeg = cv2.imencode(
+                ".jpg", np.zeros((10, 10, 3), dtype=np.uint8)
+            )
+            self.assertTrue(ok)
+            session.process(jpeg.tobytes())
+            session.close()
+
+        sent = sender.add.call_args.args[0]
+        self.assertEqual(sent["source_type"], "webcam")
+        self.assertEqual(sent["room_id"], "A101")
+        self.assertEqual(sent["estimated_occupancy"], 3)
+        sender.flush.assert_called_once()
 
     def wait(self, identity):
         deadline=time.monotonic()+60

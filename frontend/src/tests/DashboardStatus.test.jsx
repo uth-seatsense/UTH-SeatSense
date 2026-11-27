@@ -41,4 +41,24 @@ describe("getOccupancyConnectionStatus", () => {
       }),
     ).toEqual({ text: "Cập nhật trực tiếp", className: "" });
   });
+
+  it("warns when occupancy data is stale", () => {
+    expect(
+      getOccupancyConnectionStatus({
+        error: "",
+        isLoading: false,
+        occupancy: { count: 12, is_stale: true },
+      }),
+    ).toEqual({ text: "Dữ liệu đã cũ", className: "stale" });
+  });
+
+  it("reports an offline occupancy source", () => {
+    expect(
+      getOccupancyConnectionStatus({
+        error: "",
+        isLoading: false,
+        occupancy: { count: null, device_status: "offline" },
+      }),
+    ).toEqual({ text: "Nguồn mất kết nối", className: "error" });
+  });
 });

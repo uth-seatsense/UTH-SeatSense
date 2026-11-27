@@ -3,6 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     DateTime,
     ForeignKey,
     Index,
@@ -50,3 +51,5 @@ class OccupancyRecord(Base):
         String(30), nullable=False, server_default=text("'cv'")
     )
     device_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    over_capacity: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    occupancy_level: Mapped[str | None] = mapped_column(String(10), nullable=True)
