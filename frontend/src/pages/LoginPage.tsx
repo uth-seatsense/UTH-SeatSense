@@ -1,12 +1,23 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
-import { requestLoginOtp } from "../services/api.js";
+import { requestLoginOtp } from "../services/authApi.ts";
 
 const MOCK_EMAIL_HINT = "21510509213@ut.edu.vn";
 
+function getAuthErrorMessage(error: unknown, fallback: string) {
+  const authError = error as { code?: string; message?: string };
+  if (authError?.code === "otp_expired") return "Mã OTP đã hết hạn. Hãy gửi lại mã mới.";
+  if (authError?.code === "invalid_otp") return "Mã OTP không đúng. Vui lòng kiểm tra lại.";
+  if (authError?.code === "otp_resend_too_soon") return "Vui lòng đợi trước khi gửi lại mã.";
+  if (authError?.code === "email_not_allowed") return "Email này chưa nằm trong danh sách được phép.";
+  if (authError?.code === "email_auth_unavailable") return "OTP chưa được cấu hình. Hãy kiểm tra SMTP trên máy chủ.";
+  if (authError?.code === "otp_delivery_failed") return "Không gửi được email OTP. Hãy kiểm tra cấu hình SMTP.";
+  return authError?.message || fallback;
+}
+
 const OTP_TTL_SECONDS = 300; // 5 phút
-const RESEND_COOLDOWN = 45;
+const RESEND_COOLDOWN = 60;
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -34,42 +45,30 @@ export default function LoginPage() {
     (location.state as { authError?: string })?.authError ?? ""
   );
   const [rememberDevice, setRememberDevice] = useState(false);
+  const [mockInbox, setMockInbox] = useState<{ to: string; otp: string } | null>(null);
 
   /* countdown OTP validity */
   const [otpTtl, setOtpTtl] = useState(OTP_TTL_SECONDS);
   /* resend cooldown */
   const [resendCooldown, setResendCooldown] = useState(0);
   const otpTimerRef = useRef<number | null>(null);
-  const resendTimerRef = useRef<number | null>(null);
 
   /* start / clear timers on step change */
   useEffect(() => {
     if (step === "otp") {
-      setOtpTtl(OTP_TTL_SECONDS);
-      setResendCooldown(RESEND_COOLDOWN);
-
-      otpTimerRef.current = setInterval(() => {
-        setOtpTtl((t) => Math.max(0, t - 1));
-      }, 1000);
-      resendTimerRef.current = setInterval(() => {
-        setResendCooldown((c) => {
-          if (c <= 1) {
-            clearInterval(resendTimerRef.current!);
-            return 0;
-          }
-          return c - 1;
-        });
+      otpTimerRef.current = window.setInterval(() => {
+        setOtpTtl((value) => Math.max(0, value - 1));
+        setResendCooldown((value) => Math.max(0, value - 1));
       }, 1000);
     }
     return () => {
-      if (otpTimerRef.current) clearInterval(otpTimerRef.current);
-      if (resendTimerRef.current) clearInterval(resendTimerRef.current);
+      if (otpTimerRef.current !== null) window.clearInterval(otpTimerRef.current);
     };
   }, [step]);
 
   if (user) return <Navigate to="/dashboard" replace />;
 
-  /* ── Step 1: request OTP ──────────────────────────────────────────────── */
+  /* ?? Step 1: request OTP ???????????????????????????????????????????????? */
   async function handleSendOtp(event: React.FormEvent) {
     event.preventDefault();
     const normalizedEmail = email.trim().toLowerCase();
@@ -80,12 +79,15 @@ export default function LoginPage() {
     setBusy(true);
     setError("");
     try {
-      await requestLoginOtp(normalizedEmail);
+      const result = await requestLoginOtp(normalizedEmail);
       setEmail(normalizedEmail);
       setOtp("");
+      setOtpTtl(result.expiresInSeconds ?? OTP_TTL_SECONDS);
+      setResendCooldown(result.resendCooldownSeconds ?? RESEND_COOLDOWN);
+      setMockInbox(result.mockInbox ?? null);
       setStep("otp");
     } catch (err: unknown) {
-      setError((err as Error).message || "Không gửi được mã OTP. Hãy kiểm tra cấu hình gửi thư rồi thử lại.");
+      setError(getAuthErrorMessage(err, "Không gửi được mã OTP. Hãy kiểm tra cấu hình email."));
     } finally {
       setBusy(false);
     }
@@ -97,39 +99,37 @@ export default function LoginPage() {
     setError("");
     try {
       if (otpTtl <= 0) {
-        throw new Error("M\u00e3 OTP \u0111\u00e3 h\u1ebft h\u1ea1n. H\u00e3y g\u1eedi l\u1ea1i m\u00e3 m\u1edbi.");
+        throw Object.assign(new Error("Mã OTP đã hết hạn. Hãy gửi lại mã mới."), { code: "otp_expired" });
       }
-      await login(email.trim(), otp);
+      await login(email.trim().toLowerCase(), otp);
       const destination =
         (location.state as { from?: { pathname: string } })?.from?.pathname ??
         "/dashboard";
       navigate(destination, { replace: true });
     } catch (err: unknown) {
-      setError((err as Error).message);
+      const code = (err as { code?: string })?.code;
+      if (otpTtl > 0 && (code === "invalid_otp" || code === "otp_expired")) {
+        setError("M\u00e3 OTP kh\u00f4ng \u0111\u00fang. Vui l\u00f2ng ki\u1ec3m tra l\u1ea1i.");
+      } else {
+        setError(getAuthErrorMessage(err, "Kh\u00f4ng x\u00e1c th\u1ef1c đ\u01b0\u1ee3c OTP. Vui l\u00f2ng th\u1eed l\u1ea1i."));
+      }
     } finally {
       setBusy(false);
     }
   }
+
   async function handleResend() {
-    if (resendCooldown > 0) return;
+    if (resendCooldown > 0 || busy) return;
     setBusy(true);
     setError("");
     try {
-      await requestLoginOtp(email.trim());
-      setOtpTtl(OTP_TTL_SECONDS);
-      setResendCooldown(RESEND_COOLDOWN);
-      if (resendTimerRef.current) clearInterval(resendTimerRef.current);
-      resendTimerRef.current = setInterval(() => {
-        setResendCooldown((c) => {
-          if (c <= 1) {
-            if (resendTimerRef.current) clearInterval(resendTimerRef.current);
-            return 0;
-          }
-          return c - 1;
-        });
-      }, 1000);
+      const result = await requestLoginOtp(email.trim().toLowerCase());
+      setOtp("");
+      setOtpTtl(result.expiresInSeconds ?? OTP_TTL_SECONDS);
+      setResendCooldown(result.resendCooldownSeconds ?? RESEND_COOLDOWN);
+      setMockInbox(result.mockInbox ?? null);
     } catch (err: unknown) {
-      setError((err as Error).message || "Không gửi lại được mã OTP. Vui lòng thử lại sau.");
+      setError(getAuthErrorMessage(err, "Không gửi lại được mã OTP. Vui lòng thử lại sau."));
     } finally {
       setBusy(false);
     }
@@ -137,7 +137,7 @@ export default function LoginPage() {
 
   return (
     <div className="lp-root">
-      {/* ── Header ─────────────────────────────────────────────────────── */}
+      {/* ?? Header ??????????????????????????????????????????????????????? */}
       <header className="lp-header">
         <div className="lp-brand">
           <div className="lp-brand-mark">
@@ -169,10 +169,10 @@ export default function LoginPage() {
         </nav>
       </header>
 
-      {/* ── Background ─────────────────────────────────────────────────── */}
+      {/* ?? Background ??????????????????????????????????????????????????? */}
       <div className="lp-bg" aria-hidden="true" />
 
-      {/* ── Main content ───────────────────────────────────────────────── */}
+      {/* ?? Main content ????????????????????????????????????????????????? */}
       <main className="lp-main">
         <div className="lp-card" role="region" aria-label="Đăng nhập sinh viên">
           {/* eyebrow */}
@@ -188,7 +188,7 @@ export default function LoginPage() {
             Xác thực mã OTP hoặc sử dụng tài khoản Cổng Đào Tạo
           </p>
 
-          {/* ── Error alert ──────────────────────────────────────────── */}
+          {/* ?? Error alert ???????????????????????????????????????????? */}
           {error && (
             <div className="lp-alert" role="alert">
               <span className="material-symbols-outlined lp-alert-icon">error</span>
@@ -199,7 +199,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* ── Form ─────────────────────────────────────────────────── */}
+          {/* ?? Form ??????????????????????????????????????????????????? */}
           <form onSubmit={step === "email" ? handleSendOtp : handleVerifyOtp}>
             {/* Email field */}
             <div className="lp-field-group">
@@ -238,6 +238,7 @@ export default function LoginPage() {
                       setStep("email");
                       setOtp("");
                       setError("");
+                      setMockInbox(null);
                     }}
                   >
                     Đổi email
@@ -246,9 +247,15 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* OTP field — only shown after email submitted */}
+            {/* OTP field shown after email submission */}
             {step === "otp" && (
               <>
+                {mockInbox && (
+                  <div className="lp-mock-inbox" role="status" aria-label="Hộp thư mẫu">
+                    <strong>Hộp thư mẫu · {mockInbox.to}</strong>
+                    <span>Mã OTP: <b>{mockInbox.otp}</b></span>
+                  </div>
+                )}
                 <div className="lp-field-group lp-field-group--mt">
                   <div className="lp-field-label-row">
                     <label className="lp-label" htmlFor="lp-otp">
@@ -275,7 +282,7 @@ export default function LoginPage() {
                       autoComplete="one-time-code"
                       pattern="[0-9]{6}"
                       maxLength={6}
-                      placeholder="• • • • • •"
+                      placeholder="? ? ? ? ? ?"
                       value={otp}
                       onChange={(e) =>
                         setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
@@ -322,7 +329,7 @@ export default function LoginPage() {
             )}
           </form>
 
-          {/* ── SSO divider ──────────────────────────────────────────── */}
+          {/* ?? SSO divider ???????????????????????????????????????????? */}
           <div className="lp-divider">
             <span>HOẶC TIẾP TỤC QUA</span>
           </div>
@@ -331,7 +338,7 @@ export default function LoginPage() {
             href="#"
             className="lp-sso-btn"
             onClick={(e) => e.preventDefault()}
-            aria-label="Đăng nhập qua UTH Single Sign-On"
+            aria-label="??ng nh?p qua UTH Single Sign-On"
           >
             <span className="material-symbols-outlined" style={{ fontSize: 18 }}>account_balance</span>
             UTH Single Sign-On (Cổng Đào Tạo UTH)
@@ -350,7 +357,7 @@ export default function LoginPage() {
         </div>
       </main>
 
-      {/* ── Footer ─────────────────────────────────────────────────────── */}
+      {/* ?? Footer ??????????????????????????????????????????????????????? */}
       <footer className="lp-footer">
         <span>
           © 2025 Trường Đại học Giao thông Vận tải TP.HCM (UTH) – Hệ thống

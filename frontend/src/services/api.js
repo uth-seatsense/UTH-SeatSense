@@ -141,17 +141,6 @@ export function requestLoginOtp(email) {
 }
 
 export async function verifyLoginOtp(email, otp) {
-  if (isMockEnabled()) {
-    // Mock: accept bất kỳ email/OTP nào
-    const mockToken = "mock_token_" + Date.now();
-    saveAccessToken(mockToken);
-    return {
-      id: 1,
-      email: email,
-      display_name: email.split("@")[0],
-      created_at: new Date().toISOString(),
-    };
-  }
   const result = await requestApi("auth/login", {
     method: "POST",
     body: { email, otp },
@@ -166,7 +155,12 @@ export function getCurrentUser() {
   console.log("🔍 getCurrentUser - isMockEnabled:", mockEnabled, "VITE_USE_MOCK:", import.meta.env.VITE_USE_MOCK);
 
   if (mockEnabled) {
-    // Mock: trả về mock user
+    try {
+      const savedProfile = globalThis.sessionStorage?.getItem("seatsense_mock_user");
+      if (savedProfile) return Promise.resolve(JSON.parse(savedProfile));
+    } catch {
+      globalThis.sessionStorage?.removeItem("seatsense_mock_user");
+    }
     return Promise.resolve({
       id: 1,
       email: "test@ut.edu.vn",

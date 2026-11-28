@@ -14,6 +14,11 @@ import {
   verifyLoginOtp,
 } from "../services/api.js";
 import { parseCheckInQr } from "../services/checkin.js";
+import {
+  logout as logoutAuthApi,
+  requestLoginOtp as requestAuthOtp,
+  verifyLoginOtp as verifyAuthOtp,
+} from "../services/authApi.ts";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -26,6 +31,50 @@ function response(status, payload) {
 }
 
 describe("shared Backend API", () => {
+  it("connects the auth service to the real OTP request, verify, and logout endpoints", async () => {
+    vi.stubEnv("VITE_USE_MOCK", "false");
+    let currentToken = "old-token";
+    const storage = {
+      getItem: vi.fn(() => currentToken),
+      setItem: vi.fn((key, value) => {
+        currentToken = value;
+      }),
+      removeItem: vi.fn(() => {
+        currentToken = null;
+      }),
+    };
+    vi.stubGlobal("sessionStorage", storage);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(202, { status: "otp_sent" }))
+      .mockResolvedValueOnce(
+        response(200, {
+          access_token: "new-token",
+          user: { id: 8, email: "student@uth.edu.vn" },
+        }),
+      )
+      .mockResolvedValueOnce(response(204, null));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await requestAuthOtp("student@uth.edu.vn");
+    await verifyAuthOtp("student@uth.edu.vn", "123456");
+    await logoutAuthApi();
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "/api/v1/auth/register",
+      "/api/v1/auth/login",
+      "/api/v1/auth/logout",
+    ]);
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBeUndefined();
+    expect(fetchMock.mock.calls[1][1].headers.Authorization).toBeUndefined();
+    expect(fetchMock.mock.calls[2][1].headers.Authorization).toBe("Bearer new-token");
+    expect(storage.setItem).toHaveBeenCalledWith(
+      "seatsense_access_token",
+      "new-token",
+    );
+    expect(storage.removeItem).toHaveBeenCalledWith("seatsense_access_token");
+  });
+
   it("requests and verifies OTP without sending an existing bearer token", async () => {
     const storage = {
       getItem: vi.fn(() => "old-token"),

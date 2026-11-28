@@ -1,15 +1,13 @@
 import {
   NavLink,
+  Navigate,
   Route,
   Routes,
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import HomePage from "./pages/HomePage.jsx";
 import LoginPage from "./pages/LoginPage.tsx";
-import RoomsPage from "./pages/RoomsPage.jsx";
 import RoomDetailPage from "./pages/RoomDetailPage.tsx";
-import ReservationPage from "./pages/ReservationPage.jsx";
 import MyBookingsPage from "./pages/MyBookingsPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import CheckinPage from "./pages/CheckinPage.jsx";
@@ -17,16 +15,13 @@ import DashboardPage from "./pages/DashboardPage.jsx";
 import BookingPage from "./pages/BookingPage.tsx";
 import HealthPage from "./pages/HealthPage.jsx";
 import { AuthProvider, useAuth } from "./auth/AuthContext.jsx";
-import RequireAuth from "./auth/RequireAuth.jsx";
+import ProtectedRoute from "./components/ProtectedRoute.tsx";
 import { useState } from "react";
 
 const navigation = [
-  ["/", "Trang chủ"],
-  ["/rooms", "Danh sách phòng"],
-  ["/reservation", "Đặt phòng"],
-  ["/my-bookings", "Lịch đặt của tôi"],
-  ["/checkin", "Xác nhận có mặt"],
   ["/dashboard", "Tổng quan"],
+  ["/booking", "Đặt phòng"],
+  ["/my-bookings", "Lịch đặt của tôi"],
 ];
 
 export default function App() {
@@ -95,52 +90,40 @@ function Application() {
         </p>
       )}
       <Routes>
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route
-          path="/rooms"
-          element={
-            <RequireAuth>
-              <RoomsPage />
-            </RequireAuth>
-          }
-        />
+        <Route path="/rooms" element={<Navigate to="/booking" replace />} />
         <Route
           path="/rooms/:roomId"
           element={
-            <RequireAuth>
+            <ProtectedRoute>
               <RoomDetailPage />
-            </RequireAuth>
-          }
-        />        <Route
-          path="/reservation"
-          element={
-            <RequireAuth>
-              <ReservationPage />
-            </RequireAuth>
+            </ProtectedRoute>
           }
         />
+        <Route path="/reservation" element={<Navigate to="/booking" replace />} />
         <Route
           path="/my-bookings"
           element={
-            <RequireAuth>
+            <ProtectedRoute>
               <MyBookingsPage />
-            </RequireAuth>
+            </ProtectedRoute>
           }
         />
         <Route
           path="/profile"
           element={
-            <RequireAuth>
+            <ProtectedRoute>
               <ProfilePage />
-            </RequireAuth>
+            </ProtectedRoute>
           }
-        />        <Route
+        />
+        <Route
           path="/checkin"
           element={
-            <RequireAuth>
+            <ProtectedRoute>
               <CheckinPage />
-            </RequireAuth>
+            </ProtectedRoute>
           }
         />
         <Route path="/dashboard" element={<DashboardPage />} />
